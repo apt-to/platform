@@ -5,6 +5,7 @@
   "compatibility_date": "2026-10-25",
   "workers_dev": false,
   "routes": [
+    { "pattern": "apt.to", "custom_domain": true },
     { "pattern": "repo.apt.to", "custom_domain": true },
     { "pattern": "early.apt.to", "custom_domain": true }
   ],
