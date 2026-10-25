@@ -26,7 +26,7 @@ RUN set -eu; \
       candidate="$(apt-cache policy "$binary" | awk '/Candidate:/ {print $2}')"; \
       test "$candidate" = "$BASELINE_VERSION" || { echo "Baseline candidate changed for $binary: $candidate" >&2; exit 1; }; \
     done; \
-    for binary in $binaries; do apt-get install -y --no-install-recommends "$binary=$EXPECTED_VERSION"; done
+    for binary in $binaries; do apt-get install -y --no-install-recommends "$binary=$BASELINE_VERSION"; done
 COPY aptto/ /tmp/aptto/
 RUN set -eu; \
     test -n "$BINARY_PACKAGES"; \
