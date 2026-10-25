@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-10-25T10:30:38.244409+00:00",
+  "purpose": "baseline candidate selection; no remediation claimed",
+  "sourcePackage": "libarchive",
+  "baselineVersion": "3.4.0-2ubuntu1.5",
+  "targetCve": "CVE-2025-5914",
+  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "identifiedPackages": [
+    {
+      "Name": "libarchive-tools",
+      "Version": "3.4.0",
+      "SrcName": "libarchive",
+      "SrcVersion": "3.4.0"
+    },
+    {
+      "Name": "libarchive13",
+      "Version": "3.4.0",
+      "SrcName": "libarchive",
+      "SrcVersion": "3.4.0"
+    }
+  ],
+  "findings": [],
+  "databaseFiles": {
+    "metadata.json": {
+      "sha256": "9688ad503d8ba34e9a8d21a976493bf607dfa4247b60284298f05f52661ff57e",
+      "bytes": 152
+    },
+    "trivy.db": {
+      "sha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "bytes": 1636610048
+    }
+  },
+  "reportSha256": "0d87a5a6be5e27e0b144e13e31140f48e47d50ade4ecb8f6bad8a91419b1d6a9"
+}

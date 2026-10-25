@@ -15,3 +15,11 @@ This is an implementation in progress. No package is claimed fixed or supported 
 On a disposable Linux Docker host, run `python3 scripts/run-baseline.py --package libxml2 --output evidence/baseline-libxml2` (or `libarchive`). The helper installs the exact current public candidate, fails if the archive candidate changes, and retains the unfiltered Trivy report, identified packages, database hashes and reusable `scanner-db/` snapshot. It creates and removes its own baseline image and temporary scan directory. Base/scanner images remain available to the disposable runner until that runner is destroyed.
 
 Reuse the snapshot with `--database-snapshot PATH/TO/scanner-db` and a fresh output directory; this disables database updates. Before/after remediation comparisons must use the same snapshot and scanner, and preserve their raw reports. The manual `Candidate baseline scans` workflow stores JSON and database snapshots as separate immutable run artifacts for 30 days; retain the matching snapshot with final release evidence before that expiry. These artifacts contain public baseline reports and public vulnerability databases, never AptTo binary builds.
+
+## Development package verification
+
+Clone the public `apt-to/packaging-libxml2` or `apt-to/packaging-libarchive` repository and check out its `aptto/focal` branch. With a clean, committed checkout and a disposable Linux Docker host, run `python3 scripts/build-package.py --source /path/to/packaging-checkout --output build/output`.
+
+The build dependencies come from the official Ubuntu archive snapshot recorded in `packages.json`. The base and trust-bundle images are pinned by digest. The helper records the resulting builder image ID, installed toolchain and Debian `.buildinfo`; native package compilation/testing runs with networking disabled. It requires a reproduced installed-baseline regression before building, then installs its own outputs for patched regressions, consumer checks and Debian version comparisons. Source packages and verification reports are retained; binary outputs remain in the disposable container and are not published by this workflow.
+
+The manual `Package build and installed regressions` workflow performs the same verification. Development backports are not releases: scanner integration, signed APT, storage, access and promotion gates must still pass.

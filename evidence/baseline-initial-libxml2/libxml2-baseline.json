@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-10-25T10:30:38.389251+00:00",
+  "purpose": "baseline candidate selection; no remediation claimed",
+  "sourcePackage": "libxml2",
+  "baselineVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+  "targetCve": "CVE-2025-49794",
+  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "identifiedPackages": [
+    {
+      "Name": "libxml2",
+      "Version": "2.9.10+dfsg",
+      "SrcName": "libxml2",
+      "SrcVersion": "2.9.10+dfsg"
+    },
+    {
+      "Name": "libxml2-utils",
+      "Version": "2.9.10+dfsg",
+      "SrcName": "libxml2",
+      "SrcVersion": "2.9.10+dfsg"
+    }
+  ],
+  "findings": [],
+  "databaseFiles": {
+    "metadata.json": {
+      "sha256": "8895d1dc90cfccefe725ed634c907cf72930886420d87381e23b5e07b4ce8e71",
+      "bytes": 153
+    },
+    "trivy.db": {
+      "sha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "bytes": 1636610048
+    }
+  },
+  "reportSha256": "78145fed145601f7ad88d084275c84584a7e02fb9edf78dfeb3ec2371c604fd7"
+}

@@ -1,0 +1,53 @@
+{
+  "repository": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+  "manifest": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "artifactType": "application/vnd.aquasec.trivy.config.v1+json",
+    "config": {
+      "mediaType": "application/vnd.oci.empty.v1+json",
+      "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "size": 2,
+      "data": "e30="
+    },
+    "layers": [
+      {
+        "mediaType": "application/vnd.aquasec.trivy.db.layer.v1.tar+gzip",
+        "digest": "sha256:a83ebf5f5c833092854b1a4a2d8d9de55bcd3cd772281b48406abd225fa54d2d",
+        "size": 135996862,
+        "annotations": {
+          "org.opencontainers.image.title": "db.tar.gz"
+        }
+      }
+    ],
+    "annotations": {
+      "org.opencontainers.image.created": "2026-10-25T07:23:50Z"
+    }
+  },
+  "baselineDatabaseFileSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+  "verification": "Streamed immutable OCI database; expanded trivy.db SHA-256 matches initial baseline scans",
+  "metadata": {
+    "Version": 2,
+    "NextUpdate": "2026-10-26T07:10:41.872962061Z",
+    "UpdatedAt": "2026-10-25T07:10:41.872962161Z",
+    "DownloadedAt": "0001-01-01T00:00:00Z"
+  },
+  "expandedFiles": {
+    "trivy.db": {
+      "sha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "bytes": 1636610048
+    },
+    "metadata.json": {
+      "sha256": "2a83e285e551429f7d5b2e2c978fbd241a2ee93289e2ad9d6f09a45fcb604f5b",
+      "bytes": 143
+    }
+  },
+  "preservedAsset": {
+    "release": "https://github.com/apt-to/platform/releases/tag/scanner-db-20261025-b8efa8fc3ddd",
+    "assetId": 674808425,
+    "url": "https://github.com/apt-to/platform/releases/download/scanner-db-20261025-b8efa8fc3ddd/trivy-db-a83ebf5f5c833092854b1a4a2d8d9de55bcd3cd772281b48406abd225fa54d2d.tar.gz",
+    "sha256": "a83ebf5f5c833092854b1a4a2d8d9de55bcd3cd772281b48406abd225fa54d2d",
+    "bytes": 135996862,
+    "anonymousReadbackVerified": true
+  }
+}

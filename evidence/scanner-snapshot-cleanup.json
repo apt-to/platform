@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-10-25T11:02:01.687240+00:00",
+  "removedDuplicateArtifacts": [
+    {
+      "id": 12596006236,
+      "name": "scanner-db-libxml2-40185020987-1",
+      "bytes": 1636610449
+    },
+    {
+      "id": 12596335521,
+      "name": "scanner-db-libarchive-40185020987-1",
+      "bytes": 1636610448
+    }
+  ],
+  "preservedSnapshot": {
+    "release": "https://github.com/apt-to/platform/releases/tag/scanner-db-20261025-b8efa8fc3ddd",
+    "assetId": 674808425,
+    "url": "https://github.com/apt-to/platform/releases/download/scanner-db-20261025-b8efa8fc3ddd/trivy-db-a83ebf5f5c833092854b1a4a2d8d9de55bcd3cd772281b48406abd225fa54d2d.tar.gz",
+    "sha256": "a83ebf5f5c833092854b1a4a2d8d9de55bcd3cd772281b48406abd225fa54d2d",
+    "bytes": 135996862,
+    "anonymousReadbackVerified": true
+  },
+  "rawReportsRetained": true,
+  "expandedDatabaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31"
+}
