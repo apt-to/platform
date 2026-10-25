@@ -1,0 +1,38 @@
+# AptTo operations runbook
+
+This runbook describes the intended release path implemented in `platform/`. It is not evidence of a live deployment. As of 25 October 2026, the Worker, R2 bucket, repository hostnames, GitHub signing environment, and Sponsors enrollment have not been verified in production.
+
+## Deployment gates
+
+Do not deploy until all of these checks are complete:
+
+1. Verify the Cloudflare account is **Diderichsens**, confirm the `apt.to` zone ID and account membership, and inspect current DNS records and authoritative nameservers. The recorded preflight found Afternic nameservers and parked-domain responses. Preserve the apex and unrelated services; do not change nameservers or route the apex as part of repository deployment.
+2. Confirm `repo.apt.to` and `early.apt.to` are available for the existing `apt.to` zone. `worker/wrangler.jsonc` declares them as custom domains; deploying that config will activate those Worker hosts. The apex is intentionally not bound.
+3. In the verified Cloudflare account, create or confirm the R2 bucket named `aptto-release-staging`, then confirm the Worker binding in `worker/wrangler.jsonc` points to that bucket. Keep the bucket private; do not enable `r2.dev` or public bucket access.
+4. Configure GitHub Actions environments `aptto-index-build` and `aptto-signing` in `apt-to/platform`. The builder environment needs no secrets. In the signing environment, store `APTTO_SIGNING_KEY_ARMORED` as an environment secret and `APTTO_SIGNING_FINGERPRINT` as an environment variable; configure the intended deployment protection before the first signing run.
+5. Configure Worker secrets and vars in the verified Cloudflare account: `GITHUB_TOKEN`, `RELEASE_ADMIN_TOKEN`, `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `SPONSOR_GRAPHQL_TOKEN`, `SPONSOR_ALLOWED_TIER_IDS`, `SPONSOR_WEBHOOK_SECRET`, and `PUBLIC_ORIGIN`. Set `PUBLIC_ORIGIN` to `https://apt.to` only after the portal's apex hosting and OAuth callback are deliberately configured. Do not put secret values in Git, Actions artifacts, public workflow logs, or command output.
+6. Verify the `apt-to` GitHub Sponsors listing, receiving eligibility, tier IDs, webhook configuration, and API permissions. The Worker fails closed when sponsor data is missing or stale. Do not start the seven-day clock or claim sponsor access works until these live checks pass.
+
+The current credential inventory did not find a Diderichsens-scoped Cloudflare credential. The only Cloudflare credential file found is scoped to an unrelated Eupry R2 bucket and must not be used for AptTo.
+
+## Candidate build and release
+
+1. Review the package source, patches, candidate evidence, and `packages.json` policy. Keep libxml2 on the seven-day policy and libarchive on immediate-public policy; verify current base versions and checksums before each new release.
+2. From the GitHub Actions UI, dispatch **Package build and installed regressions** with the selected package and its full commit SHA from `aptto/focal`. Require the complete build, vulnerability comparison, installed regression, consumer checks, and signed local focal-client smoke tests to pass. Preserve the run URL and artifacts in `EVIDENCE.md`.
+3. A successful manual package run triggers **Private binary staging**. That workflow checks out trusted platform tooling, rebuilds the pinned package, compares exact binary/source hashes, stages gated binaries privately, and publishes complete corresponding source assets publicly. It must target `https://repo.apt.to` and use the `aptto-signing` environment. Confirm the final state and hashes before treating the release as staged.
+4. **Publish signed APT repository snapshots** then builds public and early indexes in `aptto-index-build`, passes the registered snapshot IDs to `aptto-signing`, verifies index hashes, signs with the configured fingerprint, uploads immutable snapshots, and switches each channel pointer after R2 readback succeeds. The workflow also runs every 15 minutes to refresh eligible releases and promote releases whose 168-hour deadline has passed.
+5. Confirm the workflow run and Worker responses for both channels. The public index must exclude sponsor-period binaries; the early index and binary downloads must require valid sponsor credentials. Test invalid, expired, and anonymous credentials and verify that no redirect or cache path exposes a gated binary.
+6. Install from a fresh focal amd64 client with the published keyring and scoped `Signed-By` configuration. Test anonymous libarchive installation and sponsor-authenticated libxml2 installation, `apt-get source`, package checksums, cross-host redirects, and post-promotion URLs. Record exact client output and workflow IDs.
+
+## Recovery and key custody
+
+- If package verification, private staging, signing, or snapshot activation fails, stop the release path and retain the previous active snapshot. Do not retry by changing bytes under an existing package version or snapshot ID.
+- Snapshot activation is atomic after R2 object readback, but a production rollback procedure and retention interval have not yet been exercised. Do not delete R2 objects or rewrite active pointers manually. Treat rollback and garbage collection as blocked until tested against the deployed Worker and recorded in a later runbook update.
+- Keep the metadata signing key only in the protected `aptto-signing` environment. Record the public key fingerprint and published keyring checksum. For rotation, prepare the replacement key and client trust transition, verify a signed test snapshot, then follow the separately reviewed rotation procedure; no production key or rotation has been configured yet.
+- On suspected key compromise, disable the signing environment and stop snapshot publication. Preserve evidence and the last known-good snapshot; do not publish an unreviewed replacement key or claim old package copies were revoked.
+
+## Current verified state
+
+Local Worker and route tests cover snapshot eligibility, gated pool access, public redirects after promotion, immutable manifests, builder/signer role separation, and atomic activation. The public quality workflow has passed for the latest platform commit recorded in `STATUS.md`. Two local Python tests that generate temporary GPG keys cannot run in this Mac sandbox because `gpg-agent` cannot create its IPC socket; this is recorded separately from passing tests.
+
+No production Worker deployment, R2 write, repository endpoint response, sponsor transaction, seven-day promotion, or focal APT install has been verified. Before calling the repository operational, attach live evidence for each of those gates to `EVIDENCE.md` and update `STATUS.md` with the exact run IDs, package versions, checksums, and endpoint results.

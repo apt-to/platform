@@ -70,7 +70,7 @@ jobs:
             build/recheck/release-candidates.json
       - name: Register verified release and upload privately to R2
         env:
-          APTTO_RELEASE_ENDPOINT: https://apt.to
+          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
           VERIFICATION_RUN_ID: ${{ github.event.workflow_run.id }}
           CANDIDATE_MANIFEST: ${{ runner.temp }}/candidate/release-candidates.json
           BINARY_DIRECTORY: ${{ github.workspace }}/build/recheck/binary

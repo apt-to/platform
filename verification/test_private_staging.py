@@ -11,6 +11,9 @@ SCRIPT = ROOT / "scripts" / "compare-release-candidates.py"
 SPEC = importlib.util.spec_from_file_location("compare_release_candidates", SCRIPT)
 COMPARE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(COMPARE)
+STAGE_SPEC = importlib.util.spec_from_file_location("stage_release", ROOT / "scripts" / "stage-release.py")
+STAGE = importlib.util.module_from_spec(STAGE_SPEC)
+STAGE_SPEC.loader.exec_module(STAGE)
 
 
 class PrivateStagingManifest(unittest.TestCase):
@@ -60,6 +63,13 @@ class PrivateStagingManifest(unittest.TestCase):
         self.assertIn('name: source-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}', producer)
         self.assertIn('gh run download "$RUN_ID" --repo apt-to/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
         self.assertIn('SOURCE_DIRECTORY: ${{ runner.temp }}/candidate/source', staging)
+        self.assertIn('APTTO_RELEASE_ENDPOINT: https://repo.apt.to', staging)
+
+    def test_release_endpoint_is_pinned_to_repository_hostname(self):
+        self.assertEqual(STAGE.validate_endpoint("https://repo.apt.to/"), "https://repo.apt.to")
+        for endpoint in ("http://repo.apt.to", "https://apt.to", "https://attacker.example", "https://repo.apt.to/path"):
+            with self.subTest(endpoint=endpoint), self.assertRaisesRegex(ValueError, "repo.apt.to gateway"):
+                STAGE.validate_endpoint(endpoint)
 
     def test_debian_source_filename_allowlist_accepts_normal_underscored_names(self):
         self.assertRegex("libarchive_3.4.0-2ubuntu1.5+aptto1.dsc", r"^[A-Za-z0-9][A-Za-z0-9_.+~-]*$")

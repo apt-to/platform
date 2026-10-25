@@ -12,6 +12,15 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def validate_endpoint(value):
+    endpoint = value.rstrip("/")
+    parsed = urllib.parse.urlsplit(endpoint)
+    if (parsed.scheme != "https" or parsed.hostname != "repo.apt.to" or parsed.port not in (None, 443) or
+            parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment):
+        raise ValueError("release endpoint must be the configured HTTPS repo.apt.to gateway")
+    return endpoint
+
+
 def token():
     request_url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
     separator = "&" if "?" in request_url else "?"
@@ -75,7 +84,7 @@ def main():
         if digest != item["sha256"] or source_file.stat().st_size != item["bytes"]:
             raise RuntimeError(f"candidate source file failed local manifest verification: {item['name']}")
 
-    endpoint = os.environ["APTTO_RELEASE_ENDPOINT"].rstrip("/")
+    endpoint = validate_endpoint(os.environ["APTTO_RELEASE_ENDPOINT"])
     source_repo = f"apt-to/packaging-{package}"
     release_id = f"{package}-{manifest['sourceVersion'].lower()}"
     release_id = "-".join(filter(None, re.split(r"[^a-z0-9]+", release_id)))
