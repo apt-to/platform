@@ -12,7 +12,7 @@
       "targetCve": "CVE-2025-49794",
       "sponsorDelayHours": 168,
       "advisory": "https://ubuntu.com/security/CVE-2025-49794",
-      "candidateStatus": "pending-regression-and-scan"
+      "candidateStatus": "regression-verified-pending-scan"
     },
     "libarchive": {
       "baselineVersion": "3.4.0-2ubuntu1.5",
@@ -20,7 +20,7 @@
       "targetCve": "CVE-2026-4111",
       "sponsorDelayHours": 0,
       "advisory": "https://ubuntu.com/security/CVE-2026-4111",
-      "candidateStatus": "pending-regression-and-scan"
+      "candidateStatus": "regression-verified-pending-scan"
     }
   }
 }
