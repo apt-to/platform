@@ -1,0 +1,42 @@
+name: Candidate baseline scans
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: Focal amd64 - ${{ matrix.package }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        package: [libxml2, libarchive]
+    steps:
+      - name: Check out public build recipes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build public baseline and scan
+        run: python3 scripts/run-baseline.py --package '${{ matrix.package }}' --output evidence
+      - name: Preserve scan reports only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: baseline-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve exact reusable vulnerability database
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scanner-db-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/scanner-db/*
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30

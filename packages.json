@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "release": "focal",
+  "architecture": "amd64",
+  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "packages": {
+    "libxml2": {
+      "baselineVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+      "binaryPackages": ["libxml2", "libxml2-utils"],
+      "targetCve": "CVE-2025-49794",
+      "sponsorDelayHours": 168,
+      "advisory": "https://ubuntu.com/security/CVE-2025-49794",
+      "candidateStatus": "pending-regression-and-scan"
+    },
+    "libarchive": {
+      "baselineVersion": "3.4.0-2ubuntu1.5",
+      "binaryPackages": ["libarchive13", "libarchive-tools"],
+      "targetCve": "CVE-2025-5914",
+      "sponsorDelayHours": 0,
+      "advisory": "https://ubuntu.com/security/CVE-2025-5914",
+      "candidateStatus": "pending-regression-and-scan"
+    }
+  }
+}

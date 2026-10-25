@@ -1,0 +1,17 @@
+node_modules/
+.wrangler/
+.dev.vars*
+.env*
+!.env.example
+dist/
+build/output/
+coverage/
+*.deb
+*.ddeb
+*.orig.tar.*
+*.debian.tar.*
+*.buildinfo
+*.changes
+__pycache__/
+scanner-db/
+.DS_Store
