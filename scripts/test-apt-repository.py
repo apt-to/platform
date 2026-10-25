@@ -95,7 +95,9 @@ apt-ftparchive \\
     text = release.read_text()
     if "Architectures: amd64\n" not in text or "SHA256:\n" not in text:
         raise RuntimeError("APT Release metadata is missing required architecture or SHA-256 fields")
-    text = text.replace("Architectures: amd64\n", "Architectures: amd64\nAcquire-By-Hash: yes\n")
+    # apt-ftparchive includes Release in its own checksum list. Validate its
+    # original hash before adding AptTo's repository option, then regenerate
+    # the final checksum list so every entry refers to the exact signed bytes.
     in_sha256 = False
     for line in text.splitlines():
         if line == "SHA256:":
@@ -110,7 +112,25 @@ apt-ftparchive \\
                 raise RuntimeError("APT Release checksum mismatch for " + relative)
     if not in_sha256:
         raise RuntimeError("APT Release SHA-256 index list is missing")
+    text = text.replace("Architectures: amd64\n", "Architectures: amd64\nAcquire-By-Hash: yes\n")
     release.write_text(text)
+    lines = release.read_text().splitlines()
+    rebuilt = []
+    in_sha256 = False
+    for line in lines:
+        if line == "SHA256:":
+            in_sha256 = True
+            rebuilt.append(line)
+            continue
+        if in_sha256 and line and not line[0].isspace():
+            in_sha256 = False
+        if in_sha256 and line.strip():
+            continue
+        rebuilt.append(line)
+    for relative in sorted(p.relative_to(dist).as_posix() for p in dist.rglob("*") if p.is_file() and p.name != "Release"):
+        path = dist / relative
+        rebuilt.append(f" {hashlib.sha256(path.read_bytes()).hexdigest()} {path.stat().st_size} {relative}")
+    release.write_text("\n".join(rebuilt) + "\n")
     run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256", "--clearsign",
          "--output", str(dist / "InRelease"), str(release)], env=env)
     run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256", "--armor", "--detach-sign",
