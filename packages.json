@@ -16,7 +16,7 @@
       "targetCves": ["CVE-2025-49794", "CVE-2025-49796"],
       "sponsorDelayHours": 168,
       "advisory": "https://ubuntu.com/security/CVE-2025-49794",
-      "candidateStatus": "regression-verified-pending-scan"
+      "candidateStatus": "regression-and-custom-scan-verified-pending-release"
     },
     "libarchive": {
       "baselineVersion": "3.4.0-2ubuntu1.5",
@@ -25,7 +25,7 @@
       "targetCves": ["CVE-2026-4111"],
       "sponsorDelayHours": 0,
       "advisory": "https://ubuntu.com/security/CVE-2026-4111",
-      "candidateStatus": "regression-verified-pending-scan"
+      "candidateStatus": "regression-and-custom-scan-verified-pending-release"
     }
   }
 }
