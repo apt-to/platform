@@ -62,6 +62,7 @@ def main():
                 "--build-arg", "BASE_IMAGE=" + config["baseImage"],
                 "--build-arg", "SOURCE_PACKAGE=" + args.package,
                 "--build-arg", "EXPECTED_VERSION=" + package["baselineVersion"],
+                "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
                 str(ROOT),
             ])
             built = True
@@ -75,6 +76,7 @@ def main():
                 config["scannerImage"], "image", "--input", "/work/baseline.tar",
                 "--cache-dir", "/work/cache", "--scanners", "vuln",
                 "--list-all-pkgs", "--format", "json", "--output", "/work/report.json",
+                "--db-repository", config["scannerDatabaseReference"],
                 *database_flags,
             ])
             report = json.loads((temp / "report.json").read_text())
@@ -106,8 +108,10 @@ def main():
             (output / (args.package + "-baseline.json")).write_text(json.dumps(metadata, indent=2) + "\n")
             if not packages:
                 raise RuntimeError("Scanner did not identify candidate packages; report preserved")
+            if not args.database_snapshot and metadata["databaseFiles"]["trivy.db"]["sha256"] != config["scannerDatabaseSha256"]:
+                raise RuntimeError("Scanner database digest differs from the pinned reference")
             if not findings:
-                raise RuntimeError("Target CVE absent from baseline; investigate recognition/applicability before selecting candidate")
+                raise RuntimeError("Target CVE absent from raw baseline Trivy report; preserve report but do not treat this baseline scan as a passing recognition check")
             print(args.package + ": " + package["targetCve"] + " detected; severity=" + ",".join(sorted({v["Severity"] for v in findings})))
         finally:
             try:
