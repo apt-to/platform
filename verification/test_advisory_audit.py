@@ -46,6 +46,13 @@ class AdvisoryAuditContract(unittest.TestCase):
             image_ids = {"baselineImageId": "sha256:baseline", "patchedImageId": "sha256:patched"}
             image_path = root / "images.json"
             image_path.write_text(json.dumps(image_ids))
+            package_policy = root / "release-policy.json"
+            package_policy.write_text(json.dumps({
+                "source": "libarchive",
+                "targetCves": ["CVE-2026-4111"],
+                "baseVersion": "3.4.0-2ubuntu1.5",
+                "version": "3.4.0-2ubuntu1.5+aptto1",
+            }))
             sidecars = {}
             for phase, report_path in (("before", before), ("after", after)):
                 sidecar_path = root / (phase + "-scan.json")
@@ -62,7 +69,7 @@ class AdvisoryAuditContract(unittest.TestCase):
                 "patchedRegression": str(ROOT / "evidence/build-401896-libarchive/patched-regression.json"),
                 "buildProvenance": str(ROOT / "evidence/build-401896-libarchive/build-provenance.json"),
                 "binaryManifest": str(ROOT / "evidence/build-401896-libarchive/binary-manifest.json"),
-                "packagePolicy": str(ROOT.parent / "packaging-libarchive/debian/aptto/release-policy.json"),
+                "packagePolicy": str(package_policy),
                 "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
                 "sourceCommit": "cad024301c68bb6cf2e4261d350095aaf050703f",
                 "beforeScanMetadata": sidecars["before"], "afterScanMetadata": sidecars["after"], "scanImages": str(image_path),
