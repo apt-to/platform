@@ -1,0 +1,51 @@
+{
+  "source": "libxml2",
+  "phase": "baseline",
+  "installedVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+  "expectedVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+  "checks": [
+    {
+      "command": [
+        "valgrind",
+        "--tool=memcheck",
+        "--error-exitcode=97",
+        "--leak-check=no",
+        "--log-file=/tmp/aptto-regression-_1b_lx4_/cve-2025-49794.valgrind",
+        "xmllint",
+        "--nonet",
+        "--schematron",
+        "debian/tests/fixtures/cve-2025-49794.sct",
+        "debian/tests/fixtures/cve-2025-49794_0.xml"
+      ],
+      "returncode": -11,
+      "stdout": "<?xml version=\"1.0\"?>\n<librar0>\n    <boo0 t=\"\">\n        <author/>\n    </boo0>\n    <ins/>\n</librar0>\n",
+      "stderr": "Pattern: \n",
+      "timedOut": false,
+      "cve": "CVE-2025-49794",
+      "memoryLog": "==14== Memcheck, a memory error detector\n==14== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n==14== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info\n==14== Command: xmllint --nonet --schematron debian/tests/fixtures/cve-2025-49794.sct debian/tests/fixtures/cve-2025-49794_0.xml\n==14== Parent PID: 12\n==14== \n==14== Invalid read of size 8\n==14==    at 0x49A0AC1: ??? (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==14==    by 0x49A2D1B: xmlSchematronValidateDoc (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==14==    by 0x11313C: ??? (in /usr/bin/xmllint)\n==14==    by 0x10F9CA: ??? (in /usr/bin/xmllint)\n==14==    by 0x4A2C082: (below main) (libc-start.c:308)\n==14==  Address 0x6c9d798 is 24 bytes after a block of size 48 in arena \"client\"\n==14== \n==14== Invalid read of size 8\n==14==    at 0x49A0ACE: ??? (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==14==    by 0x49A2D1B: xmlSchematronValidateDoc (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==14==    by 0x11313C: ??? (in /usr/bin/xmllint)\n==14==    by 0x10F9CA: ??? (in /usr/bin/xmllint)\n==14==    by 0x4A2C082: (below main) (libc-start.c:308)\n==14==  Address 0x88 is not stack'd, malloc'd or (recently) free'd\n==14== \n==14== \n==14== Process terminating with default action of signal 11 (SIGSEGV): dumping core\n==14==  Access not within mapped region at address 0x88\n==14==    at 0x49A0ACE: ??? (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==14==    by 0x49A2D1B: xmlSchematronValidateDoc (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==14==    by 0x11313C: ??? (in /usr/bin/xmllint)\n==14==    by 0x10F9CA: ??? (in /usr/bin/xmllint)\n==14==    by 0x4A2C082: (below main) (libc-start.c:308)\n==14==  If you believe this happened as a result of a stack\n==14==  overflow in your program's main thread (unlikely but\n==14==  possible), you can try to increase the size of the\n==14==  main thread stack using the --main-stacksize= flag.\n==14==  The main thread stack size used in this run was 16777216.\n==14== \n==14== HEAP SUMMARY:\n==14==     in use at exit: 37,521 bytes in 142 blocks\n==14==   total heap usage: 300 allocs, 158 frees, 219,297 bytes allocated\n==14== \n==14== For a detailed leak analysis, rerun with: --leak-check=full\n==14== \n==14== For lists of detected and suppressed errors, rerun with: -s\n==14== ERROR SUMMARY: 2 errors from 2 contexts (suppressed: 0 from 0)\n",
+      "passed": false
+    },
+    {
+      "command": [
+        "valgrind",
+        "--tool=memcheck",
+        "--error-exitcode=97",
+        "--leak-check=no",
+        "--log-file=/tmp/aptto-regression-_1b_lx4_/cve-2025-49796.valgrind",
+        "xmllint",
+        "--nonet",
+        "--schematron",
+        "debian/tests/fixtures/cve-2025-49796.sct",
+        "debian/tests/fixtures/cve-2025-49796_0.xml"
+      ],
+      "returncode": -11,
+      "stdout": "<?xml version=\"1.0\"?>\n<librar0>\n    <boo0/>\n</librar0>\n",
+      "stderr": "Pattern: \n",
+      "timedOut": false,
+      "cve": "CVE-2025-49796",
+      "memoryLog": "==15== Memcheck, a memory error detector\n==15== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n==15== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info\n==15== Command: xmllint --nonet --schematron debian/tests/fixtures/cve-2025-49796.sct debian/tests/fixtures/cve-2025-49796_0.xml\n==15== Parent PID: 12\n==15== \n==15== Invalid read of size 8\n==15==    at 0x49A0ACE: ??? (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==15==    by 0x49A2D1B: xmlSchematronValidateDoc (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==15==    by 0x11313C: ??? (in /usr/bin/xmllint)\n==15==    by 0x10F9CA: ??? (in /usr/bin/xmllint)\n==15==    by 0x4A2C082: (below main) (libc-start.c:308)\n==15==  Address 0xffffffff00000018 is not stack'd, malloc'd or (recently) free'd\n==15== \n==15== \n==15== Process terminating with default action of signal 11 (SIGSEGV): dumping core\n==15==  Access not within mapped region at address 0xFFFFFFFF00000018\n==15==    at 0x49A0ACE: ??? (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==15==    by 0x49A2D1B: xmlSchematronValidateDoc (in /usr/lib/x86_64-linux-gnu/libxml2.so.2.9.10)\n==15==    by 0x11313C: ??? (in /usr/bin/xmllint)\n==15==    by 0x10F9CA: ??? (in /usr/bin/xmllint)\n==15==    by 0x4A2C082: (below main) (libc-start.c:308)\n==15==  If you believe this happened as a result of a stack\n==15==  overflow in your program's main thread (unlikely but\n==15==  possible), you can try to increase the size of the\n==15==  main thread stack using the --main-stacksize= flag.\n==15==  The main thread stack size used in this run was 16777216.\n==15== \n==15== HEAP SUMMARY:\n==15==     in use at exit: 35,450 bytes in 123 blocks\n==15==   total heap usage: 248 allocs, 125 frees, 214,338 bytes allocated\n==15== \n==15== For a detailed leak analysis, rerun with: --leak-check=full\n==15== \n==15== For lists of detected and suppressed errors, rerun with: -s\n==15== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 0 from 0)\n",
+      "passed": false
+    }
+  ],
+  "passed": false
+}

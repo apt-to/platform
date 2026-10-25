@@ -4,6 +4,7 @@ import argparse
 import binascii
 import json
 from pathlib import Path
+import signal
 import subprocess
 import tempfile
 
@@ -14,6 +15,17 @@ def execute(command, timeout=30):
         return {"command": command, "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr, "timedOut": False}
     except subprocess.TimeoutExpired:
         return {"command": command, "returncode": None, "stdout": "", "stderr": "", "timedOut": True}
+
+
+def schematron_baseline_reproduced(check):
+    log = check.get("memoryLog", "")
+    return (
+        not check["timedOut"]
+        and check["returncode"] in (97, -signal.SIGSEGV)
+        and "Invalid read" in log
+        and "xmlSchematronValidateDoc" in log
+        and "libxml2.so." in log
+    )
 
 
 def main():
@@ -45,7 +57,7 @@ def main():
                 check["cve"] = cve
                 check["memoryLog"] = log.read_text() if log.exists() else ""
                 check["passed"] = not check["timedOut"] and (
-                    check["returncode"] == 97 and "Invalid read" in check["memoryLog"]
+                    schematron_baseline_reproduced(check)
                     if args.phase == "baseline" else
                     check["returncode"] == 3 and "ERROR SUMMARY: 0 errors" in check["memoryLog"]
                 )

@@ -2,6 +2,12 @@ name: Package build and installed regressions
 
 on:
   workflow_dispatch:
+    inputs:
+      package:
+        description: Package to verify
+        type: choice
+        default: all
+        options: [all, libxml2, libarchive]
 
 permissions:
   contents: read
@@ -13,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [libxml2, libarchive]
+        package: ${{ fromJSON(inputs.package == 'libxml2' && '["libxml2"]' || inputs.package == 'libarchive' && '["libarchive"]' || '["libxml2","libarchive"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

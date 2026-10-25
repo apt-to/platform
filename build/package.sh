@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+ulimit -c 0
 trap 'chown -R "$1:$2" /output' EXIT
 mkdir -p /build/source /output/source
 cp -a /input/. /build/source/
