@@ -1,5 +1,8 @@
 ARG BASE_IMAGE
+ARG TRUST_IMAGE
+FROM ${TRUST_IMAGE} AS trust
 FROM ${BASE_IMAGE}
+COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG SOURCE_PACKAGE
 ARG EXPECTED_VERSION
 ARG ARCHIVE_SNAPSHOT

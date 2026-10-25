@@ -60,6 +60,7 @@ def main():
                 "docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", name,
                 "--file", str(ROOT / "build/baseline.Containerfile"),
                 "--build-arg", "BASE_IMAGE=" + config["baseImage"],
+                "--build-arg", "TRUST_IMAGE=" + config["scannerImage"],
                 "--build-arg", "SOURCE_PACKAGE=" + args.package,
                 "--build-arg", "EXPECTED_VERSION=" + package["baselineVersion"],
                 "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
