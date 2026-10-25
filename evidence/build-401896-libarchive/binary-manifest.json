@@ -1,0 +1,23 @@
+{
+  "purpose": "unpublished build verification; binaries not exported",
+  "packages": [
+    {
+      "name": "libarchive-dev_3.4.0-2ubuntu1.5+aptto1_amd64.deb",
+      "sha256": "124880a49be7019f5f8492e1839d8a33a1051a0f52641ff743b36df97e708225",
+      "bytes": 513176,
+      "control": "Package: libarchive-dev\nVersion: 3.4.0-2ubuntu1.5+aptto1\nArchitecture: amd64\nDepends: libarchive13 (= 3.4.0-2ubuntu1.5+aptto1)\n"
+    },
+    {
+      "name": "libarchive-tools_3.4.0-2ubuntu1.5+aptto1_amd64.deb",
+      "sha256": "749c01bf86e5571113b2b0cea32f77233f17d7234e85d75e1f2caf3ef1f5edf6",
+      "bytes": 79484,
+      "control": "Package: libarchive-tools\nVersion: 3.4.0-2ubuntu1.5+aptto1\nArchitecture: amd64\nDepends: libarchive13 (= 3.4.0-2ubuntu1.5+aptto1), libc6 (>= 2.14)\n"
+    },
+    {
+      "name": "libarchive13_3.4.0-2ubuntu1.5+aptto1_amd64.deb",
+      "sha256": "1d7e1f0b8ddbc4ccd027a926be157be44023fbc381b68d1ac4d1719009261590",
+      "bytes": 335576,
+      "control": "Package: libarchive13\nVersion: 3.4.0-2ubuntu1.5+aptto1\nArchitecture: amd64\nDepends: libacl1 (>= 2.2.23), libbz2-1.0, libc6 (>= 2.16), liblz4-1 (>= 0.0~r130), liblzma5 (>= 5.2.2), libnettle7, libxml2 (>= 2.7.4), libzstd1 (>= 1.3.2), zlib1g (>= 1:1.1.4)\n"
+    }
+  ]
+}

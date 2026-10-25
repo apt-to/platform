@@ -1,0 +1,49 @@
+{
+  "source": "libarchive",
+  "phase": "patched",
+  "installedVersion": "3.4.0-2ubuntu1.5+aptto1",
+  "expectedVersion": "3.4.0-2ubuntu1.5+aptto1",
+  "checks": [
+    {
+      "command": [
+        "/tmp/aptto-regression-nzsaztge/archive-probe",
+        "/tmp/aptto-regression-nzsaztge/loop.rar"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "read result=-30 error=Invalid filter encountered\n",
+      "timedOut": false,
+      "cve": "CVE-2026-4111",
+      "passed": true
+    },
+    {
+      "command": [
+        "bsdtar",
+        "-czf",
+        "/tmp/aptto-regression-nzsaztge/consumer.tar.gz",
+        "-C",
+        "/tmp/aptto-regression-nzsaztge",
+        "consumer.txt"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timedOut": false,
+      "passed": true
+    },
+    {
+      "command": [
+        "bsdtar",
+        "-xOf",
+        "/tmp/aptto-regression-nzsaztge/consumer.tar.gz",
+        "consumer.txt"
+      ],
+      "returncode": 0,
+      "stdout": "consumer round trip\n",
+      "stderr": "",
+      "timedOut": false,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

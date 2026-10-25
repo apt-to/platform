@@ -11,8 +11,8 @@ dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\n' > /output/bu
 python3 /verification/regression.py --source . --phase baseline --output /output/baseline-regression.json
 dpkg-source --before-build .
 dpkg-source -b .
-export DEB_BUILD_OPTIONS='check parallel=2'
-dpkg-buildpackage -b -us -uc -j2
+export DEB_BUILD_OPTIONS='check parallel=1'
+dpkg-buildpackage -b -us -uc -j1
 cp /build/*.buildinfo /output/
 dpkg -i /build/*.deb
 python3 /verification/regression.py --source . --phase patched --output /output/patched-regression.json

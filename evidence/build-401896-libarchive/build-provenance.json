@@ -1,0 +1,11 @@
+{
+  "source": "libarchive",
+  "version": "3.4.0-2ubuntu1.5+aptto1",
+  "sourceCommit": "cad024301c68bb6cf2e4261d350095aaf050703f",
+  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "trustBundleImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "archiveSnapshot": "20261025T000000Z",
+  "builderImageId": "sha256:b956561f1c0905fbf42b0155dfec537c82022b9a6f653400bdfc4af61237aa28",
+  "toolchainInventory": "build-toolchain.tsv",
+  "publication": "none; binary outputs remained inside the disposable container"
+}

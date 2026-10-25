@@ -1,0 +1,21 @@
+{
+  "source": "libarchive",
+  "phase": "baseline",
+  "installedVersion": "3.4.0-2ubuntu1.5",
+  "expectedVersion": "3.4.0-2ubuntu1.5",
+  "checks": [
+    {
+      "command": [
+        "/tmp/aptto-regression-m1e59x5n/archive-probe",
+        "/tmp/aptto-regression-m1e59x5n/loop.rar"
+      ],
+      "returncode": null,
+      "stdout": "",
+      "stderr": "",
+      "timedOut": true,
+      "cve": "CVE-2026-4111",
+      "passed": true
+    }
+  ],
+  "passed": true
+}
