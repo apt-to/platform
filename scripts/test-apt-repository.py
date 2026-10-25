@@ -107,6 +107,10 @@ apt-ftparchive \\
             break
         if in_sha256 and line.strip():
             expected_hash, expected_size, relative = line.split()
+            # Release cannot contain its own final digest. apt-ftparchive's
+            # self-entry is necessarily stale as soon as the file is written.
+            if relative == "Release":
+                continue
             indexed_file = dist / relative
             if indexed_file.stat().st_size != int(expected_size) or hashlib.sha256(indexed_file.read_bytes()).hexdigest() != expected_hash:
                 raise RuntimeError("APT Release checksum mismatch for " + relative)
