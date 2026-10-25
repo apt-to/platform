@@ -3,8 +3,10 @@
 import argparse
 import gzip
 import hashlib
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 
 
 def run(command, *, cwd, stdout=None):
@@ -81,6 +83,46 @@ def write_by_hash(dist, entries):
             raise ValueError(f"by-hash copy verification failed for {relative}")
 
 
+def sign_release(dist, key_home, fingerprint):
+    """Create and verify standard detached and inline signatures for Release."""
+    if not fingerprint or not all(c in "0123456789ABCDEFabcdef" for c in fingerprint):
+        raise ValueError("signing fingerprint must be hexadecimal")
+    dist = Path(dist).resolve()
+    key_home = Path(key_home).resolve()
+    release = dist / "Release"
+    if not release.is_file():
+        raise ValueError("Release metadata must exist before signing")
+    env = {**os.environ, "GNUPGHOME": str(key_home)}
+    listed = subprocess.run(["gpg", "--batch", "--with-colons", "--list-secret-keys", fingerprint],
+                            cwd=dist, check=True, capture_output=True, text=True, env=env).stdout
+    fingerprints = [line.split(":")[9] for line in listed.splitlines() if line.startswith("fpr:")]
+    if fingerprint.upper() not in fingerprints:
+        raise ValueError("requested signing fingerprint is not present in the isolated keyring")
+    subprocess.run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256",
+                    "--clearsign", "--output", str(dist / "InRelease"), str(release)],
+                   cwd=dist, check=True, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    subprocess.run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256",
+                    "--armor", "--detach-sign", "--output", str(dist / "Release.gpg"), str(release)],
+                   cwd=dist, check=True, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    exported = subprocess.run(["gpg", "--batch", "--export", fingerprint], cwd=dist, check=True,
+                              capture_output=True, env=env).stdout
+    if not exported:
+        raise ValueError("public signing key export is empty")
+    with tempfile.TemporaryDirectory(prefix="aptto-gpg-verify-") as temporary:
+        verify_home = Path(temporary) / "gnupg"
+        verify_home.mkdir(mode=0o700)
+        verify_env = {**env, "GNUPGHOME": str(verify_home)}
+        subprocess.run(["gpg", "--batch", "--import"], cwd=dist, input=exported, check=True,
+                       env=verify_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["gpg", "--batch", "--verify", str(dist / "InRelease")], cwd=dist, check=True,
+                       env=verify_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["gpg", "--batch", "--verify", str(dist / "Release.gpg"), str(release)],
+                       cwd=dist, check=True, env=verify_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    public_key = dist.parent.parent / "aptto-archive-keyring.gpg"
+    public_key.write_bytes(exported)
+    return public_key
+
+
 def generate(repo, suite, architecture, component, description):
     repo = repo.resolve()
     pool = repo / "pool"
@@ -132,9 +174,18 @@ def main():
     parser.add_argument("--architecture", default="amd64")
     parser.add_argument("--component", default="main")
     parser.add_argument("--description", default="AptTo maintained packages")
+    parser.add_argument("--signing-key-home", type=Path, help="isolated GnuPG home containing the repository signing key")
+    parser.add_argument("--signing-fingerprint", help="full fingerprint of the repository signing key")
     args = parser.parse_args()
+    if bool(args.signing_key_home) != bool(args.signing_fingerprint):
+        parser.error("--signing-key-home and --signing-fingerprint must be supplied together")
     result = generate(args.repo, args.suite, args.architecture, args.component, args.description)
+    if args.signing_key_home:
+        key = sign_release(args.repo / "dists" / args.suite, args.signing_key_home, args.signing_fingerprint)
+        result["public_key"] = str(key.relative_to(args.repo.resolve()))
     print(f"generated {result['suite']} {result['architecture']} indexes: {len(result['indexes'])} hash-verified files")
+    if "public_key" in result:
+        print(f"signed InRelease and Release.gpg; exported public key to {result['public_key']}")
 
 
 if __name__ == "__main__":

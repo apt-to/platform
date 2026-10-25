@@ -1,6 +1,8 @@
 import hashlib
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -58,6 +60,35 @@ class AptRepositoryIndex(unittest.TestCase):
         (old_suite / "InRelease").write_bytes(b"prior signature")
         with self.assertRaisesRegex(ValueError, "fresh immutable repository snapshot"):
             GENERATOR.generate(repo, "focal", "amd64", "main", "AptTo")
+
+    def test_signing_creates_verifiable_inrelease_and_detached_signature(self):
+        dist = Path(self.temp.name) / "signed/dists/focal"
+        dist.mkdir(parents=True)
+        (dist / "Release").write_text("Origin: AptTo\nArchitectures: amd64\n")
+        key_home = Path(self.temp.name) / "signer"
+        key_home.mkdir(mode=0o700)
+        env = {**os.environ, "GNUPGHOME": str(key_home)}
+        subprocess.run(["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "",
+                        "--quick-generate-key", "AptTo Test <test@apt.to>", "ed25519", "sign", "0"],
+                       check=True, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        listing = subprocess.run(["gpg", "--batch", "--with-colons", "--list-secret-keys"], check=True,
+                                 capture_output=True, text=True, env=env).stdout
+        fingerprint = next(line.split(":")[9] for line in listing.splitlines() if line.startswith("fpr:"))
+        public_key = GENERATOR.sign_release(dist, key_home, fingerprint)
+        GENERATOR.sign_release(dist, key_home, fingerprint)
+        self.assertEqual(list(Path(self.temp.name).glob("aptto-gpg-verify-*")), [])
+        self.assertTrue(public_key.is_file())
+        self.assertTrue((dist / "InRelease").is_file())
+        self.assertTrue((dist / "Release.gpg").is_file())
+        (dist / "Release").write_text("Origin: Tampered\nArchitectures: amd64\n")
+        verify_home = Path(self.temp.name) / "tamper-check"
+        verify_home.mkdir(mode=0o700)
+        verify_env = {**env, "GNUPGHOME": str(verify_home)}
+        subprocess.run(["gpg", "--batch", "--import", str(public_key)], check=True, env=verify_env,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        checked = subprocess.run(["gpg", "--batch", "--verify", str(dist / "Release.gpg"), str(dist / "Release")],
+                                 env=verify_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.assertNotEqual(checked.returncode, 0)
 
 
 if __name__ == "__main__":
