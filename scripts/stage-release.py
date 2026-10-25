@@ -52,6 +52,9 @@ def main():
     if manifest["sourceCommit"] != os.environ.get("SOURCE_COMMIT", manifest["sourceCommit"]):
         raise RuntimeError("candidate source commit does not match the completed build")
     candidates = manifest["packages"]
+    source_candidates = manifest.get("sourceFiles", [])
+    if not source_candidates or not any(item["name"].endswith(".dsc") for item in source_candidates):
+        raise RuntimeError("candidate manifest must include the complete Debian source package")
     if not candidates or {item["package"] for item in candidates} != set(policy["binaryPackages"]):
         raise RuntimeError("candidate binary package set does not match the approved package policy")
     for item in candidates:
@@ -63,6 +66,14 @@ def main():
         digest = hashlib.sha256(binary.read_bytes()).hexdigest()
         if digest != item["sha256"] or binary.stat().st_size != item["bytes"]:
             raise RuntimeError(f"candidate binary failed local manifest verification: {item['name']}")
+    source_directory = Path(os.environ.get("SOURCE_DIRECTORY", Path(os.environ["CANDIDATE_MANIFEST"]).parent / "source"))
+    for item in source_candidates:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.+~-]*", item["name"]):
+            raise RuntimeError("candidate contains an unsafe source filename")
+        source_file = source_directory / item["name"]
+        digest = hashlib.sha256(source_file.read_bytes()).hexdigest()
+        if digest != item["sha256"] or source_file.stat().st_size != item["bytes"]:
+            raise RuntimeError(f"candidate source file failed local manifest verification: {item['name']}")
 
     endpoint = os.environ["APTTO_RELEASE_ENDPOINT"].rstrip("/")
     source_repo = f"apt-to/packaging-{package}"
@@ -77,23 +88,39 @@ def main():
         "sponsor_delay_hours": policy["sponsorDelayHours"],
         "verification_run_id": int(os.environ["VERIFICATION_RUN_ID"]),
         "required_assets": assets,
+        "source_assets": [{"name": item["name"], "sha256": item["sha256"]} for item in source_candidates],
     }
     status, saved = call(endpoint + "/internal/releases", "POST", body=registration)
     if status not in (200, 201) or not isinstance(saved, dict):
         raise RuntimeError(f"release registration returned unexpected HTTP {status}")
+    publication_state = saved.get("state")
     if saved.get("state") == "prepared":
         for item in candidates:
             path = Path(os.environ["BINARY_DIRECTORY"]) / item["name"]
             status, _ = call(f"{endpoint}/internal/releases/{release_id}/assets/{urllib.parse.quote(item['name'])}", "PUT", path=path)
             if status not in (200, 201):
                 raise RuntimeError(f"private R2 staging returned unexpected HTTP {status}")
+        for item in source_candidates:
+            path = source_directory / item["name"]
+            status, _ = call(f"{endpoint}/internal/releases/{release_id}/source-assets/{urllib.parse.quote(item['name'])}", "PUT", path=path)
+            if status not in (200, 201):
+                raise RuntimeError(f"public source R2 staging returned unexpected HTTP {status}")
     elif saved.get("state") not in ("sponsor-period", "public"):
         raise RuntimeError("release Worker returned an unknown state")
+    status, source_publication = call(f"{endpoint}/internal/releases/{release_id}/publish-sources", "POST", body={})
+    if status != 200 or not isinstance(source_publication, dict) or not source_publication.get("source_release_tag"):
+        raise RuntimeError(f"public source release returned unexpected HTTP {status}")
     if policy["sponsorDelayHours"] == 168 and saved.get("state") == "prepared":
-        status, _ = call(f"{endpoint}/internal/releases/{release_id}/publish-sponsor", "POST", body={})
+        status, publication = call(f"{endpoint}/internal/releases/{release_id}/publish-sponsor", "POST", body={})
         if status not in (200, 201):
             raise RuntimeError(f"sponsor publication returned unexpected HTTP {status}")
-    print(f"staged {len(candidates)} hash-verified binaries for {package} {manifest['sourceVersion']}")
+        publication_state = publication.get("state")
+    elif policy["sponsorDelayHours"] == 0 and saved.get("state") == "prepared":
+        status, published = call(f"{endpoint}/internal/releases/{release_id}/publish-now", "POST", body={})
+        if status != 200 or not isinstance(published, dict) or published.get("state") != "public":
+            raise RuntimeError(f"immediate public release returned unexpected HTTP {status}")
+        publication_state = published["state"]
+    print(f"{package} {manifest['sourceVersion']}: {publication_state}; {len(candidates)} hash-verified binaries and {len(source_candidates)} source files")
 
 
 if __name__ == "__main__":

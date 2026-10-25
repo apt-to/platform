@@ -53,6 +53,24 @@ def persist_release_candidates(selected, binary_manifest, output, package, versi
             "bytes": destination.stat().st_size,
             "sha256": digest,
         })
+    source_dir = output / "source"
+    source_paths = sorted(source_dir.glob("*"))
+    if not source_paths or not any(path.suffix == ".dsc" for path in source_paths):
+        raise RuntimeError("Complete Debian source package is required for a release candidate")
+    source_candidates = []
+    source_prefix = f"{package}_{version}"
+    for path in source_paths:
+        if path.is_symlink() or not path.is_file() or path.parent != source_dir:
+            raise RuntimeError("Source package contains a non-regular or nested candidate")
+        if not (path.name.endswith(".dsc") or ".orig.tar." in path.name or ".debian.tar." in path.name):
+            raise RuntimeError("Unexpected file in the Debian source package candidate")
+        if not path.name.startswith(source_prefix):
+            raise RuntimeError("Source package filename does not match the candidate source and version")
+        source_candidates.append({
+            "name": path.name,
+            "bytes": path.stat().st_size,
+            "sha256": sha256(path),
+        })
     (output / "release-candidates.json").write_text(json.dumps({
         "source": package,
         "sourceVersion": version,
@@ -61,6 +79,7 @@ def persist_release_candidates(selected, binary_manifest, output, package, versi
         "architecture": "amd64",
         "publication": "not published; runner-local candidates for a protected staging job",
         "packages": release_candidates,
+        "sourceFiles": source_candidates,
     }, indent=2) + "\n")
 
 

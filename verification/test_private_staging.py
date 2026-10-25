@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
@@ -25,6 +26,9 @@ class PrivateStagingManifest(unittest.TestCase):
                 "package": "libarchive13", "version": "3.4.0-2ubuntu1.5+aptto1",
                 "architecture": "amd64", "bytes": 123, "sha256": "b" * 64,
             }],
+            "sourceFiles": [{
+                "name": "libarchive_3.4.0-2ubuntu1.5+aptto1.dsc", "bytes": 456, "sha256": "c" * 64,
+            }],
         }
         self.expected_path = self.root / "expected.json"
         self.expected_path.write_text(json.dumps(self.expected))
@@ -44,6 +48,22 @@ class PrivateStagingManifest(unittest.TestCase):
             altered = {**self.expected, field: value}
             self.rebuilt_path.write_text(json.dumps(altered))
             self.assertNotEqual(COMPARE.canonical(self.expected_path), COMPARE.canonical(self.rebuilt_path))
+
+    def test_source_package_hash_mismatch_is_rejected(self):
+        altered = {**self.expected, "sourceFiles": [{**self.expected["sourceFiles"][0], "sha256": "d" * 64}]}
+        self.rebuilt_path.write_text(json.dumps(altered))
+        self.assertNotEqual(COMPARE.canonical(self.expected_path), COMPARE.canonical(self.rebuilt_path))
+
+    def test_staging_downloads_the_complete_source_artifact_into_the_manifest_source_directory(self):
+        producer = (ROOT / ".github/workflows/package-verification.yml").read_text()
+        staging = (ROOT / ".github/workflows/private-staging.yml").read_text()
+        self.assertIn('name: source-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}', producer)
+        self.assertIn('gh run download "$RUN_ID" --repo apt-to/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
+        self.assertIn('SOURCE_DIRECTORY: ${{ runner.temp }}/candidate/source', staging)
+
+    def test_debian_source_filename_allowlist_accepts_normal_underscored_names(self):
+        self.assertRegex("libarchive_3.4.0-2ubuntu1.5+aptto1.dsc", r"^[A-Za-z0-9][A-Za-z0-9_.+~-]*$")
+        self.assertNotRegex("../libarchive_3.4.0.dsc", r"^[A-Za-z0-9][A-Za-z0-9_.+~-]*$")
 
 
 if __name__ == "__main__":

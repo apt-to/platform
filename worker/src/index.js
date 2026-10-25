@@ -100,6 +100,10 @@ function releaseAssets(assets, id) {
   })));
 }
 
+function sourceReleaseTag(record) {
+  return `aptto-source/${record.tag.slice("aptto/".length)}`;
+}
+
 function checksumBuffer(hex) {
   return Uint8Array.from(hex.match(/.{2}/g), (pair) => Number.parseInt(pair, 16)).buffer;
 }
@@ -606,38 +610,104 @@ async function deviceTokenUser(request, env, now = new Date()) {
   return loaded.record;
 }
 
+function parseByteRange(value, total) {
+  if (typeof value !== "string" || !value.startsWith("bytes=") || value.includes(",")) return null;
+  const match = value.slice(6).match(/^(\d*)-(\d*)$/);
+  if (!match || (!match[1] && !match[2])) return null;
+  const startText = match[1];
+  const endText = match[2];
+  if (!startText) {
+    const suffix = Number(endText);
+    if (!Number.isSafeInteger(suffix) || suffix <= 0) return null;
+    if (total <= 0) return { unsatisfiable: true };
+    const length = Math.min(suffix, total);
+    return { offset: total - length, length, end: total - 1 };
+  }
+  const offset = Number(startText);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= total) return { unsatisfiable: true };
+  const requestedEnd = endText ? Number(endText) : total - 1;
+  if (!Number.isSafeInteger(requestedEnd) || requestedEnd < offset) return { unsatisfiable: true };
+  const end = Math.min(requestedEnd, total - 1);
+  return { offset, length: end - offset + 1, end };
+}
+
+function ifRangeMatches(value, object, etag) {
+  if (!value) return true;
+  if (value.startsWith('"')) return value === etag;
+  if (value.startsWith("W/")) return false;
+  const requestedDate = Date.parse(value);
+  const uploadedDate = object.uploaded instanceof Date ? object.uploaded.getTime() : NaN;
+  return Number.isFinite(requestedDate) && Number.isFinite(uploadedDate) && uploadedDate <= requestedDate;
+}
+
 async function serveEarlyAsset(request, env, id, name, now = new Date()) {
   if (!/^[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(name)) return json({ error: "invalid asset name" }, 400);
+  let key;
+  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
+  const loaded = await readRecord(env.RELEASES, key);
+  const release = loaded?.record;
+  if (!release) {
+    return json({ error: "sponsor release is unavailable" }, 404);
+  }
+  const asset = canonicalAssets(release.required_assets).find((candidate) => candidate.name === name);
+  if (!asset) return json({ error: "release asset not found" }, 404);
+  if (release.state === "public") {
+    if (!Number.isSafeInteger(release.public_release_id)) return json({ error: "public release mapping is missing" }, 502);
+    const [owner, repository] = release.repository.split("/");
+    const response = await githubRequest(env, `/repos/${owner}/${repository}/releases/${release.public_release_id}/assets`);
+    const assets = await response.json();
+    const published = assets.find((candidate) => candidate.name === asset.name);
+    if (!published || typeof published.browser_download_url !== "string") return json({ error: "public release asset is missing" }, 502);
+    let destination;
+    try { destination = new URL(published.browser_download_url); } catch { return json({ error: "public release URL is invalid" }, 502); }
+    if (destination.protocol !== "https:" || destination.hostname !== "github.com" ||
+        !destination.pathname.startsWith(`/${owner}/${repository}/releases/download/`)) {
+      return json({ error: "GitHub returned an unexpected public asset URL" }, 502);
+    }
+    return new Response(null, { status: 302, headers: {
+      location: destination.toString(), "cache-control": "public, max-age=300", "referrer-policy": "no-referrer",
+    } });
+  }
+  if (release.state !== "sponsor-period" || release.sponsor_delay_hours !== 168 || release.sponsor_publication_complete !== true ||
+      !Number.isFinite(Date.parse(release.public_after)) || now.getTime() >= Date.parse(release.public_after)) {
+    return json({ error: "sponsor release is unavailable" }, 404);
+  }
   const user = await deviceTokenUser(request, env, now);
   if (!user) return new Response("sponsor authentication required", {
     status: 401,
     headers: { "www-authenticate": 'Basic realm="apt.to early repository"', "cache-control": "private, no-store", vary: "Authorization" },
   });
-  let key;
-  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
-  const loaded = await readRecord(env.RELEASES, key);
-  const release = loaded?.record;
-  if (!release || release.state !== "sponsor-period" || release.sponsor_delay_hours !== 168 || release.sponsor_publication_complete !== true ||
-      !Number.isFinite(Date.parse(release.public_after)) || now.getTime() >= Date.parse(release.public_after)) {
-    return json({ error: "sponsor release is unavailable" }, 404);
+  const metadata = await env.RELEASES.head(asset.r2_key);
+  if (!metadata || !Number.isSafeInteger(metadata.size) || metadata.size <= 0 || checksumHex(metadata.checksums?.sha256) !== asset.sha256) {
+    return json({ error: "release asset failed integrity verification" }, 502);
   }
-  const asset = canonicalAssets(release.required_assets).find((candidate) => candidate.name === name);
-  if (!asset) return json({ error: "release asset not found" }, 404);
-  const object = await env.RELEASES.get(asset.r2_key);
+  const etag = metadata.httpEtag || `"sha256-${asset.sha256}"`;
+  const range = ifRangeMatches(request.headers.get("if-range"), metadata, etag)
+    ? parseByteRange(request.headers.get("range"), metadata.size)
+    : null;
+  if (range?.unsatisfiable) {
+    return new Response(null, { status: 416, headers: {
+      "content-range": `bytes */${metadata.size}`, "cache-control": "private, no-store", vary: "Authorization",
+    } });
+  }
+  const object = request.method === "HEAD"
+    ? metadata
+    : await env.RELEASES.get(asset.r2_key, range ? { range: { offset: range.offset, length: range.length } } : undefined);
   if (!object || !Number.isSafeInteger(object.size) || checksumHex(object.checksums?.sha256) !== asset.sha256) {
     return json({ error: "release asset failed integrity verification" }, 502);
   }
-  return new Response(object.body, {
-    status: 200,
-    headers: {
-      "content-type": object.httpMetadata?.contentType || "application/octet-stream",
-      "content-length": String(object.size),
-      "content-disposition": `attachment; filename="${name}"`,
-      "cache-control": "private, no-store",
-      vary: "Authorization",
-      "x-content-type-options": "nosniff",
-    },
+  const headers = new Headers({
+    "content-type": object.httpMetadata?.contentType || "application/octet-stream",
+    "content-length": String(range ? range.length : metadata.size),
+    "content-disposition": `attachment; filename="${name}"`,
+    "cache-control": "private, no-store",
+    vary: "Authorization",
+    "x-content-type-options": "nosniff",
+    etag,
+    "accept-ranges": "bytes",
   });
+  if (range) headers.set("content-range", `bytes ${range.offset}-${range.end}/${metadata.size}`);
+  return new Response(request.method === "HEAD" ? null : object.body, { status: range ? 206 : 200, headers });
 }
 
 async function beginSponsorPublication(request, env, id, now = new Date()) {
@@ -686,6 +756,61 @@ async function beginSponsorPublication(request, env, id, now = new Date()) {
   } catch (error) {
     return json({ error: String(error.message || error) }, error.status || 409);
   }
+}
+
+async function publishImmediateRelease(request, env, id, now = new Date()) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity || identity.type !== "github-actions") return json({ error: "GitHub Actions identity required" }, 401);
+  let key;
+  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded) return json({ error: "release not found" }, 404);
+  const record = loaded.record;
+  if (identity.run_id !== record.staging_run_id) return json({ error: "OIDC run identity does not match staged release" }, 403);
+  if (record.sponsor_delay_hours !== 0 || record.release_checks_passed !== true) {
+    return json({ error: "release is not eligible for immediate public publication" }, 409);
+  }
+  if (!["prepared", "public"].includes(record.state)) return json({ error: "release is not ready for public publication" }, 409);
+  for (const asset of canonicalAssets(record.required_assets)) {
+    const stored = await env.RELEASES.head(asset.r2_key);
+    if (!stored || !Number.isSafeInteger(stored.size) || stored.size <= 0 || checksumHex(stored.checksums?.sha256) !== asset.sha256 ||
+        stored.customMetadata?.releaseId !== id || stored.customMetadata?.assetName !== asset.name) {
+      return json({ error: `public release staging is incomplete or failed integrity check: ${asset.name}` }, 409);
+    }
+  }
+  if (record.source_release_id === undefined) return json({ error: "public Debian source release must be completed first" }, 409);
+  await publishOne(env, key, now);
+  const published = await readRecord(env.RELEASES, key);
+  if (published?.record.state !== "public") return json({ error: "immediate public release did not reach the public state" }, 502);
+  return json({ id, state: published.record.state, source_release_tag: published.record.source_release_tag, public_published_at: published.record.public_published_at }, 200);
+}
+
+async function publishPublicSources(request, env, id, now = new Date()) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity || identity.type !== "github-actions") return json({ error: "GitHub Actions identity required" }, 401);
+  let key;
+  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded) return json({ error: "release not found" }, 404);
+  const record = loaded.record;
+  if (identity.run_id !== record.staging_run_id) return json({ error: "OIDC run identity does not match staged release" }, 403);
+  if (!record.release_checks_passed || !["prepared", "sponsor-period", "public"].includes(record.state)) return json({ error: "source release is not eligible for publication" }, 409);
+  if (!Array.isArray(record.source_assets) || record.source_assets.length === 0) return json({ error: "verified Debian source assets are required" }, 409);
+  for (const asset of canonicalAssets(record.source_assets)) {
+    const stored = await env.RELEASES.head(asset.r2_key);
+    if (!stored || !Number.isSafeInteger(stored.size) || stored.size <= 0 || checksumHex(stored.checksums?.sha256) !== asset.sha256 ||
+        stored.customMetadata?.releaseId !== id || stored.customMetadata?.assetName !== asset.name || stored.customMetadata?.assetKind !== "source") {
+      return json({ error: `source staging is incomplete or failed integrity check: ${asset.name}` }, 409);
+    }
+  }
+  try {
+    const release = await publishSourceAssets(env, record);
+    const next = await updateState(env.RELEASES, key, (current) => ({
+      ...current, source_release_id: release.id, source_release_tag: release.tag_name,
+      source_release_published_at: current.source_release_published_at || now.toISOString(),
+    }));
+    return json({ id, source_release_id: next.source_release_id, source_release_tag: next.source_release_tag, state: next.state }, 200);
+  } catch (error) { return json({ error: String(error.message || error) }, 502); }
 }
 
 async function writeRecord(bucket, key, record, etag) {
@@ -786,6 +911,7 @@ async function registerRelease(request, env) {
     sponsor_delay_hours: body.sponsor_delay_hours,
     release_checks_passed: false,
     required_assets: releaseAssets(body.required_assets, body.id),
+    source_assets: releaseAssets(body.source_assets, body.id).map((asset) => ({ ...asset, r2_key: `staging/${body.id}/source/${asset.sha256}` })),
     created_at: new Date().toISOString(),
     ...(identity.type === "github-actions" ? { staging_run_id: identity.run_id } : {}),
   };
@@ -798,7 +924,8 @@ async function registerRelease(request, env) {
     const current = existing.record;
     const sameRelease = current.repository === record.repository && current.tag === record.tag && current.source_commit === record.source_commit &&
       current.sponsor_delay_hours === record.sponsor_delay_hours &&
-      JSON.stringify(canonicalAssets(current.required_assets)) === JSON.stringify(canonicalAssets(record.required_assets));
+      JSON.stringify(canonicalAssets(current.required_assets)) === JSON.stringify(canonicalAssets(record.required_assets)) &&
+      JSON.stringify(canonicalAssets(current.source_assets || [])) === JSON.stringify(canonicalAssets(record.source_assets));
     if (!sameRelease) return json({ error: "release id already exists with different immutable release data" }, 409);
     const next = await updateState(env.RELEASES, stateKey(record.id), (latest) => ({
       ...latest,
@@ -811,7 +938,7 @@ async function registerRelease(request, env) {
   return json({ id: record.id, state: record.state }, 201);
 }
 
-async function uploadReleaseAsset(request, env, id, name) {
+async function uploadReleaseAsset(request, env, id, name, kind = "binary") {
   const identity = await githubActionsIdentity(request, env);
   if (!identity) {
     return json({ error: "unauthorized" }, 401);
@@ -826,7 +953,8 @@ async function uploadReleaseAsset(request, env, id, name) {
   if (record.state !== "prepared" || record.release_checks_passed !== true) {
     return json({ error: "release is not accepting staged assets" }, 409);
   }
-  const asset = canonicalAssets(record.required_assets).find((candidate) => candidate.name === name);
+  const manifest = kind === "source" ? record.source_assets : record.required_assets;
+  const asset = canonicalAssets(manifest || []).find((candidate) => candidate.name === name);
   if (!asset) return json({ error: "asset is not in the verified release manifest" }, 404);
   const lengthHeader = request.headers.get("content-length");
   const length = lengthHeader === null ? NaN : Number(lengthHeader);
@@ -839,7 +967,7 @@ async function uploadReleaseAsset(request, env, id, name) {
     onlyIf: { etagDoesNotMatch: "*" },
     sha256: checksumBuffer(asset.sha256),
     httpMetadata: { contentType: "application/octet-stream" },
-    customMetadata: { sha256: asset.sha256, releaseId: id, assetName: name },
+    customMetadata: { sha256: asset.sha256, releaseId: id, assetName: name, assetKind: kind },
   };
   const stored = await env.RELEASES.put(asset.r2_key, request.body, options);
   if (stored) {
@@ -911,6 +1039,53 @@ async function ensureGithubRelease(env, record) {
     body: JSON.stringify({ tag_name: record.tag, name: record.tag, draft: true, prerelease: false, generate_release_notes: false }),
   });
   return created.json();
+}
+
+async function publishSourceAssets(env, record) {
+  const [owner, repo] = record.repository.split("/");
+  const tagName = sourceReleaseTag(record);
+  const lookup = await fetch(`${env.GITHUB_API}/repos/${owner}/${repo}/releases/tags/${tagName.split("/").map(encodeURIComponent).join("/")}`, {
+    headers: { accept: "application/vnd.github+json", authorization: `Bearer ${env.GITHUB_TOKEN}`, "x-github-api-version": "2022-11-28" },
+  });
+  let release;
+  if (lookup.ok) {
+    release = await lookup.json();
+    if (release.tag_name !== tagName || (!release.draft && !release.assets?.length)) throw new Error("source release tag mismatch or published release is empty");
+  } else if (lookup.status === 404) {
+    release = await (await githubRequest(env, `/repos/${record.repository}/releases`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tag_name: tagName, target_commitish: record.source_commit, name: `Debian source ${record.tag.slice("aptto/".length)}`, draft: true, prerelease: false, generate_release_notes: false }),
+    })).json();
+  } else throw new Error(`GitHub source release lookup returned ${lookup.status}`);
+  const assets = canonicalAssets(record.source_assets || []);
+  const allowed = new Set(assets.map((asset) => asset.name));
+  if ((release.assets || []).some((asset) => !allowed.has(asset.name))) throw new Error("source release contains assets outside the verified manifest");
+  for (const asset of assets) {
+    const currentHash = await assetReadback(env, { ...release, owner: { login: owner }, name: repo }, asset.name);
+    if (currentHash) {
+      if (currentHash !== asset.sha256) throw new Error(`published source asset ${asset.name} differs from immutable manifest`);
+      continue;
+    }
+    if (!release.draft) throw new Error(`published source release is missing ${asset.name}; refusing to mutate it`);
+    const staged = await env.RELEASES.get(asset.r2_key);
+    if (!staged) throw new Error(`staged source asset ${asset.name} is missing`);
+    const bytes = await staged.arrayBuffer();
+    if (await sha256Hex(bytes) !== asset.sha256) throw new Error(`staged source asset ${asset.name} failed SHA-256 verification`);
+    const uploadUrl = new URL(release.upload_url.replace("{?name,label}", ""));
+    uploadUrl.searchParams.set("name", asset.name);
+    await githubUpload(uploadUrl, env, { method: "POST", headers: { "content-type": "application/octet-stream", "content-length": String(bytes.byteLength) }, body: bytes });
+    if (await assetReadback(env, { ...release, owner: { login: owner }, name: repo }, asset.name) !== asset.sha256) throw new Error(`GitHub readback hash mismatch for source asset ${asset.name}`);
+  }
+  if (release.draft) {
+    await requireImmutableReleasesEnabled(env, record.repository);
+    const finalized = await (await githubRequest(env, `/repos/${record.repository}/releases/${release.id}`, {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ draft: false }),
+    })).json();
+    if (finalized.immutable !== true) throw new Error("GitHub did not mark the source release immutable");
+    return finalized;
+  }
+  if (release.immutable !== true) throw new Error("published source release is not immutable");
+  return release;
 }
 
 async function sha256Hex(bytes) {
@@ -1088,13 +1263,40 @@ export default {
       try { return await beginSponsorPublication(request, env, id); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
+    const publishNowRoute = url.pathname.match(/^\/internal\/releases\/([^/]+)\/publish-now$/);
+    if (request.method === "POST" && publishNowRoute) {
+      let id;
+      try { id = decodeURIComponent(publishNowRoute[1]); }
+      catch { return json({ error: "invalid path encoding" }, 400); }
+      try { return await publishImmediateRelease(request, env, id); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 502); }
+    }
+    const publishSourcesRoute = url.pathname.match(/^\/internal\/releases\/([^/]+)\/publish-sources$/);
+    if (request.method === "POST" && publishSourcesRoute) {
+      let id;
+      try { id = decodeURIComponent(publishSourcesRoute[1]); }
+      catch { return json({ error: "invalid path encoding" }, 400); }
+      try { return await publishPublicSources(request, env, id); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 502); }
+    }
+    const sourceAssetRoute = url.pathname.match(/^\/internal\/releases\/([^/]+)\/source-assets\/([^/]+)$/);
+    if (request.method === "PUT" && sourceAssetRoute) {
+      let id;
+      try { id = decodeURIComponent(sourceAssetRoute[1]); }
+      catch { return json({ error: "invalid path encoding" }, 400); }
+      let name;
+      try { name = decodeURIComponent(sourceAssetRoute[2]); }
+      catch { return json({ error: "invalid asset name encoding" }, 400); }
+      try { return await uploadReleaseAsset(request, env, id, name, "source"); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
     const revokeRoute = url.pathname.match(/^\/api\/device-tokens\/([a-f0-9]{64})\/revoke$/);
     if (request.method === "POST" && revokeRoute) {
       try { return await revokeDeviceToken(request, env, revokeRoute[1]); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
     const earlyAssetRoute = url.pathname.match(/^\/early\/releases\/([^/]+)\/assets\/([^/]+)$/);
-    if (request.method === "GET" && earlyAssetRoute) {
+    if (["GET", "HEAD"].includes(request.method) && earlyAssetRoute) {
       let id;
       let name;
       try {
@@ -1138,4 +1340,4 @@ export default {
   },
 };
 
-export { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };
+export { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishImmediateRelease, publishOne, publishPublicSources, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };

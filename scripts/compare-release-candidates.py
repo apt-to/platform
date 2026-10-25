@@ -18,6 +18,10 @@ def canonical(path):
             {key: item[key] for key in ("name", "package", "version", "architecture", "bytes", "sha256")}
             for item in packages
         ],
+        "sourceFiles": [
+            {key: item[key] for key in ("name", "bytes", "sha256")}
+            for item in sorted(manifest["sourceFiles"], key=lambda item: item["name"])
+        ],
     }
 
 

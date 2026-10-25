@@ -26,8 +26,8 @@ class MemoryBucket {
   }
 }
 
-function signedOidcToken(privateKey, overrides = {}, signatureKey = privateKey) {
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: "test-key" })).toString("base64url");
+function signedOidcToken(privateKey, overrides = {}, signatureKey = privateKey, keyId = "test-key") {
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: keyId })).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
   const claims = Buffer.from(JSON.stringify({
     iss: "https://token.actions.githubusercontent.com", aud: "aptto-release-gateway",
@@ -83,6 +83,15 @@ class MemoryAssetBucket extends MemoryBucket {
     return object;
   }
   async head(key) { return this.assets.get(key) || null; }
+  async get(key) {
+    const asset = this.assets.get(key);
+    if (asset) return {
+      ...asset,
+      body: new Response(asset.bytes).body,
+      arrayBuffer: async () => asset.bytes.buffer.slice(asset.bytes.byteOffset, asset.bytes.byteOffset + asset.bytes.byteLength),
+    };
+    return super.get(key);
+  }
 }
 
 class MemorySponsorBucket extends MemoryBucket {
@@ -93,13 +102,17 @@ class MemorySponsorBucket extends MemoryBucket {
       size: assetBytes.length,
       checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
       httpMetadata: { contentType: "application/vnd.debian.binary-package" },
+      bytes: Buffer.from(assetBytes),
       body: new Response(assetBytes).body,
     };
     this.assetKey = assetKey;
   }
   async head(key) { return key === this.assetKey ? this.staged : null; }
-  async get(key) {
-    if (key === this.assetKey) return { ...this.staged, body: new Response("private-package").body };
+  async get(key, options = {}) {
+    if (key === this.assetKey) {
+      const { offset, length } = options.range || { offset: 0, length: this.staged.size };
+      return { ...this.staged, body: new Response(this.staged.bytes.subarray(offset, offset + length)).body };
+    }
     return super.get(key);
   }
 }
@@ -336,6 +349,7 @@ test("sponsor publication starts an exact 168-hour clock only after every privat
     id: "pilot", state: "prepared", repository: "apt-to/packaging-libxml2", tag: "aptto/1.2.3",
     source_commit: "b".repeat(40), sponsor_delay_hours: 168, release_checks_passed: true,
     required_assets: [{ name: "libxml2.deb", sha256: digest.toString("hex"), r2_key: `staging/pilot/${digest.toString("hex")}` }],
+    source_assets: [{ name: "libxml2_1.2.3.dsc", sha256: "a".repeat(64), r2_key: `staging/pilot/source/${"a".repeat(64)}` }],
   };
   const bucket = new MemoryAssetBucket(release);
   const key = release.required_assets[0].r2_key;
@@ -344,6 +358,8 @@ test("sponsor publication starts an exact 168-hour clock only after every privat
     checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
     customMetadata: { releaseId: "pilot", assetName: "libxml2.deb" },
   });
+  const sourceDigest = Buffer.from("a".repeat(64), "hex");
+  bucket.assets.set(release.source_assets[0].r2_key, { size: 1, checksums: { sha256: sourceDigest.buffer.slice(sourceDigest.byteOffset, sourceDigest.byteOffset + sourceDigest.byteLength) }, customMetadata: { releaseId: "pilot", assetName: "libxml2_1.2.3.dsc", assetKind: "source" } });
   const started = new Date("2026-10-25T16:00:00.000Z");
   const result = await beginSponsorPublication(new Request("https://worker.test/internal/releases/pilot/publish-sponsor", {
     method: "POST", headers: { authorization: "Bearer admin-secret" },
@@ -392,6 +408,38 @@ test("private early asset route requires a fresh sponsor entitlement and serves 
   assert.equal(await response.text(), "private-package");
   assert.equal(response.headers.get("cache-control"), "private, no-store");
   assert.equal(response.headers.get("vary"), "Authorization");
+  assert.equal(response.headers.get("accept-ranges"), "bytes");
+  const anonymousRange = await gateway.fetch(new Request(url, { headers: { range: "bytes=0-1" } }), { RELEASES: bucket });
+  assert.equal(anonymousRange.status, 401);
+  const ranged = await gateway.fetch(new Request(url, {
+    headers: { authorization: `Basic ${btoa(`apt:${token}`)}`, range: "bytes=2-6" },
+  }), { RELEASES: bucket });
+  assert.equal(ranged.status, 206);
+  assert.equal(ranged.headers.get("content-range"), "bytes 2-6/15");
+  assert.equal(ranged.headers.get("content-length"), "5");
+  assert.equal(await ranged.text(), "ivate");
+  const ifRangeMismatch = await gateway.fetch(new Request(url, {
+    headers: { authorization: `Basic ${btoa(`apt:${token}`)}`, range: "bytes=2-6", "if-range": '"stale-etag"' },
+  }), { RELEASES: bucket });
+  assert.equal(ifRangeMismatch.status, 200);
+  assert.equal(await ifRangeMismatch.text(), "private-package");
+  const suffix = await gateway.fetch(new Request(url, {
+    headers: { authorization: `Basic ${btoa(`apt:${token}`)}`, range: "bytes=-4" },
+  }), { RELEASES: bucket });
+  assert.equal(suffix.status, 206);
+  assert.equal(suffix.headers.get("content-range"), "bytes 11-14/15");
+  assert.equal(await suffix.text(), "kage");
+  const unsatisfiable = await gateway.fetch(new Request(url, {
+    headers: { authorization: `Basic ${btoa(`apt:${token}`)}`, range: "bytes=15-" },
+  }), { RELEASES: bucket });
+  assert.equal(unsatisfiable.status, 416);
+  assert.equal(unsatisfiable.headers.get("content-range"), "bytes */15");
+  const head = await gateway.fetch(new Request(url, {
+    method: "HEAD", headers: { authorization: `Basic ${btoa(`apt:${token}`)}` },
+  }), { RELEASES: bucket });
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get("content-length"), "15");
+  assert.equal(await head.text(), "");
   const stale = await bucket.get("sponsor-entitlements/current.json");
   const staleRecord = await stale.json();
   bucket.entries.set("sponsor-entitlements/current.json", {
@@ -400,6 +448,28 @@ test("private early asset route requires a fresh sponsor entitlement and serves 
   assert.equal((await gateway.fetch(new Request(url, {
     headers: { authorization: `Basic ${btoa(`apt:${token}`)}` },
   }), { RELEASES: bucket })).status, 401);
+});
+
+test("early package URLs continue anonymously through the immutable public release after promotion", async () => {
+  const record = {
+    id: "libxml2-1-2-3", state: "public", repository: "apt-to/packaging-libxml2", tag: "aptto/1.2.3",
+    public_release_id: 901, sponsor_delay_hours: 168,
+    required_assets: [{ name: "libxml2_1.2.3_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/release/${"a".repeat(64)}` }],
+  };
+  const bucket = new MemoryBucket({ "release-state/libxml2-1-2-3.json": record });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "https://api.github.com/repos/apt-to/packaging-libxml2/releases/901/assets");
+    return Response.json([{ name: "libxml2_1.2.3_amd64.deb", browser_download_url: "https://github.com/apt-to/packaging-libxml2/releases/download/aptto/1.2.3/libxml2_1.2.3_amd64.deb" }]);
+  };
+  try {
+    const response = await gateway.fetch(new Request("https://early.apt.to/early/releases/libxml2-1-2-3/assets/libxml2_1.2.3_amd64.deb"), {
+      RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only",
+    });
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get("location"), "https://github.com/apt-to/packaging-libxml2/releases/download/aptto/1.2.3/libxml2_1.2.3_amd64.deb");
+    assert.equal(response.headers.get("cache-control"), "public, max-age=300");
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test("GitHub OAuth login issues hashed per-device APT credentials that can be listed and revoked", async () => {
@@ -700,4 +770,92 @@ test("seven-day releases remain blocked until private sponsor serving exists", a
   });
   await assert.rejects(publishOne({ RELEASES: bucket }, "release-state/pilot.json", new Date()), /sponsor authentication and private serving/);
   assert.equal((await (await bucket.get("release-state/pilot.json")).json()).state, "prepared");
+});
+
+test("zero-hour package publication is authenticated and completes synchronously", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: "immediate-release-test", use: "sig", alg: "RS256" };
+  const bytes = Buffer.from("public package bytes");
+  const digest = createHash("sha256").update(bytes).digest();
+  const release = {
+    id: "pilot", state: "prepared", repository: "apt-to/packaging-libarchive", tag: "aptto/1.2.3",
+    source_commit: "b".repeat(40), staging_run_id: 40210000000, sponsor_delay_hours: 0, release_checks_passed: true,
+    required_assets: [{ name: "libarchive.deb", sha256: digest.toString("hex"), r2_key: `staging/pilot/${digest.toString("hex")}` }],
+    source_assets: [{ name: "libarchive_1.2.3.dsc", sha256: createHash("sha256").update("source").digest("hex"), r2_key: `staging/pilot/source/${createHash("sha256").update("source").digest("hex")}` }],
+  };
+  const bucket = new MemoryAssetBucket(release);
+  bucket.assets.set(release.required_assets[0].r2_key, {
+    size: bytes.length,
+    checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
+    customMetadata: { releaseId: "pilot", assetName: "libarchive.deb" },
+    httpMetadata: { contentType: "application/vnd.debian.binary-package" },
+    bytes,
+  });
+  const sourceDigest = createHash("sha256").update("source").digest();
+  bucket.assets.set(release.source_assets[0].r2_key, { size: 1, checksums: { sha256: sourceDigest.buffer.slice(sourceDigest.byteOffset, sourceDigest.byteOffset + sourceDigest.byteLength) }, customMetadata: { releaseId: "pilot", assetName: "libarchive_1.2.3.dsc", assetKind: "source" }, bytes: Buffer.from("source") });
+  const publishedAssets = new Map();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    const target = new URL(String(url));
+    if (target.pathname === "/.well-known/jwks") return Response.json({ keys: [jwk] });
+    if (target.pathname.endsWith("/git/ref/tags/aptto/1.2.3")) {
+      return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
+    }
+    if (target.pathname.includes("/git/tags/")) {
+      return Response.json({ verification: { verified: true }, object: { type: "commit", sha: "b".repeat(40) } });
+    }
+    if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
+    if (target.pathname.endsWith("/releases/tags/aptto%2F1.2.3")) return new Response("not found", { status: 404 });
+    if (target.pathname.endsWith("/releases/tags/aptto-source%2F1.2.3")) return new Response("not found", { status: 404 });
+    if (target.pathname.includes("/releases/tags/")) return new Response("not found", { status: 404 });
+    if (target.hostname === "uploads.github.com") {
+      const name = target.searchParams.get("name");
+      publishedAssets.set(name, Buffer.from(await new Response(options.body).arrayBuffer()));
+      return Response.json({ name }, { status: 201 });
+    }
+    if (target.pathname.endsWith("/releases/901/assets")) {
+      return Response.json([...publishedAssets].map(([name]) => ({ name, url: `https://api.github.com/assets/${name}` })));
+    }
+    if (target.pathname.endsWith("/releases/901")) return Response.json({ id: 901, tag_name: "aptto-source/1.2.3", draft: false, immutable: true, assets: [...publishedAssets.keys()].map((name) => ({ name })) });
+    if (target.pathname.startsWith("/assets/")) {
+      const asset = publishedAssets.get(decodeURIComponent(target.pathname.slice("/assets/".length)));
+      return asset ? new Response(asset) : new Response("missing", { status: 404 });
+    }
+    if (target.pathname.endsWith("/immutable-releases")) return Response.json({ enabled: true });
+    if (target.pathname.endsWith("/releases/901") && options.method === "PATCH") {
+      return Response.json({ id: 901, tag_name: "aptto/1.2.3", draft: false, immutable: true, assets: [...publishedAssets.keys()].map((name) => ({ name })) });
+    }
+    if (target.pathname.endsWith("/releases") && options.method === "POST") {
+      return Response.json({
+        id: 901, tag_name: JSON.parse(options.body).tag_name, draft: true, assets: [], owner: { login: "apt-to" }, name: "packaging-libarchive",
+        upload_url: "https://uploads.github.com/repos/apt-to/packaging-libarchive/releases/901/assets{?name,label}",
+      });
+    }
+    return Response.json({});
+  };
+  try {
+    const url = "https://apt.to/internal/releases/pilot/publish-now";
+    assert.equal((await gateway.fetch(new Request(url, { method: "POST" }), { RELEASES: bucket })).status, 401);
+    const token = signedOidcToken(privateKey, {}, privateKey, "immediate-release-test");
+    const sourceResponse = await gateway.fetch(new Request("https://apt.to/internal/releases/pilot/publish-sources", {
+      method: "POST", headers: { authorization: `Bearer ${token}` },
+    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" });
+    assert.equal(sourceResponse.status, 200, await sourceResponse.clone().text());
+    const response = await gateway.fetch(new Request(url, {
+      method: "POST", headers: { authorization: `Bearer ${token}` },
+    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" });
+    assert.equal(response.status, 200, await response.clone().text());
+    const saved = await (await bucket.get("release-state/pilot.json")).json();
+    assert.deepEqual(await response.json(), { id: "pilot", state: "public", source_release_tag: "aptto-source/1.2.3", public_published_at: saved.public_published_at });
+    assert.deepEqual(publishedAssets.get("libarchive.deb"), bytes);
+    assert.equal(saved.state, "public");
+
+    const gatedRecord = { ...release, sponsor_delay_hours: 168, required_assets: [] };
+    const gatedBucket = new MemoryAssetBucket(gatedRecord);
+    const gatedResponse = await gateway.fetch(new Request("https://apt.to/internal/releases/pilot/publish-now", {
+      method: "POST", headers: { authorization: `Bearer ${token}` },
+    }), { RELEASES: gatedBucket });
+    assert.equal(gatedResponse.status, 409);
+    assert.equal((await (await gatedBucket.get("release-state/pilot.json")).json()).state, "prepared");
+  } finally { globalThis.fetch = originalFetch; }
 });

@@ -19,8 +19,17 @@ class ReleaseCandidateOutput(unittest.TestCase):
             output = root / "output"
             build.mkdir()
             output.mkdir()
+            source = output / "source"
+            source.mkdir()
             binary = build / "libarchive13_3.4.0-2ubuntu1.5+aptto1_amd64.deb"
             binary.write_bytes(b"verified package bytes")
+            source_files = {
+                "libarchive_3.4.0-2ubuntu1.5+aptto1.dsc": b"source descriptor",
+                "libarchive_3.4.0-2ubuntu1.5+aptto1.orig.tar.xz": b"upstream source",
+                "libarchive_3.4.0-2ubuntu1.5+aptto1.debian.tar.xz": b"debian source",
+            }
+            for name, content in source_files.items():
+                (source / name).write_bytes(content)
             digest = BUILD_PACKAGE.sha256(binary)
             manifest = {"packages": [{
                 "name": binary.name,
@@ -37,6 +46,11 @@ class ReleaseCandidateOutput(unittest.TestCase):
             report = json.loads((output / "release-candidates.json").read_text())
             self.assertEqual(report["publication"], "not published; runner-local candidates for a protected staging job")
             self.assertEqual(report["sourceCommit"], "a" * 40)
+            self.assertEqual(report["sourceFiles"], [{
+                "name": name,
+                "bytes": len(content),
+                "sha256": BUILD_PACKAGE.sha256(source / name),
+            } for name, content in sorted(source_files.items())])
             self.assertEqual(report["packages"], [{
                 "name": binary.name,
                 "package": "libarchive13",
@@ -53,6 +67,9 @@ class ReleaseCandidateOutput(unittest.TestCase):
             output = root / "output"
             build.mkdir()
             output.mkdir()
+            source = output / "source"
+            source.mkdir()
+            (source / "libxml2_2.9.10+aptto1.dsc").write_bytes(b"descriptor")
             binary = build / "libxml2_2.9.10+aptto1_amd64.deb"
             binary.write_bytes(b"tampered package")
             manifest = {"packages": [{

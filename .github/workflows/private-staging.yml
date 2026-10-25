@@ -38,7 +38,10 @@ jobs:
           source_commit="${BASH_REMATCH[2]}"
           mkdir -p "$RUNNER_TEMP/candidate"
           gh run download "$RUN_ID" --repo apt-to/platform --name "verification-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate"
+          mkdir -p "$RUNNER_TEMP/candidate/source"
+          gh run download "$RUN_ID" --repo apt-to/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"
           test -s "$RUNNER_TEMP/candidate/release-candidates.json"
+          find "$RUNNER_TEMP/candidate/source" -maxdepth 1 -type f -name '*.dsc' -print -quit | grep -q .
           printf '%s\n' "$package" > "$RUNNER_TEMP/candidate/package-name"
           printf '%s\n' "$source_commit" > "$RUNNER_TEMP/candidate/source-commit"
       - name: Check out trusted platform build tooling
@@ -70,4 +73,5 @@ jobs:
           VERIFICATION_RUN_ID: ${{ github.event.workflow_run.id }}
           CANDIDATE_MANIFEST: ${{ runner.temp }}/candidate/release-candidates.json
           BINARY_DIRECTORY: ${{ github.workspace }}/build/recheck/binary
+          SOURCE_DIRECTORY: ${{ runner.temp }}/candidate/source
         run: python3 scripts/stage-release.py

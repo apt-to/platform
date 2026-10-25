@@ -53,32 +53,14 @@ def main():
         shutil.copyfile(source, pool / source.name)
 
     dist = repo / "dists/focal"
-    binary_index = dist / "main/binary-amd64"
-    source_index = dist / "main/source"
-    binary_index.mkdir(parents=True)
-    source_index.mkdir(parents=True)
     (args.work / "repo-index.sh").write_text("""#!/bin/bash
 set -euo pipefail
-cd /repo
-dpkg-scanpackages --arch amd64 pool /dev/null > dists/focal/main/binary-amd64/Packages
-apt-ftparchive sources pool > dists/focal/main/source/Sources
-for index in dists/focal/main/binary-amd64/Packages dists/focal/main/source/Sources; do
-  gzip -n -9 -c "$index" > "$index.gz"
-  xz -T1 -9 -c "$index" > "$index.xz"
-done
-apt-ftparchive \\
-  -o APT::FTPArchive::Release::Origin=AptTo \\
-  -o APT::FTPArchive::Release::Label=apt.to \\
-  -o APT::FTPArchive::Release::Suite=focal \\
-  -o APT::FTPArchive::Release::Codename=focal \\
-  -o APT::FTPArchive::Release::Architectures=amd64 \\
-  -o APT::FTPArchive::Release::Components=main \\
-  -o APT::FTPArchive::Release::Description='AptTo focal amd64 test archive' \\
-  release dists/focal > dists/focal/Release
+python3 /generate-apt-index.py --repo /repo --suite focal --architecture amd64 --component main --description 'AptTo focal amd64 test archive'
 """)
     run(["docker", "run", "--rm", "--platform", "linux/amd64", "--user", f"{os.getuid()}:{os.getgid()}",
          "--mount", f"type=bind,source={repo},target=/repo",
          "--mount", f"type=bind,source={args.work / 'repo-index.sh'},target=/repo-index.sh,readonly",
+         "--mount", f"type=bind,source={Path(__file__).resolve().parent / 'generate-apt-index.py'},target=/generate-apt-index.py,readonly",
          "--entrypoint", "bash", args.builder_image, "/repo-index.sh"])
 
     key_home = args.work / "test-keyring"
@@ -95,46 +77,6 @@ apt-ftparchive \\
     text = release.read_text()
     if "Architectures: amd64\n" not in text or "SHA256:\n" not in text:
         raise RuntimeError("APT Release metadata is missing required architecture or SHA-256 fields")
-    # apt-ftparchive includes Release in its own checksum list. Validate its
-    # original hash before adding AptTo's repository option, then regenerate
-    # the final checksum list so every entry refers to the exact signed bytes.
-    in_sha256 = False
-    for line in text.splitlines():
-        if line == "SHA256:":
-            in_sha256 = True
-            continue
-        if in_sha256 and line and not line[0].isspace():
-            break
-        if in_sha256 and line.strip():
-            expected_hash, expected_size, relative = line.split()
-            # Release cannot contain its own final digest. apt-ftparchive's
-            # self-entry is necessarily stale as soon as the file is written.
-            if relative == "Release":
-                continue
-            indexed_file = dist / relative
-            if indexed_file.stat().st_size != int(expected_size) or hashlib.sha256(indexed_file.read_bytes()).hexdigest() != expected_hash:
-                raise RuntimeError("APT Release checksum mismatch for " + relative)
-    if not in_sha256:
-        raise RuntimeError("APT Release SHA-256 index list is missing")
-    text = text.replace("Architectures: amd64\n", "Architectures: amd64\nAcquire-By-Hash: yes\n")
-    release.write_text(text)
-    lines = release.read_text().splitlines()
-    rebuilt = []
-    in_sha256 = False
-    for line in lines:
-        if line == "SHA256:":
-            in_sha256 = True
-            rebuilt.append(line)
-            continue
-        if in_sha256 and line and not line[0].isspace():
-            in_sha256 = False
-        if in_sha256 and line.strip():
-            continue
-        rebuilt.append(line)
-    for relative in sorted(p.relative_to(dist).as_posix() for p in dist.rglob("*") if p.is_file() and p.name != "Release"):
-        path = dist / relative
-        rebuilt.append(f" {hashlib.sha256(path.read_bytes()).hexdigest()} {path.stat().st_size} {relative}")
-    release.write_text("\n".join(rebuilt) + "\n")
     run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256", "--clearsign",
          "--output", str(dist / "InRelease"), str(release)], env=env)
     run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256", "--armor", "--detach-sign",
@@ -145,23 +87,6 @@ apt-ftparchive \\
     run(["gpg", "--batch", "--import", str(public_key)], env=verify_env, stdout=subprocess.DEVNULL)
     run(["gpg", "--batch", "--verify", str(dist / "InRelease")], env=verify_env, stdout=subprocess.DEVNULL)
     run(["gpg", "--batch", "--verify", str(dist / "Release.gpg"), str(release)], env=verify_env, stdout=subprocess.DEVNULL)
-
-    # Keep immutable by-hash paths for every generated compressed and plain index.
-    sha_lines = False
-    for line in release.read_text().splitlines():
-        if line == "SHA256:":
-            sha_lines = True
-            continue
-        if sha_lines and line and not line[0].isspace():
-            break
-        if sha_lines and line.strip():
-            digest, _size, relative = line.split()
-            index_path = dist / relative
-            by_hash = index_path.parent / "by-hash/SHA256" / digest
-            by_hash.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(index_path, by_hash)
-            if by_hash.read_bytes() != index_path.read_bytes():
-                raise RuntimeError("by-hash copy verification failed for " + relative)
 
     client_context = args.work / "apt-client-context"
     shutil.copytree(repo, client_context / "repo")
