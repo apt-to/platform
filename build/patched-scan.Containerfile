@@ -4,6 +4,7 @@ FROM ${TRUST_IMAGE} AS trust
 FROM ${BASE_IMAGE}
 COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG SOURCE_PACKAGE
+ARG BASELINE_VERSION
 ARG EXPECTED_VERSION
 ARG ARCHIVE_SNAPSHOT
 ARG BINARY_PACKAGES
@@ -23,7 +24,7 @@ RUN set -eu; \
     esac; \
     for binary in $binaries; do \
       candidate="$(apt-cache policy "$binary" | awk '/Candidate:/ {print $2}')"; \
-      test "$candidate" = "$EXPECTED_VERSION" || { echo "Baseline candidate changed for $binary: $candidate" >&2; exit 1; }; \
+      test "$candidate" = "$BASELINE_VERSION" || { echo "Baseline candidate changed for $binary: $candidate" >&2; exit 1; }; \
     done; \
     for binary in $binaries; do apt-get install -y --no-install-recommends "$binary=$EXPECTED_VERSION"; done
 COPY aptto/ /tmp/aptto/

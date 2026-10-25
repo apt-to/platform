@@ -124,6 +124,7 @@ def main():
                 "--build-arg", "BASE_IMAGE=" + config["baseImage"],
                 "--build-arg", "TRUST_IMAGE=" + config["scannerImage"],
                 "--build-arg", "SOURCE_PACKAGE=" + package,
+                "--build-arg", "BASELINE_VERSION=" + policy["baseVersion"],
                 "--build-arg", "EXPECTED_VERSION=" + policy["version"],
                 "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
                 "--build-arg", "BINARY_PACKAGES=" + " ".join(expected["binaryPackages"]),
