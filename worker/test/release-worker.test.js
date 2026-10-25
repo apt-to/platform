@@ -204,6 +204,12 @@ class MemoryAssetBucket extends MemoryBucket {
     };
     return super.get(key);
   }
+  async delete(keys) {
+    for (const key of Array.isArray(keys) ? keys : [keys]) {
+      this.assets.delete(key);
+      this.entries.delete(key);
+    }
+  }
 }
 
 class MemorySponsorBucket extends MemoryBucket {
@@ -251,6 +257,15 @@ class MemorySnapshotBucket extends MemoryBucket {
     return object;
   }
   async head(key) { return this.blobs.get(key) || null; }
+  async list({ prefix = "", cursor, limit = 1000, delimiter } = {}) {
+    const objectKeys = new Set([...this.entries.keys(), ...this.blobs.keys()]);
+    let keys = [...objectKeys].filter((key) => key.startsWith(prefix) &&
+      (!delimiter || !key.slice(prefix.length).includes(delimiter)) && (!cursor || key > cursor)).sort();
+    const pageSize = Math.min(limit, this.listPageSize || limit);
+    const truncated = keys.length > pageSize;
+    keys = keys.slice(0, pageSize);
+    return { objects: keys.map((key) => ({ key })), truncated, ...(truncated ? { cursor: keys.at(-1) } : {}) };
+  }
   async get(key) {
     const object = this.blobs.get(key);
     if (!object) return super.get(key);
@@ -260,7 +275,12 @@ class MemorySnapshotBucket extends MemoryBucket {
       arrayBuffer: async () => object.bytes.buffer.slice(object.bytes.byteOffset, object.bytes.byteOffset + object.bytes.byteLength),
     };
   }
-  async delete(key) { this.blobs.delete(key); this.entries.delete(key); }
+  async delete(keys) {
+    for (const key of Array.isArray(keys) ? keys : [keys]) {
+      this.blobs.delete(key);
+      this.entries.delete(key);
+    }
+  }
 }
 
 test("R2 state update uses conditional writes and retries a concurrent conflict", async () => {
@@ -735,6 +755,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     assert.equal(stagingActivation.status, 401, "the artifact staging workflow cannot activate repository metadata");
     const activated = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
     assert.equal(activated.status, 201);
+    assert.deepEqual(bucket.entries.get("repository-history/public.json").value.snapshot_ids, [firstId]);
     const inventoryAfterActivation = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/public/releases", { headers: { authorization: builderAuthorization } }), env);
     assert.equal(inventoryAfterActivation.status, 200);
     assert.deepEqual((await inventoryAfterActivation.json()).active_snapshot, { id: firstId, release_ids: ["pilot"], healthy: true });
@@ -758,10 +779,12 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     const secondActivation = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${secondId}/activate`, "POST", "{}"), env);
     assert.equal(secondActivation.status, 201);
     assert.equal(bucket.entries.get("repository-current/public.json").value.id, secondId);
+    assert.deepEqual(bucket.entries.get("repository-history/public.json").value.snapshot_ids, [secondId, firstId]);
     const rollback = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
     assert.equal(rollback.status, 201);
     assert.equal((await rollback.json()).id, firstId);
     assert.equal(bucket.entries.get("repository-current/public.json").value.id, firstId);
+    assert.deepEqual(bucket.entries.get("repository-history/public.json").value.snapshot_ids, [firstId, secondId]);
     const restored = await gateway.fetch(new Request("https://repo.apt.to/dists/focal/InRelease"), env);
     assert.equal(await restored.text(), contents.get("dists/focal/InRelease"));
 
@@ -772,17 +795,120 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     assert.equal(privateIndex.headers.get("cache-control"), "private, no-store");
     assert.equal((await gateway.fetch(new Request("https://repo.apt.to/dists/focal/unknown"), env)).status, 404);
 
-    const earlyRegistration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/early", "POST", JSON.stringify({ id: "focal-early-001", release_ids: ["gated"], files })), env);
+    const expiredEarlyId = "focal-20261025T120200-r103-early";
+    const earlyRegistration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/early", "POST", JSON.stringify({ id: expiredEarlyId, release_ids: ["gated"], files })), env);
     assert.equal(earlyRegistration.status, 201);
     for (const [path, content] of contents) {
-      const result = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/early/focal-early-001/files/${path}`, "PUT", content), env);
+      const result = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/early/${expiredEarlyId}/files/${path}`, "PUT", content), env);
       assert.equal(result.status, 201, path);
     }
     const expiredRelease = bucket.entries.get("release-state/gated.json");
     expiredRelease.value.public_after = new Date(Date.now() - 1000).toISOString();
     bucket.entries.set("release-state/gated.json", expiredRelease);
-    const expiredActivation = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/early/focal-early-001/activate", "POST", "{}"), env);
+    const expiredActivation = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/early/${expiredEarlyId}/activate`, "POST", "{}"), env);
     assert.equal(expiredActivation.status, 409, "an early snapshot cannot activate after a gated release reaches its public deadline");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("protected retention keeps the active snapshot and five rollback snapshots while deleting older objects", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const keyId = "snapshot-retention-test";
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  const claims = {
+    workflow_ref: "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
+    event_name: "schedule", environment: "aptto-signing",
+  };
+  const signerAuthorization = `Bearer ${signedOidcToken(privateKey, claims, privateKey, keyId)}`;
+  const bucket = new MemorySnapshotBucket({ "release-state/pilot.json": {
+    id: "pilot", state: "public", repository: "apt-to/packaging-libarchive", tag: "aptto/1.2.3",
+    source_commit: "b".repeat(40), sponsor_delay_hours: 0, release_checks_passed: true,
+    required_assets: [{ name: "libarchive.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
+  } });
+  bucket.listPageSize = 2;
+  const paths = [
+    "dists/focal/Release", "dists/focal/InRelease", "dists/focal/Release.gpg",
+    "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
+    "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
+    "aptto-archive-keyring.gpg",
+  ];
+  const files = paths.map((path) => ({ path, size: 1, sha256: createHash("sha256").update("x").digest("hex") }));
+  const ids = Array.from({ length: 8 }, (_, index) => `focal-202610${String(17 + index).padStart(2, "0")}T000000-r${100 + index}-public`);
+  ids.forEach((id, index) => {
+    bucket.entries.set(`repository-snapshots/public/${id}.json`, {
+      value: { id, channel: "public", suite: "focal", architecture: "amd64", release_ids: ["pilot"], files, created_at: new Date(Date.UTC(2026, 9, 17 + index)).toISOString() },
+      etag: `snapshot-${index}`,
+    });
+    for (const file of files) {
+      const digest = createHash("sha256").update("x").digest();
+      bucket.blobs.set(`repository-snapshots/public/${id}/${file.path}`, {
+        bytes: Buffer.from("x"), size: 1, checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
+        customMetadata: { snapshotId: id, channel: "public", path: file.path },
+      });
+    }
+  });
+  bucket.entries.set("repository-history/public.json", {
+    value: { channel: "public", snapshot_ids: [ids[0], ids[7], ids[6], ids[5], ids[4], ids[3]], updated_at: "2026-10-24T00:00:00.000Z" },
+    etag: "snapshot-history",
+  });
+  const buildFiles = [
+    "dists/focal/Release", "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz",
+    "dists/focal/main/binary-amd64/Packages.xz", "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz",
+    "dists/focal/main/source/Sources.xz",
+  ].map((path) => ({ path, size: 1, sha256: createHash("sha256").update("x").digest("hex") }));
+  const staleBuildId = "focal-20261024T000000-r200-public";
+  const freshBuildId = "focal-20261025T000000-r201-public";
+  for (const [id, createdAt] of [[staleBuildId, "2026-10-23T00:00:00.000Z"], [freshBuildId, "2026-10-25T00:00:00.000Z"]]) {
+    bucket.entries.set(`repository-snapshot-builds/public/${id}.json`, {
+      value: { id, channel: "public", release_ids: ["pilot"], files: buildFiles, created_at: createdAt },
+      etag: `build-${id}`,
+    });
+    for (const file of buildFiles) bucket.blobs.set(`repository-snapshot-builds/public/${id}/${file.path}`, { bytes: Buffer.from("x") });
+  }
+  bucket.entries.set("repository-current/public.json", { value: { id: ids[0], channel: "public" }, etag: "active" });
+  const env = { RELEASES: bucket };
+  try {
+    const unauthorized = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/retention", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channels: ["public"] }),
+    }), env);
+    assert.equal(unauthorized.status, 401, "only the protected signing workflow may prune immutable snapshots");
+    const activeObject = bucket.blobs.get(`repository-snapshots/public/${ids[0]}/${files[0].path}`);
+    activeObject.customMetadata.path = "tampered";
+    const refused = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/retention", {
+      method: "POST", headers: { authorization: signerAuthorization, "content-type": "application/json" }, body: JSON.stringify({ channels: ["public"] }),
+    }), env);
+    assert.equal(refused.status, 503, "a damaged active snapshot stops all retention deletes");
+    assert.equal(bucket.entries.has(`repository-snapshots/public/${ids[1]}.json`), true);
+    activeObject.customMetadata.path = files[0].path;
+    const retained = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/retention", {
+      method: "POST", headers: { authorization: signerAuthorization, "content-type": "application/json" }, body: JSON.stringify({ channels: ["public"] }),
+    }), env);
+    assert.equal(retained.status, 200, await retained.clone().text());
+    const result = await retained.json();
+    assert.equal(result.channels.public.deleted_snapshots, 2);
+    assert.equal(result.channels.public.deleted_builds, 1);
+    assert.equal(bucket.entries.has(`repository-snapshot-builds/public/${staleBuildId}.json`), false, "stale unsigned build manifests are pruned");
+    assert.equal(bucket.blobs.has(`repository-snapshot-builds/public/${staleBuildId}/${buildFiles[0].path}`), false);
+    assert.equal(bucket.entries.has(`repository-snapshot-builds/public/${freshBuildId}.json`), true, "the newest build is retained during its recovery window");
+    assert.equal(bucket.entries.has(`repository-snapshots/public/${ids[0]}.json`), true, "the active snapshot remains even when old");
+    assert.equal(bucket.entries.has(`repository-snapshots/public/${ids[1]}.json`), false);
+    assert.equal(bucket.entries.has(`repository-snapshots/public/${ids[2]}.json`), false);
+    for (const id of ids.slice(3)) assert.equal(bucket.entries.has(`repository-snapshots/public/${id}.json`), true, "the five newest non-active rollback snapshots remain");
+    assert.equal(bucket.blobs.has(`repository-snapshots/public/${ids[1]}/${files[0].path}`), false, "pruning removes old immutable snapshot bytes");
+
+    const historical = bucket.entries.get(`repository-snapshots/public/${ids[7]}.json`);
+    historical.value.release_ids = ["withdrawn-release"];
+    bucket.entries.set(`repository-snapshots/public/${ids[7]}.json`, historical);
+    const afterRevocation = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/retention", {
+      method: "POST", headers: { authorization: signerAuthorization, "content-type": "application/json" }, body: JSON.stringify({ channels: ["public"] }),
+    }), env);
+    assert.equal(afterRevocation.status, 200, await afterRevocation.clone().text());
+    const pruned = await afterRevocation.json();
+    assert.equal(pruned.channels.public.retained_snapshots, 5, "a history entry whose referenced release is missing is removed from the rollback set");
+    assert.equal(pruned.channels.public.deleted_snapshots, 1);
+    assert.equal(bucket.entries.has(`repository-snapshots/public/${ids[7]}.json`), false);
+    assert.equal(bucket.blobs.has(`repository-snapshots/public/${ids[7]}/${files[0].path}`), false, "payload is removed before its manifest");
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -1118,6 +1244,56 @@ test("public state audits fail closed if GitHub reports a mutable release", asyn
   }
 });
 
+test("public release staging copies remain for 30 days and are deleted after an immutable GitHub audit", async () => {
+  const binaryBytes = Buffer.from("published binary");
+  const sourceBytes = Buffer.from("published source");
+  const binaryHash = createHash("sha256").update(binaryBytes).digest("hex");
+  const sourceHash = createHash("sha256").update(sourceBytes).digest("hex");
+  const record = {
+    id: "pilot", state: "public", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
+    source_commit: "b".repeat(40), public_release_id: 901, source_release_id: 902,
+    source_release_tag: "aptto-source/2.9.10-aptto1", sponsor_delay_hours: 168,
+    public_published_at: "2026-01-01T00:00:00.000Z", staging_cleanup_after: "2026-01-31T00:00:00.000Z",
+    required_assets: [{ name: "libxml2.deb", sha256: binaryHash, r2_key: `staging/pilot/${binaryHash}` }],
+    source_assets: [{ name: "libxml2.dsc", sha256: sourceHash, r2_key: `staging/pilot/source/${sourceHash}` }],
+    verified_assets: [{ name: "libxml2.deb", sha256: binaryHash, r2_key: `staging/pilot/${binaryHash}` }],
+  };
+  const bucket = new MemoryAssetBucket(record);
+  bucket.assets.set(record.required_assets[0].r2_key, { bytes: binaryBytes });
+  bucket.assets.set(record.source_assets[0].r2_key, { bytes: sourceBytes });
+  const originalFetch = globalThis.fetch;
+  let sourceTampered = false;
+  globalThis.fetch = async (url) => {
+    const target = new URL(String(url));
+    if (target.pathname.includes("/git/ref/tags/")) return Response.json({ ref: "refs/tags/aptto/2.9.10-aptto1", object: { type: "tag", sha: "d".repeat(40) } });
+    if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
+      __typename: "Tag", oid: "d".repeat(40), name: "aptto/2.9.10-aptto1", tagger: { email: "releases@apt.to", user: { login: TEST_RELEASE_TAG_SIGNER } },
+    } } } });
+    if (target.pathname.includes("/git/tags/")) return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@apt.to" }, object: { type: "commit", sha: record.source_commit } });
+    if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: record.source_commit } });
+    if (target.pathname.endsWith("/releases/901")) return Response.json({ id: 901, tag_name: record.tag, draft: false, immutable: true, assets: [{ name: "libxml2.deb" }] });
+    if (target.pathname.endsWith("/releases/902")) return Response.json({ id: 902, tag_name: record.source_release_tag, draft: false, immutable: true, assets: [{ name: "libxml2.dsc" }] });
+    if (target.pathname.endsWith("/releases/901/assets")) return Response.json([{ name: "libxml2.deb", url: "https://api.github.com/assets/libxml2.deb" }]);
+    if (target.pathname.endsWith("/releases/902/assets")) return Response.json([{ name: "libxml2.dsc", url: "https://api.github.com/assets/libxml2.dsc" }]);
+    if (target.pathname === "/assets/libxml2.deb") return new Response(binaryBytes);
+    if (target.pathname === "/assets/libxml2.dsc") return new Response(sourceTampered ? Buffer.from("altered source") : sourceBytes);
+    return Response.json({});
+  };
+  try {
+    const env = { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER };
+    await publishOne(env, "release-state/pilot.json", new Date("2026-01-30T23:59:59.999Z"));
+    assert.equal(bucket.assets.has(record.required_assets[0].r2_key), true, "copies are still available immediately before the recovery deadline");
+    sourceTampered = true;
+    await assert.rejects(publishOne(env, "release-state/pilot.json", new Date("2026-01-31T00:00:00.000Z")), /source asset libxml2.dsc failed integrity audit/);
+    assert.equal(bucket.assets.has(record.required_assets[0].r2_key), true, "a failed public source audit preserves binary recovery data");
+    assert.equal(bucket.assets.has(record.source_assets[0].r2_key), true, "a failed public source audit preserves source recovery data");
+    sourceTampered = false;
+    await publishOne(env, "release-state/pilot.json", new Date("2026-01-31T00:00:00.000Z"));
+    assert.equal(bucket.assets.has(record.required_assets[0].r2_key), false, "binary copy is deleted at the documented deadline");
+    assert.equal(bucket.assets.has(record.source_assets[0].r2_key), false, "source copy is deleted after the public source asset audit");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("seven-day releases remain blocked until private sponsor serving exists", async () => {
   const bucket = new MemoryBucket({
     "release-state/pilot.json": {
@@ -1171,6 +1347,7 @@ test("scheduled reconciliation promotes a due sponsor release after missed runs"
     assert.equal(saved.state, "public");
     assert.equal(saved.public_release_id, 901);
     assert.equal(saved.public_published_at, "2026-10-10T12:00:00.000Z");
+    assert.equal(saved.staging_cleanup_after, "2026-11-09T12:00:00.000Z");
     assert.deepEqual(saved.verified_assets, [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }]);
   } finally { globalThis.fetch = originalFetch; }
 });

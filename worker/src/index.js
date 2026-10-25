@@ -3,6 +3,12 @@ const MAX_RETRIES = 5;
 const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
 const MAX_REGISTRATION_BYTES = 64 * 1024;
 const MAX_SNAPSHOT_FILES = 256;
+const SNAPSHOT_ROLLBACK_RETENTION = 5;
+const MAX_RETENTION_MANIFESTS = 10000;
+const SNAPSHOT_BUILD_RECOVERY_MS = 24 * 60 * 60 * 1000;
+const MAX_RETENTION_DELETIONS_PER_CHANNEL = 50;
+const PUBLIC_RELEASE_STAGING_RECOVERY_MS = 30 * 24 * 60 * 60 * 1000;
+const SNAPSHOT_ID_PATTERN = /^focal-([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})-r[0-9]{1,20}-(public|early)$/;
 const MAX_SNAPSHOT_BYTES = 128 * 1024 * 1024;
 const MAX_SPONSOR_WEBHOOK_BYTES = 256 * 1024;
 const SPONSOR_ENTITLEMENTS_KEY = "sponsor-entitlements/current.json";
@@ -245,6 +251,174 @@ async function activeSnapshotHealth(env, channel, activeId) {
   return { id: activeId, release_ids: snapshot.release_ids, healthy: true };
 }
 
+async function listRetentionManifests(bucket, prefix) {
+  const keys = [];
+  let cursor;
+  do {
+    const page = await bucket.list({ prefix, delimiter: "/", cursor, limit: 1000 });
+    if (!page || !Array.isArray(page.objects) || typeof page.truncated !== "boolean") throw new Error("R2 returned an invalid retention listing");
+    for (const object of page.objects) {
+      if (typeof object.key === "string" && object.key.endsWith(".json")) keys.push(object.key);
+    }
+    if (keys.length > MAX_RETENTION_MANIFESTS) throw new Error("retention manifest inventory exceeds its safety limit");
+    if (!page.truncated) break;
+    if (typeof page.cursor !== "string" || !page.cursor || page.cursor === cursor) throw new Error("R2 retention listing returned an invalid cursor");
+    cursor = page.cursor;
+  } while (cursor);
+  return keys;
+}
+
+async function deleteR2Prefix(bucket, prefix) {
+  const keys = [];
+  let cursor;
+  do {
+    const page = await bucket.list({ prefix, cursor, limit: 1000 });
+    if (!page || !Array.isArray(page.objects) || typeof page.truncated !== "boolean") throw new Error("R2 returned an invalid cleanup listing");
+    for (const object of page.objects) {
+      if (typeof object.key !== "string" || !object.key.startsWith(prefix)) throw new Error("R2 cleanup listing escaped its exact object prefix");
+      keys.push(object.key);
+    }
+    if (keys.length > 1000) throw new Error("cleanup object prefix exceeds the R2 delete batch safety limit");
+    if (!page.truncated) break;
+    if (typeof page.cursor !== "string" || !page.cursor || page.cursor === cursor) throw new Error("R2 cleanup listing returned an invalid cursor");
+    cursor = page.cursor;
+  } while (cursor);
+  if (keys.length) await bucket.delete(keys);
+  return keys.length;
+}
+
+async function deleteRepositorySnapshot(env, channel, id) {
+  const prefix = `repository-snapshots/${channel}/${id}/`;
+  const deletedFiles = await deleteR2Prefix(env.RELEASES, prefix);
+  await env.RELEASES.delete(snapshotKey(channel, id));
+  return deletedFiles + 1;
+}
+
+async function deleteRepositorySnapshotBuild(env, channel, id) {
+  const prefix = `repository-snapshot-builds/${channel}/${id}/`;
+  const deletedFiles = await deleteR2Prefix(env.RELEASES, prefix);
+  await env.RELEASES.delete(snapshotBuildKey(channel, id));
+  return deletedFiles + 1;
+}
+
+function snapshotTimestampFromId(id) {
+  const match = typeof id === "string" ? SNAPSHOT_ID_PATTERN.exec(id) : null;
+  if (!match) return null;
+  const value = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString() !== value.replace("Z", ".000Z")) return null;
+  return timestamp;
+}
+
+function validRetainedSnapshot(snapshot, channel, id) {
+  if (!snapshot || snapshot.id !== id || snapshot.channel !== channel || !Array.isArray(snapshot.release_ids) ||
+      !snapshot.release_ids.length || snapshot.release_ids.length > 32 || new Set(snapshot.release_ids).size !== snapshot.release_ids.length ||
+      snapshot.release_ids.some((releaseId) => typeof releaseId !== "string" || !/^[a-z0-9][a-z0-9-]{1,100}$/.test(releaseId))) return false;
+  try { canonicalSnapshotFiles(snapshot.files); } catch { return false; }
+  return true;
+}
+
+async function pruneRepositorySnapshotChannel(env, channel) {
+  const now = Date.now();
+  const pointer = (await readRecord(env.RELEASES, `repository-current/${channel}.json`))?.record;
+  const activeId = pointer?.id ?? null;
+  if (activeId !== null && (!SNAPSHOT_ID_PATTERN.test(activeId) || !activeId.endsWith(`-${channel}`))) {
+    throw new Error(`active ${channel} snapshot pointer is invalid`);
+  }
+  const manifestPrefix = `repository-snapshots/${channel}/`;
+  const manifestKeys = await listRetentionManifests(env.RELEASES, manifestPrefix);
+  const allIds = new Set();
+  for (const key of manifestKeys) {
+    const match = key.match(/^repository-snapshots\/(public|early)\/([A-Za-z0-9][A-Za-z0-9-]{2,79})\.json$/);
+    if (!match || match[1] !== channel) throw new Error("snapshot retention found an invalid manifest key");
+    allIds.add(match[2]);
+  }
+  if (activeId && !allIds.has(activeId)) throw new Error("active snapshot manifest is missing; retention stopped");
+
+  let activeSnapshot = null;
+  if (activeId) {
+    activeSnapshot = (await readRecord(env.RELEASES, snapshotKey(channel, activeId)))?.record;
+    if (!validRetainedSnapshot(activeSnapshot, channel, activeId)) throw new Error("active snapshot manifest is invalid; retention stopped");
+    if (await snapshotEligibilityError(env, channel, activeSnapshot.release_ids)) throw new Error("active snapshot is no longer eligible; retention stopped");
+    for (const file of canonicalSnapshotFiles(activeSnapshot.files)) {
+      const object = await env.RELEASES.head(`repository-snapshots/${channel}/${activeId}/${file.path}`);
+      if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256 ||
+          object.customMetadata?.snapshotId !== activeId || object.customMetadata?.channel !== channel || object.customMetadata?.path !== file.path) {
+        throw new Error("active snapshot failed readback; retention stopped");
+      }
+    }
+  }
+
+  const history = (await readRecord(env.RELEASES, snapshotHistoryKey(channel)))?.record;
+  if (history && (history.channel !== channel || !Array.isArray(history.snapshot_ids) || history.snapshot_ids.length > SNAPSHOT_ROLLBACK_RETENTION + 1 ||
+      new Set(history.snapshot_ids).size !== history.snapshot_ids.length || history.snapshot_ids.some((id) =>
+        !SNAPSHOT_ID_PATTERN.test(id) || !id.endsWith(`-${channel}`)))) {
+    throw new Error("repository snapshot activation history is invalid; retention stopped");
+  }
+  if (activeId) {
+    try { await recordSnapshotActivation(env, channel, activeId); }
+    catch { throw new Error("repository snapshot activation history could not be reconciled; retention stopped"); }
+  }
+  const updatedHistory = (await readRecord(env.RELEASES, snapshotHistoryKey(channel)))?.record;
+  const retainedIds = new Set(activeId ? [activeId] : []);
+  for (const id of updatedHistory?.snapshot_ids || []) {
+    if (id === activeId || !allIds.has(id)) continue;
+    const snapshot = (await readRecord(env.RELEASES, snapshotKey(channel, id)))?.record;
+    if (!validRetainedSnapshot(snapshot, channel, id) || await snapshotEligibilityError(env, channel, snapshot.release_ids)) continue;
+    retainedIds.add(id);
+  }
+
+  const candidates = [...allIds].filter((id) => !retainedIds.has(id)).sort();
+  const snapshotBatch = candidates.slice(0, MAX_RETENTION_DELETIONS_PER_CHANNEL);
+  let deletedObjects = 0;
+  for (const id of snapshotBatch) deletedObjects += await deleteRepositorySnapshot(env, channel, id);
+
+  const buildPrefix = `repository-snapshot-builds/${channel}/`;
+  const buildManifestKeys = await listRetentionManifests(env.RELEASES, buildPrefix);
+  const buildIds = [];
+  for (const key of buildManifestKeys) {
+    const match = key.match(/^repository-snapshot-builds\/(public|early)\/([A-Za-z0-9][A-Za-z0-9-]{2,79})\.json$/);
+    if (!match || match[1] !== channel) throw new Error("snapshot retention found an invalid build manifest key");
+    const timestamp = snapshotTimestampFromId(match[2]);
+    if (timestamp === null || timestamp > now + 5 * 60 * 1000) buildIds.push({ id: match[2], timestamp: null });
+    else buildIds.push({ id: match[2], timestamp });
+  }
+  buildIds.sort((a, b) => (b.timestamp ?? -1) - (a.timestamp ?? -1) || b.id.localeCompare(a.id));
+  const newestBuild = buildIds.find((build) => build.timestamp !== null && build.timestamp > now - SNAPSHOT_BUILD_RECOVERY_MS);
+  const expiredBuilds = buildIds.filter((build) => build !== newestBuild).sort((a, b) => (a.timestamp ?? -1) - (b.timestamp ?? -1) || a.id.localeCompare(b.id));
+  const buildBatch = expiredBuilds.slice(0, MAX_RETENTION_DELETIONS_PER_CHANNEL);
+  for (const build of buildBatch) deletedObjects += await deleteRepositorySnapshotBuild(env, channel, build.id);
+
+  return {
+    retained_snapshots: retainedIds.size,
+    deleted_snapshots: snapshotBatch.length,
+    pending_snapshots: candidates.length - snapshotBatch.length,
+    retained_builds: newestBuild ? 1 : 0,
+    deleted_builds: buildBatch.length,
+    pending_builds: expiredBuilds.length - buildBatch.length,
+    deleted_objects: deletedObjects,
+  };
+}
+
+async function pruneRepositorySnapshots(request, env) {
+  if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot signer identity required" }, 401);
+  if (!env.RELEASES) return json({ error: "release storage is unavailable" }, 503);
+  let body;
+  try { body = await readBoundedJson(request, 4096); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  if (!body || !Array.isArray(body.channels) || !body.channels.length || body.channels.length > 2 ||
+      new Set(body.channels).size !== body.channels.length || body.channels.some((channel) => !["public", "early"].includes(channel))) {
+    return json({ error: "retention requires unique public and/or early channels" }, 400);
+  }
+  const results = {};
+  try {
+    for (const channel of body.channels) results[channel] = await pruneRepositorySnapshotChannel(env, channel);
+  } catch (error) {
+    return json({ error: String(error.message || error) }, 503);
+  }
+  return json({ channels: results, rollback_snapshots_kept_per_channel: SNAPSHOT_ROLLBACK_RETENTION });
+}
+
 async function snapshotPublisherIdentity(request, env) {
   const identity = await githubActionsIdentity(request, env);
   if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-signing") return null;
@@ -424,6 +598,31 @@ async function discardRepositorySnapshotBuild(env, channel, id) {
   } catch { return false; }
 }
 
+function snapshotHistoryKey(channel) {
+  if (!["public", "early"].includes(channel)) throw new Error("invalid repository snapshot channel");
+  return `repository-history/${channel}.json`;
+}
+
+async function recordSnapshotActivation(env, channel, id, previousId = null) {
+  const key = snapshotHistoryKey(channel);
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
+    const loaded = await readRecord(env.RELEASES, key);
+    const previous = loaded?.record;
+    if (previous && (previous.channel !== channel || !Array.isArray(previous.snapshot_ids) || previous.snapshot_ids.length > SNAPSHOT_ROLLBACK_RETENTION + 1 ||
+        new Set(previous.snapshot_ids).size !== previous.snapshot_ids.length || previous.snapshot_ids.some((value) =>
+          typeof value !== "string" || !SNAPSHOT_ID_PATTERN.test(value) || value.endsWith(`-${channel}`) === false))) {
+      throw new Error("repository snapshot activation history is invalid");
+    }
+    const ordered = [id, previousId, ...(previous?.snapshot_ids || [])]
+      .filter(Boolean).filter((value, index, values) => values.indexOf(value) === index)
+      .slice(0, SNAPSHOT_ROLLBACK_RETENTION + 1);
+    const next = { channel, snapshot_ids: ordered, updated_at: new Date().toISOString() };
+    const saved = await writeRecord(env.RELEASES, key, next, loaded?.etag || null);
+    if (saved) return next;
+  }
+  throw new Error("repository snapshot activation history changed concurrently; retry activation");
+}
+
 async function registerRepositorySnapshot(request, env, channel) {
   if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot workflow identity required" }, 401);
   let body;
@@ -486,6 +685,8 @@ async function uploadRepositorySnapshotFile(request, env, channel, id, encodedPa
 
 async function activateRepositorySnapshot(request, env, channel, id) {
   if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot workflow identity required" }, 401);
+  const snapshotIdMatch = typeof id === "string" ? SNAPSHOT_ID_PATTERN.exec(id) : null;
+  if (!snapshotIdMatch || snapshotIdMatch[7] !== channel) return json({ error: "snapshot ID does not match its repository channel" }, 400);
   let key;
   try { key = snapshotKey(channel, id); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
@@ -504,12 +705,16 @@ async function activateRepositorySnapshot(request, env, channel, id) {
   const currentKey = `repository-current/${channel}.json`;
   const active = await readRecord(env.RELEASES, currentKey);
   if (active?.record.id === id) {
+    try { await recordSnapshotActivation(env, channel, id); }
+    catch (error) { return json({ error: String(error.message || error) }, 503); }
     const cleanupPending = !await discardRepositorySnapshotBuild(env, channel, id);
     return json({ id, channel, active: true, replay: true, cleanup_pending: cleanupPending }, 200);
   }
   const next = { id, channel, activated_at: new Date().toISOString() };
   const saved = await writeRecord(env.RELEASES, currentKey, next, active?.etag || null);
   if (!saved) return json({ error: "repository pointer changed concurrently; retry activation" }, 409);
+  try { await recordSnapshotActivation(env, channel, id, active?.record.id || null); }
+  catch (error) { return json({ error: String(error.message || error), active: true, history_update_pending: true }, 503); }
   const cleanupPending = !await discardRepositorySnapshotBuild(env, channel, id);
   return json({ id, channel, active: true, cleanup_pending: cleanupPending }, 201);
 }
@@ -1642,6 +1847,49 @@ async function auditPublicRelease(env, record) {
   }
 }
 
+async function auditPublicSourceRelease(env, record) {
+  if (!Number.isSafeInteger(record.source_release_id) || !Array.isArray(record.source_assets) || !record.source_release_tag) {
+    throw new Error("public source release is missing its immutable release id or verified source manifest");
+  }
+  const response = await githubRequest(env, `/repos/${record.repository}/releases/${record.source_release_id}`);
+  const release = await response.json();
+  if (release.draft || release.immutable !== true || release.tag_name !== sourceReleaseTag(record) || release.tag_name !== record.source_release_tag) {
+    throw new Error("public source release is not immutable or no longer matches its source tag");
+  }
+  const expected = canonicalAssets(record.source_assets);
+  const expectedNames = new Set(expected.map((asset) => asset.name));
+  if ((release.assets || []).length !== expected.length || (release.assets || []).some((asset) => !expectedNames.has(asset.name))) {
+    throw new Error("public source release asset list differs from the verified source manifest");
+  }
+  for (const asset of expected) {
+    const digest = await assetReadback(env, { ...release, owner: record.repository.split("/")[0], name: record.repository.split("/")[1] }, asset.name);
+    if (digest !== asset.sha256) throw new Error(`public source asset ${asset.name} failed integrity audit`);
+  }
+}
+
+async function cleanupPublishedReleaseStaging(env, record, now) {
+  if (!record.public_published_at) return 0;
+  let publishedAt;
+  try { publishedAt = parseUtc(record.public_published_at).getTime(); }
+  catch { throw new Error("public release staging recovery timestamp is invalid"); }
+  const expectedCleanupAt = new Date(publishedAt + PUBLIC_RELEASE_STAGING_RECOVERY_MS).toISOString();
+  if (record.staging_cleanup_after && record.staging_cleanup_after !== expectedCleanupAt) {
+    throw new Error("public release staging cleanup deadline differs from the documented recovery interval");
+  }
+  if (now.getTime() < Date.parse(expectedCleanupAt)) return 0;
+  await auditPublicSourceRelease(env, record);
+  const assets = [
+    ...canonicalAssets(record.required_assets).map((asset) => ({ ...asset, expected: `staging/${record.id}/${asset.sha256}` })),
+    ...canonicalAssets(record.source_assets).map((asset) => ({ ...asset, expected: `staging/${record.id}/source/${asset.sha256}` })),
+  ];
+  const keys = assets.map((asset) => {
+    if (asset.r2_key !== asset.expected) throw new Error("release staging key differs from its immutable release identity");
+    return asset.expected;
+  });
+  for (let offset = 0; offset < keys.length; offset += 1000) await env.RELEASES.delete(keys.slice(offset, offset + 1000));
+  return keys.length;
+}
+
 async function publishAssets(env, record) {
   const [owner, repo] = record.repository.split("/");
   const release = await ensureGithubRelease(env, record);
@@ -1697,6 +1945,7 @@ async function publishOne(env, key, now) {
   assertRelease(record);
   if (record.state === "public") {
     await auditPublicRelease(env, record);
+    await cleanupPublishedReleaseStaging(env, record, now);
     return;
   }
   if (!record.release_checks_passed) return;
@@ -1717,6 +1966,7 @@ async function publishOne(env, key, now) {
       state: "public",
       public_release_id: release.id,
       public_published_at: now.toISOString(),
+      staging_cleanup_after: new Date(now.getTime() + PUBLIC_RELEASE_STAGING_RECOVERY_MS).toISOString(),
       verified_assets: verifiedReleaseAssets(current),
     };
   });
@@ -1832,6 +2082,10 @@ export default {
     const snapshotRegistrationRoute = url.pathname.match(/^\/internal\/repository-snapshots\/(public|early)$/);
     if (request.method === "POST" && snapshotRegistrationRoute) {
       try { return await registerRepositorySnapshot(request, env, snapshotRegistrationRoute[1]); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    if (request.method === "POST" && url.pathname === "/internal/repository-snapshots/retention") {
+      try { return await pruneRepositorySnapshots(request, env); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
     const snapshotInventoryRoute = url.pathname.match(/^\/internal\/repository-snapshots\/(public|early)\/releases$/);

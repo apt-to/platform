@@ -22,6 +22,9 @@ SIGNER_SPEC.loader.exec_module(SIGNER)
 ROLLBACK_SPEC = importlib.util.spec_from_file_location("rollback_apt_snapshot", ROOT / "scripts" / "rollback-apt-snapshot.py")
 ROLLBACK = importlib.util.module_from_spec(ROLLBACK_SPEC)
 ROLLBACK_SPEC.loader.exec_module(ROLLBACK)
+RETENTION_SPEC = importlib.util.spec_from_file_location("retain_apt_snapshots", ROOT / "scripts" / "retain-apt-snapshots.py")
+RETENTION = importlib.util.module_from_spec(RETENTION_SPEC)
+RETENTION_SPEC.loader.exec_module(RETENTION)
 
 
 class AptSnapshotPublisher(unittest.TestCase):
@@ -67,6 +70,21 @@ class AptSnapshotPublisher(unittest.TestCase):
             ROLLBACK.rollback("https://repo.apt.to", "early", "focal-20261025T120000-r123-public")
         with self.assertRaisesRegex(ValueError, "configured HTTPS"):
             ROLLBACK.rollback("https://attacker.example", "public", "focal-20261025T120000-r123-public")
+
+    def test_retention_uses_only_the_canonical_gateway_and_requires_confirmed_channel_counts(self):
+        counts = {"retained_snapshots": 6, "deleted_snapshots": 1, "pending_snapshots": 0,
+                  "retained_builds": 0, "deleted_builds": 2, "pending_builds": 0, "deleted_objects": 20}
+        result = {"channels": {"public": counts, "early": counts}, "rollback_snapshots_kept_per_channel": 5}
+        with patch.object(RETENTION.PUBLISH, "call", return_value=(200, result)) as call:
+            self.assertEqual(RETENTION.retain("https://repo.apt.to", ["public", "early"]), result)
+        call.assert_called_once_with("https://repo.apt.to/internal/repository-snapshots/retention", "POST", body={"channels": ["public", "early"]})
+        with self.assertRaisesRegex(ValueError, "configured HTTPS"):
+            RETENTION.retain("https://attacker.example", ["public"])
+        with self.assertRaisesRegex(ValueError, "unique public"):
+            RETENTION.retain("https://repo.apt.to", ["public", "public"])
+        with patch.object(RETENTION.PUBLISH, "call", return_value=(200, {"channels": {"public": counts}, "rollback_snapshots_kept_per_channel": 99})):
+            with self.assertRaisesRegex(RuntimeError, "unexpected rollback retention policy"):
+                RETENTION.retain("https://repo.apt.to", ["public"])
 
     def test_snapshot_files_reject_symlinked_index_files(self):
         target = self.dist / "main/binary-amd64/Packages.gz"

@@ -29,7 +29,7 @@ class WorkerRouteConfig(unittest.TestCase):
 
     def test_snapshot_rollback_is_manual_and_requires_the_protected_signing_environment(self):
         workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
-        self.assertRegex(workflow, r"operation:\n\s+description:.*\n\s+type: choice\n\s+required: true\n\s+default: publish\n\s+options: \[publish, rollback\]")
+        self.assertRegex(workflow, r"operation:\n\s+description:.*\n\s+type: choice\n\s+required: true\n\s+default: publish\n\s+options: \[publish, rollback, prune\]")
         self.assertRegex(workflow, r"vars\.APTTO_REPOSITORY_ENABLED == 'true' &&\n\s+\(github\.event_name != 'workflow_dispatch' \|\| github\.event\.inputs\.operation != 'rollback'\) &&")
         self.assertRegex(workflow, r"rollback:\n\s+if: >-\n(?:\s+.*\n){3}\s+github\.event\.inputs\.operation == 'rollback'")
         self.assertRegex(workflow, r"rollback:\n(?:.*\n){0,12}\s+environment: aptto-signing")
@@ -39,6 +39,14 @@ class WorkerRouteConfig(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
         self.assertIn('snapshot_ids = {row["channel"]: row["snapshot_build"] for row in rows if row.get("snapshot_build")}', workflow)
         self.assertIn("needs.build-indexes.outputs.snapshot_ids != '{}'", workflow)
+
+    def test_snapshot_retention_is_weekly_or_manual_and_runs_in_the_protected_signing_environment(self):
+        workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
+        self.assertIn('- cron: "25 3 * * 0"', workflow)
+        self.assertIn("options: [publish, rollback, prune]", workflow)
+        self.assertRegex(workflow, r"snapshot-retention:\n(?:.*\n){0,16}\s+environment: aptto-signing")
+        self.assertIn("needs: [build-indexes, sign-and-publish]", workflow)
+        self.assertIn("python3 scripts/retain-apt-snapshots.py --channel both", workflow)
 
 
 if __name__ == "__main__":
