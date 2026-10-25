@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac, generateKeyPairSync, sign as signJwt } from "node:crypto";
-import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
+import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
 
 class MemoryBucket {
   constructor(entries = {}) {
@@ -1054,6 +1054,47 @@ test("seven-day releases remain blocked until private sponsor serving exists", a
   });
   await assert.rejects(publishOne({ RELEASES: bucket }, "release-state/pilot.json", new Date()), /sponsor authentication and private serving/);
   assert.equal((await (await bucket.get("release-state/pilot.json")).json()).state, "prepared");
+});
+
+test("scheduled reconciliation promotes a due sponsor release after missed runs", async () => {
+  const bytes = Buffer.from("verified sponsor package bytes");
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const deadline = new Date("2026-10-01T12:00:00.000Z");
+  const key = "release-state/pilot.json";
+  const bucket = new MemoryBucket({ [key]: {
+    id: "pilot", state: "sponsor-period", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
+    source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168,
+    sponsor_publication_complete: true, public_after: deadline.toISOString(),
+    required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }],
+  } });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const target = new URL(String(url));
+    if (target.pathname.includes("/git/ref/tags/")) {
+      return Response.json({ ref: "refs/tags/aptto/2.9.10-aptto1", object: { type: "tag", sha: "d".repeat(40) } });
+    }
+    if (target.pathname.includes("/git/tags/")) {
+      return Response.json({ verification: { verified: true }, object: { type: "commit", sha: "b".repeat(40) } });
+    }
+    if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
+    if (target.pathname.includes("/releases/tags/")) {
+      return Response.json({ id: 901, tag_name: "aptto/2.9.10-aptto1", draft: false, immutable: true, assets: [{ name: "libxml2_amd64.deb" }] });
+    }
+    if (target.pathname.endsWith("/releases/901/assets")) {
+      return Response.json([{ name: "libxml2_amd64.deb", url: "https://api.github.com/assets/libxml2_amd64.deb" }]);
+    }
+    if (target.pathname === "/assets/libxml2_amd64.deb") return new Response(bytes);
+    return Response.json({});
+  };
+  try {
+    const failures = await reconcile({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, new Date("2026-10-10T12:00:00.000Z"));
+    assert.deepEqual(failures, []);
+    const saved = await (await bucket.get(key)).json();
+    assert.equal(saved.state, "public");
+    assert.equal(saved.public_release_id, 901);
+    assert.equal(saved.public_published_at, "2026-10-10T12:00:00.000Z");
+    assert.deepEqual(saved.verified_assets, [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }]);
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test("zero-hour package publication is authenticated and completes synchronously", async () => {
