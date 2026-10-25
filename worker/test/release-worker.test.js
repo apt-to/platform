@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import gateway, { canonicalAssets, parseUtc, publishOne, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
 
 class MemoryBucket {
@@ -168,6 +168,48 @@ test("release registration JSON has a bounded streaming body", async () => {
     method: "POST", headers: { authorization: "Bearer secret-test" }, body: "{not-json",
   }), env);
   assert.equal(malformed.status, 400);
+});
+
+test("GitHub webhook signature uses the documented HMAC SHA-256 scheme", async () => {
+  const body = new TextEncoder().encode("Hello, World!");
+  assert.equal(await gateway.fetch(new Request("https://worker.test/webhooks/github/sponsorship", {
+    method: "POST",
+    headers: {
+      "x-github-event": "sponsorship",
+      "x-github-delivery": "12345678-1234-1234-1234-123456789abc",
+      "x-hub-signature-256": "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17",
+    },
+    body,
+  }), { SPONSOR_WEBHOOK_SECRET: "It's a Secret to Everybody", RELEASES: new MemoryBucket() }).then((response) => response.status), 400);
+  const { verifyGithubSignature } = await import("../src/index.js");
+  assert.equal(await verifyGithubSignature("It's a Secret to Everybody", body, "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"), true);
+  assert.equal(await verifyGithubSignature("wrong", body, "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"), false);
+});
+
+test("sponsorship cancellation webhook verifies signature and records delivery idempotently without granting or revoking access", async () => {
+  const bucket = new MemoryBucket();
+  const payload = JSON.stringify({ action: "cancelled", sponsorship: { sponsor: { id: 42 } } });
+  const signature = `sha256=${createHmac("sha256", "webhook-secret").update(payload).digest("hex")}`;
+  const makeRequest = (sig = signature) => new Request("https://worker.test/webhooks/github/sponsorship", {
+    method: "POST",
+    headers: { "x-github-event": "sponsorship", "x-github-delivery": "12345678-1234-1234-1234-123456789abc", "x-hub-signature-256": sig },
+    body: payload,
+  });
+  const env = { SPONSOR_WEBHOOK_SECRET: "webhook-secret", RELEASES: bucket };
+  assert.equal((await gateway.fetch(makeRequest("sha256=" + "0".repeat(64)), env)).status, 401);
+  const accepted = await gateway.fetch(makeRequest(), env);
+  assert.equal(accepted.status, 202);
+  assert.equal((await accepted.json()).reconciliation_required, true);
+  const duplicate = await gateway.fetch(makeRequest(), env);
+  assert.equal((await duplicate.json()).duplicate, true);
+  const event = await bucket.get("sponsor-deliveries/12345678-1234-1234-1234-123456789abc.json");
+  assert.deepEqual(await event.json(), {
+    delivery_id: "12345678-1234-1234-1234-123456789abc",
+    action: "cancelled",
+    sponsor_id: 42,
+    received_at: (await event.json()).received_at,
+    effect: "reconciliation-required",
+  });
 });
 
 test("deadline parser requires an explicit timezone", () => {

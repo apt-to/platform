@@ -2,6 +2,7 @@ const STATE_PREFIX = "release-state/";
 const MAX_RETRIES = 5;
 const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
 const MAX_REGISTRATION_BYTES = 64 * 1024;
+const MAX_SPONSOR_WEBHOOK_BYTES = 256 * 1024;
 
 function requestError(message, status) {
   const error = new Error(message);
@@ -98,6 +99,75 @@ async function readBoundedJson(request, maxBytes) {
   }
   try { return JSON.parse(new TextDecoder().decode(bytes)); }
   catch { throw requestError("request body must be valid JSON", 400); }
+}
+
+function constantTimeEqual(left, right) {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  return difference === 0;
+}
+
+async function verifyGithubSignature(secret, rawBody, signature) {
+  if (typeof secret !== "string" || !secret || typeof signature !== "string" || !/^sha256=[a-f0-9]{64}$/.test(signature)) return false;
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const digest = new Uint8Array(await crypto.subtle.sign("HMAC", key, rawBody));
+  const expected = `sha256=${[...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  return constantTimeEqual(expected, signature);
+}
+
+async function acceptSponsorWebhook(request, env) {
+  if (!env.SPONSOR_WEBHOOK_SECRET) return json({ error: "sponsor webhook is not configured" }, 503);
+  if (request.headers.get("x-github-event") !== "sponsorship") return json({ error: "unsupported webhook event" }, 400);
+  const delivery = request.headers.get("x-github-delivery");
+  if (!delivery || !/^[0-9a-f-]{16,80}$/i.test(delivery)) return json({ error: "invalid delivery id" }, 400);
+  let bytes;
+  try {
+    const declaredHeader = request.headers.get("content-length");
+    if (declaredHeader !== null && (!Number.isSafeInteger(Number(declaredHeader)) || Number(declaredHeader) < 0 || Number(declaredHeader) > MAX_SPONSOR_WEBHOOK_BYTES)) {
+      throw requestError("invalid or oversized webhook content-length", Number(declaredHeader) > MAX_SPONSOR_WEBHOOK_BYTES ? 413 : 400);
+    }
+    if (!request.body) throw requestError("webhook body is required", 400);
+    const reader = request.body.getReader();
+    const chunks = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_SPONSOR_WEBHOOK_BYTES) {
+          await reader.cancel();
+          throw requestError("webhook body exceeds the allowed size", 413);
+        }
+        chunks.push(value);
+      }
+    } finally { reader.releaseLock(); }
+    bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    if (!await verifyGithubSignature(env.SPONSOR_WEBHOOK_SECRET, bytes, request.headers.get("x-hub-signature-256"))) {
+      return json({ error: "invalid webhook signature" }, 401);
+    }
+    let payload;
+    try { payload = JSON.parse(new TextDecoder().decode(bytes)); }
+    catch { throw requestError("webhook body must be valid JSON", 400); }
+    if (payload.action !== "cancelled" || !Number.isSafeInteger(payload.sponsorship?.sponsor?.id)) {
+      return json({ error: "unsupported or incomplete sponsorship event" }, 422);
+    }
+    const key = `sponsor-deliveries/${delivery}.json`;
+    const result = await env.RELEASES.put(key, JSON.stringify({
+      delivery_id: delivery,
+      action: "cancelled",
+      sponsor_id: payload.sponsorship.sponsor.id,
+      received_at: new Date().toISOString(),
+      effect: "reconciliation-required",
+    }), { onlyIf: { etagDoesNotMatch: "*" }, httpMetadata: { contentType: "application/json" } });
+    if (!result) return json({ accepted: true, duplicate: true, reconciliation_required: true }, 200);
+    return json({ accepted: true, reconciliation_required: true }, 202);
+  } catch (error) {
+    return json({ error: String(error.message || error) }, error.status || 400);
+  }
 }
 
 async function writeRecord(bucket, key, record, etag) {
@@ -448,6 +518,9 @@ async function reconcile(env, now = new Date()) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname === "/webhooks/github/sponsorship") {
+      return acceptSponsorWebhook(request, env);
+    }
     const assetRoute = url.pathname.match(/^\/internal\/releases\/([^/]+)\/assets\/([^/]+)$/);
     if (request.method === "PUT" && assetRoute) {
       let id;
@@ -474,4 +547,4 @@ export default {
   },
 };
 
-export { canonicalAssets, parseUtc, publishOne, reconcile, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyPackageRun, verifySignedSourceTag };
+export { canonicalAssets, parseUtc, publishOne, reconcile, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };
