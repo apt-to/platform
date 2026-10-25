@@ -66,6 +66,112 @@ test("GitHub Actions OIDC accepts only signed tokens from the protected staging 
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("APT snapshot inventory and gated package export require the dedicated signing workflow and verify R2 bytes", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const keyId = "snapshot-export-test";
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  const bytes = Buffer.from("private gated package bytes");
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const id = "libxml2-2-9-10-aptto1";
+  const objectKey = `staging/${id}/${digest}`;
+  const gated = {
+    id, state: "sponsor-period", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
+    source_commit: "c".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168,
+    sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString(),
+    required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: objectKey }],
+    source_assets: [{ name: "libxml2_2.9.10.dsc", sha256: "d".repeat(64), r2_key: `staging/${id}/source/${"d".repeat(64)}` }],
+  };
+  const bucket = new MemorySnapshotBucket({ [`release-state/${id}.json`]: gated });
+  bucket.blobs.set(objectKey, {
+    size: bytes.length,
+    checksums: { sha256: createHash("sha256").update(bytes).digest() },
+    customMetadata: { releaseId: id, assetName: "libxml2_amd64.deb" },
+    bytes,
+  });
+  const env = { RELEASES: bucket };
+  const workflowClaims = {
+    workflow_ref: "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
+    event_name: "workflow_dispatch",
+    environment: "aptto-index-build",
+  };
+  const authorization = `Bearer ${signedOidcToken(privateKey, workflowClaims, privateKey, keyId)}`;
+  const signerToken = `Bearer ${signedOidcToken(privateKey, { ...workflowClaims, environment: "aptto-signing" }, privateKey, keyId)}`;
+  try {
+    const inventory = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/early/releases", { headers: { authorization } }), env);
+    assert.equal(inventory.status, 200);
+    assert.deepEqual((await inventory.json()).releases.map((entry) => entry.id), [id]);
+    const downloaded = await gateway.fetch(new Request(`https://repo.apt.to/internal/repository-snapshots/early/releases/${id}/assets/libxml2_amd64.deb`, { headers: { authorization } }), env);
+    assert.equal(downloaded.status, 200);
+    assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()), bytes);
+    assert.equal(downloaded.headers.get("cache-control"), "private, no-store");
+    const stagingToken = `Bearer ${signedOidcToken(privateKey, {}, privateKey, keyId)}`;
+    const denied = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/early/releases", { headers: { authorization: stagingToken } }), env);
+    assert.equal(denied.status, 401);
+    const signerDenied = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/early/releases", { headers: { authorization: signerToken } }), env);
+    assert.equal(signerDenied.status, 401, "the signing environment cannot access sponsor package bytes");
+
+    bucket.blobs.get(objectKey).customMetadata.assetName = "unexpected.deb";
+    const tampered = await gateway.fetch(new Request(`https://repo.apt.to/internal/repository-snapshots/early/releases/${id}/assets/libxml2_amd64.deb`, { headers: { authorization } }), env);
+    assert.equal(tampered.status, 502);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("unsigned snapshot build storage separates index-builder writes from signer reads", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const keyId = "snapshot-build-storage-test";
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  const release = {
+    id: "pilot", state: "public", repository: "apt-to/packaging-libarchive", tag: "aptto/3.4.0-2ubuntu1.5+aptto1",
+    source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
+    required_assets: [{ name: "libarchive_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
+  };
+  const bucket = new MemorySnapshotBucket({ "release-state/pilot.json": release });
+  const env = { RELEASES: bucket };
+  const workflowRef = "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main";
+  const builderToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "aptto-index-build" }, privateKey, keyId)}`;
+  const signerToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "aptto-signing" }, privateKey, keyId)}`;
+  const contents = new Map([
+    ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
+    ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\n"],
+    ["dists/focal/main/binary-amd64/Packages.gz", "gzip"],
+    ["dists/focal/main/binary-amd64/Packages.xz", "xz"],
+    ["dists/focal/main/source/Sources", "Package: libarchive\n"],
+    ["dists/focal/main/source/Sources.gz", "gzip source"],
+    ["dists/focal/main/source/Sources.xz", "xz source"],
+  ]);
+  const files = [...contents].map(([path, value]) => ({ path, size: Buffer.byteLength(value), sha256: createHash("sha256").update(value).digest("hex") }));
+  const buildId = "focal-test-r40210000000-public";
+  const request = (authorization, url, method, body) => new Request(url, {
+    method, headers: { authorization, ...(body === undefined ? {} : { "content-length": String(Buffer.byteLength(body)) }) }, body,
+  });
+  try {
+    const register = await gateway.fetch(request(builderToken, "https://repo.apt.to/internal/repository-snapshot-builds/public", "POST", JSON.stringify({ id: buildId, release_ids: ["pilot"], files })), env);
+    assert.equal(register.status, 201);
+    for (const [path, value] of contents) {
+      const upload = await gateway.fetch(request(builderToken, `https://repo.apt.to/internal/repository-snapshot-builds/public/${buildId}/files/${path}`, "PUT", value), env);
+      assert.equal(upload.status, 201, path);
+    }
+    const manifest = await gateway.fetch(request(signerToken, `https://repo.apt.to/internal/repository-snapshot-builds/public/${buildId}`, "GET"), env);
+    assert.equal(manifest.status, 200);
+    assert.equal((await manifest.json()).files.length, files.length);
+    const read = await gateway.fetch(request(signerToken, `https://repo.apt.to/internal/repository-snapshot-builds/public/${buildId}/files/dists/focal/Release`, "GET"), env);
+    assert.equal(read.status, 200);
+    assert.equal(await read.text(), contents.get("dists/focal/Release"));
+    const signerWrite = await gateway.fetch(request(signerToken, `https://repo.apt.to/internal/repository-snapshot-builds/public/${buildId}/files/dists/focal/Release`, "PUT", contents.get("dists/focal/Release")), env);
+    assert.equal(signerWrite.status, 401);
+    const builderRead = await gateway.fetch(request(builderToken, `https://repo.apt.to/internal/repository-snapshot-builds/public/${buildId}`, "GET"), env);
+    assert.equal(builderRead.status, 401);
+    const builderActivation = await gateway.fetch(request(builderToken, `https://repo.apt.to/internal/repository-snapshots/public/${buildId}/activate`, "POST", "{}"), env);
+    assert.equal(builderActivation.status, 401);
+    const builderRegistration = await gateway.fetch(request(builderToken, "https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: buildId, release_ids: ["pilot"], files })), env);
+    assert.equal(builderRegistration.status, 401);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 class MemoryAssetBucket extends MemoryBucket {
   constructor(record) {
     super({ "release-state/pilot.json": record });
@@ -119,6 +225,40 @@ class MemorySponsorBucket extends MemoryBucket {
     }
     return super.get(key);
   }
+}
+
+class MemorySnapshotBucket extends MemoryBucket {
+  constructor(entries = {}) {
+    super(entries);
+    this.blobs = new Map();
+  }
+  async put(key, body, options) {
+    if (!options.sha256) return super.put(key, body, options);
+    if (this.blobs.has(key)) return null;
+    const bytes = Buffer.from(await new Response(body).arrayBuffer());
+    const digest = createHash("sha256").update(bytes).digest();
+    if (!digest.equals(Buffer.from(options.sha256))) throw new Error("R2 snapshot checksum validation failed");
+    const object = {
+      size: bytes.length,
+      checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
+      customMetadata: structuredClone(options.customMetadata),
+      httpMetadata: structuredClone(options.httpMetadata),
+      bytes,
+    };
+    this.blobs.set(key, object);
+    return object;
+  }
+  async head(key) { return this.blobs.get(key) || null; }
+  async get(key) {
+    const object = this.blobs.get(key);
+    if (!object) return super.get(key);
+    return {
+      ...object,
+      body: new Response(object.bytes).body,
+      arrayBuffer: async () => object.bytes.buffer.slice(object.bytes.byteOffset, object.bytes.byteOffset + object.bytes.byteLength),
+    };
+  }
+  async delete(key) { this.blobs.delete(key); this.entries.delete(key); }
 }
 
 test("R2 state update uses conditional writes and retries a concurrent conflict", async () => {
@@ -515,6 +655,104 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
     const denied = await gateway.fetch(new Request(`https://early.apt.to/pool/main/l/libxml2/${binaryName}`), { RELEASES: gated });
     assert.equal(denied.status, 401);
     assert.equal(denied.headers.get("cache-control"), "private, no-store");
+
+    const promoted = new MemoryBucket({ "release-state/libxml2-1-2-3.json": {
+      ...record, state: "public", public_release_id: 901,
+    } });
+    const afterPromotion = await gateway.fetch(new Request(`https://repo.apt.to/pool/main/l/libxml2/${binaryName}`), {
+      RELEASES: promoted, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only",
+    });
+    assert.equal(afterPromotion.status, 302);
+    assert.equal(afterPromotion.headers.get("location"), `https://github.com/apt-to/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}`);
+    assert.equal(afterPromotion.headers.get("cache-control"), "public, max-age=300");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("APT snapshot manifests activate atomically after R2 readback and serve stable dists paths", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const keyId = "snapshot-environment-test";
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
+  const release = {
+    id: "pilot", state: "public", repository: "apt-to/packaging-libarchive", tag: "aptto/3.4.0-2ubuntu1.5+aptto1",
+    source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
+    required_assets: [{ name: "libarchive_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
+  };
+  const bucket = new MemorySnapshotBucket({ "release-state/pilot.json": release });
+  const env = { RELEASES: bucket };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  const snapshotClaims = {
+    workflow_ref: "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
+    event_name: "workflow_dispatch",
+  };
+  const authorization = `Bearer ${signedOidcToken(privateKey, snapshotClaims, privateKey, keyId)}`;
+  const stagingAuthorization = `Bearer ${signedOidcToken(privateKey, {}, privateKey, keyId)}`;
+  const contents = new Map([
+    ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
+    ["dists/focal/InRelease", "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nOrigin: AptTo\n"],
+    ["dists/focal/Release.gpg", "-----BEGIN PGP SIGNATURE-----\nvalid test fixture\n-----END PGP SIGNATURE-----\n"],
+    ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\nVersion: 3.4.0-2ubuntu1.5+aptto1\n"],
+    ["dists/focal/main/binary-amd64/Packages.gz", "gzip fixture"],
+    ["dists/focal/main/binary-amd64/Packages.xz", "xz fixture"],
+    ["dists/focal/main/source/Sources", "Package: libarchive\n"],
+    ["dists/focal/main/source/Sources.gz", "gzip source fixture"],
+    ["dists/focal/main/source/Sources.xz", "xz source fixture"],
+    ["aptto-archive-keyring.gpg", "public key fixture"],
+  ]);
+  const files = [...contents].map(([path, content]) => ({ path, size: Buffer.byteLength(content), sha256: createHash("sha256").update(content).digest("hex") }));
+  try {
+    const request = (url, method, body) => new Request(url, {
+      method, headers: { authorization, ...(body === undefined ? {} : { "content-length": String(Buffer.byteLength(body)) }) }, body,
+    });
+    const stagingRequest = (url, method, body) => new Request(url, {
+      method, headers: { authorization: stagingAuthorization, ...(body === undefined ? {} : { "content-length": String(Buffer.byteLength(body)) }) }, body,
+    });
+    const stagingRegistration = await gateway.fetch(stagingRequest("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "staging-cannot-publish", release_ids: ["pilot"], files })), env);
+    assert.equal(stagingRegistration.status, 401, "the artifact staging workflow cannot register repository metadata");
+    const registration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-001", release_ids: ["pilot"], files })), env);
+    assert.equal(registration.status, 201);
+    const replay = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-001", release_ids: ["pilot"], files })), env);
+    assert.equal(replay.status, 200, "repeated registration of the same immutable manifest is safe");
+    bucket.entries.set("release-state/gated.json", {
+      value: { ...release, id: "gated", state: "sponsor-period", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10+dfsg-5ubuntu0.20.04.10+aptto1", sponsor_delay_hours: 168, sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString() },
+      etag: "gated-release",
+    });
+    const prematurePublic = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-gated", release_ids: ["gated"], files })), env);
+    assert.equal(prematurePublic.status, 409, "a seven-day release cannot enter the anonymous public index before promotion");
+    const beforeUpload = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/activate", "POST", "{}"), env);
+    assert.equal(beforeUpload.status, 409);
+    for (const [path, content] of contents) {
+      const result = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/files/${path}`, "PUT", content), env);
+      assert.equal(result.status, 201, path);
+    }
+    const stagingUpload = await gateway.fetch(stagingRequest("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/files/dists/focal/Release", "PUT", contents.get("dists/focal/Release")), env);
+    assert.equal(stagingUpload.status, 401, "the artifact staging workflow cannot write repository metadata");
+    const stagingActivation = await gateway.fetch(stagingRequest("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/activate", "POST", "{}"), env);
+    assert.equal(stagingActivation.status, 401, "the artifact staging workflow cannot activate repository metadata");
+    const activated = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/activate", "POST", "{}"), env);
+    assert.equal(activated.status, 201);
+    const served = await gateway.fetch(new Request("https://repo.apt.to/dists/focal/InRelease"), env);
+    assert.equal(served.status, 200);
+    assert.equal(await served.text(), contents.get("dists/focal/InRelease"));
+    assert.equal(served.headers.get("cache-control"), "public, max-age=300");
+    const keyring = await gateway.fetch(new Request("https://early.apt.to/aptto-archive-keyring.gpg"), env);
+    assert.equal(keyring.status, 200, "the public trust anchor remains anonymously available");
+    const privateIndex = await gateway.fetch(new Request("https://early.apt.to/dists/focal/InRelease"), env);
+    assert.equal(privateIndex.status, 401);
+    assert.equal(privateIndex.headers.get("cache-control"), "private, no-store");
+    assert.equal((await gateway.fetch(new Request("https://repo.apt.to/dists/focal/unknown"), env)).status, 404);
+
+    const earlyRegistration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/early", "POST", JSON.stringify({ id: "focal-early-001", release_ids: ["gated"], files })), env);
+    assert.equal(earlyRegistration.status, 201);
+    for (const [path, content] of contents) {
+      const result = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/early/focal-early-001/files/${path}`, "PUT", content), env);
+      assert.equal(result.status, 201, path);
+    }
+    const expiredRelease = bucket.entries.get("release-state/gated.json");
+    expiredRelease.value.public_after = new Date(Date.now() - 1000).toISOString();
+    bucket.entries.set("release-state/gated.json", expiredRelease);
+    const expiredActivation = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/early/focal-early-001/activate", "POST", "{}"), env);
+    assert.equal(expiredActivation.status, 409, "an early snapshot cannot activate after a gated release reaches its public deadline");
   } finally { globalThis.fetch = originalFetch; }
 });
 

@@ -2,6 +2,8 @@ const STATE_PREFIX = "release-state/";
 const MAX_RETRIES = 5;
 const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
 const MAX_REGISTRATION_BYTES = 64 * 1024;
+const MAX_SNAPSHOT_FILES = 256;
+const MAX_SNAPSHOT_BYTES = 128 * 1024 * 1024;
 const MAX_SPONSOR_WEBHOOK_BYTES = 256 * 1024;
 const SPONSOR_ENTITLEMENTS_KEY = "sponsor-entitlements/current.json";
 const SPONSOR_SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000;
@@ -43,11 +45,15 @@ async function githubActionsIdentity(request, env) {
     if (!await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, base64urlBytes(encodedSignature), new TextEncoder().encode(`${encodedHeader}.${encodedClaims}`))) return null;
     const now = Math.floor(Date.now() / 1000);
     const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    const stagingWorkflow = claims.workflow_ref === "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main" && claims.event_name === "workflow_run";
+    const snapshotWorkflow = claims.workflow_ref === "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" &&
+      ["workflow_run", "schedule", "workflow_dispatch"].includes(claims.event_name);
     if (claims.iss !== OIDC_ISSUER || audiences.length !== 1 || audiences[0] !== OIDC_AUDIENCE || !Number.isSafeInteger(claims.exp) || claims.exp <= now ||
         !Number.isSafeInteger(claims.iat) || claims.iat > now + 60 || claims.repository !== "apt-to/platform" || claims.repository_id !== "1433070541" ||
-        claims.repository_owner !== "apt-to" || claims.repository_visibility !== "public" || claims.event_name !== "workflow_run" ||
-        claims.ref !== "refs/heads/main" || claims.workflow_ref !== "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main" ||
-        claims.runner_environment !== "github-hosted" || claims.environment !== "aptto-signing" ||
+        claims.repository_owner !== "apt-to" || claims.repository_visibility !== "public" || !(stagingWorkflow || snapshotWorkflow) ||
+        claims.ref !== "refs/heads/main" ||
+        claims.runner_environment !== "github-hosted" ||
+        (stagingWorkflow ? claims.environment !== "aptto-signing" : !["aptto-index-build", "aptto-signing"].includes(claims.environment)) ||
         !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(claims.run_attempt) ||
         (claims.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || claims.nbf > now + 60)) || typeof claims.jti !== "string" || !claims.jti) return null;
     return {
@@ -117,6 +123,405 @@ function checksumBuffer(hex) {
 function checksumHex(value) {
   if (!value) return null;
   return [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function snapshotKey(channel, id) {
+  if (!['public', 'early'].includes(channel) || !/^[A-Za-z0-9][A-Za-z0-9-]{2,79}$/.test(id)) {
+    throw requestError("invalid repository snapshot identity", 400);
+  }
+  return `repository-snapshots/${channel}/${id}.json`;
+}
+
+function snapshotBuildKey(channel, id) {
+  if (!['public', 'early'].includes(channel) || !/^[A-Za-z0-9][A-Za-z0-9-]{2,79}$/.test(id)) {
+    throw requestError("invalid repository snapshot build identity", 400);
+  }
+  return `repository-snapshot-builds/${channel}/${id}.json`;
+}
+
+function snapshotBuildFilePath(value) {
+  return typeof value === "string" && value.length <= 512 &&
+    /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(value) &&
+    !["dists/focal/InRelease", "dists/focal/Release.gpg"].includes(value);
+}
+
+function canonicalSnapshotBuildFiles(files) {
+  if (!Array.isArray(files) || files.length < 7 || files.length > MAX_SNAPSHOT_FILES) throw requestError("snapshot build must contain focal indexes", 400);
+  const seen = new Set();
+  let total = 0;
+  const normalized = files.map((file) => {
+    if (!file || !snapshotBuildFilePath(file.path) || seen.has(file.path) || !/^[a-f0-9]{64}$/.test(file.sha256) ||
+        !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > MAX_RELEASE_ASSET_BYTES) {
+      throw requestError("snapshot build file path, size or SHA-256 is invalid", 400);
+    }
+    total += file.size;
+    if (total > MAX_SNAPSHOT_BYTES) throw requestError("snapshot build exceeds the 128 MiB limit", 413);
+    seen.add(file.path);
+    return { path: file.path, size: file.size, sha256: file.sha256, content_type: snapshotContentType(file.path) };
+  }).sort((a, b) => a.path.localeCompare(b.path));
+  const required = [
+    "dists/focal/Release",
+    "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
+    "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
+  ];
+  if (required.some((path) => !seen.has(path))) throw requestError("snapshot build is missing required focal indexes", 400);
+  return normalized;
+}
+
+function snapshotFilePath(value) {
+  if (typeof value !== "string" || value.length > 512) return false;
+  if (value === "aptto-archive-keyring.gpg") return true;
+  return /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(value);
+}
+
+function snapshotContentType(path) {
+  if (path === "aptto-archive-keyring.gpg") return "application/pgp-keys";
+  if (path.endsWith(".gz")) return "application/gzip";
+  if (path.endsWith(".xz")) return "application/x-xz";
+  if (path.endsWith(".gpg")) return "application/pgp-signature";
+  return "text/plain; charset=utf-8";
+}
+
+function canonicalSnapshotFiles(files) {
+  if (!Array.isArray(files) || files.length < 10 || files.length > MAX_SNAPSHOT_FILES) {
+    throw requestError("snapshot must contain signed focal indexes and the public archive key", 400);
+  }
+  const seen = new Set();
+  let total = 0;
+  const normalized = files.map((file) => {
+    if (!file || !snapshotFilePath(file.path) || seen.has(file.path)) throw requestError("snapshot file path is invalid or duplicated", 400);
+    if (!/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > MAX_RELEASE_ASSET_BYTES) {
+      throw requestError("snapshot file size or SHA-256 is invalid", 400);
+    }
+    const contentType = snapshotContentType(file.path);
+    if (file.content_type !== undefined && file.content_type !== contentType) throw requestError("snapshot content type is not allowed for this path", 400);
+    total += file.size;
+    if (total > MAX_SNAPSHOT_BYTES) throw requestError("snapshot exceeds the 128 MiB limit", 413);
+    seen.add(file.path);
+    return { path: file.path, sha256: file.sha256, size: file.size, content_type: contentType };
+  }).sort((a, b) => a.path.localeCompare(b.path));
+  const required = [
+    "dists/focal/Release", "dists/focal/InRelease", "dists/focal/Release.gpg",
+    "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
+    "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
+    "aptto-archive-keyring.gpg",
+  ];
+  if (required.some((path) => !seen.has(path))) throw requestError("snapshot is missing signed focal indexes or the public archive key", 400);
+  return normalized;
+}
+
+async function snapshotEligibilityError(env, channel, releaseIds, now = Date.now()) {
+  for (const id of releaseIds) {
+    let releaseKey;
+    try { releaseKey = stateKey(id); }
+    catch { return "snapshot references an invalid release id"; }
+    const release = (await readRecord(env.RELEASES, releaseKey))?.record;
+    if (!release) return `snapshot release is missing: ${id}`;
+    try { assertRelease(release); }
+    catch (error) { return String(error.message || error); }
+    const allowed = channel === "public" ? release.state === "public" :
+      release.state === "public" || (release.state === "sponsor-period" && release.sponsor_publication_complete === true && Date.parse(release.public_after) > now);
+    if (!allowed || release.release_checks_passed !== true) return `release is not eligible for the ${channel} repository snapshot: ${id}`;
+  }
+  return null;
+}
+
+async function snapshotPublisherIdentity(request, env) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-signing") return null;
+  const claims = await githubActionsClaims(request, env);
+  return claims?.workflow_ref === "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
+}
+
+async function snapshotBuilderIdentity(request, env) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-index-build") return null;
+  const claims = await githubActionsClaims(request, env);
+  return claims?.workflow_ref === "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
+}
+
+async function githubActionsClaims(request, env) {
+  const auth = request.headers.get("authorization") || "";
+  if (!auth.startsWith("Bearer ")) return null;
+  try {
+    const encoded = auth.slice(7).split(".")[1];
+    return JSON.parse(new TextDecoder().decode(base64urlBytes(encoded)));
+  } catch { return null; }
+}
+
+async function listSnapshotReleases(request, env, channel) {
+  if (!await snapshotBuilderIdentity(request, env)) return json({ error: "protected snapshot builder identity required" }, 401);
+  if (!env.RELEASES) return json({ error: "release storage is unavailable" }, 503);
+  let cursor;
+  const releases = [];
+  do {
+    const page = await env.RELEASES.list({ prefix: STATE_PREFIX, cursor, limit: 1000 });
+    for (const item of page.objects) {
+      const loaded = await readRecord(env.RELEASES, item.key);
+      const record = loaded?.record;
+      if (!record || !["public", "sponsor-period"].includes(record.state)) continue;
+      try { assertRelease(record); } catch { return json({ error: "stored release state failed validation" }, 503); }
+      if (record.release_checks_passed !== true || (channel === "public" && record.state !== "public")) continue;
+      if (channel === "early" && record.state === "sponsor-period" &&
+          (record.sponsor_publication_complete !== true || Date.parse(record.public_after) <= Date.now())) continue;
+      const required = canonicalAssets(record.required_assets);
+      const source = record.source_assets?.length ? canonicalAssets(record.source_assets) : [];
+      releases.push({
+        id: record.id, state: record.state, repository: record.repository, tag: record.tag, source_commit: record.source_commit,
+        public_release_id: record.public_release_id ?? null, source_release_id: record.source_release_id ?? null,
+        public_after: record.public_after ?? null,
+        required_assets: required.map(({ name, sha256 }) => ({ name, sha256 })),
+        source_assets: source.map(({ name, sha256 }) => ({ name, sha256 })),
+      });
+      if (releases.length > 32) return json({ error: "too many releases for one focal snapshot" }, 413);
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  releases.sort((a, b) => a.id.localeCompare(b.id));
+  return json({ channel, suite: "focal", architecture: "amd64", releases });
+}
+
+async function readSnapshotReleaseAsset(request, env, channel, id, name) {
+  if (!await snapshotBuilderIdentity(request, env)) return json({ error: "protected snapshot builder identity required" }, 401);
+  let key;
+  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(name)) return json({ error: "invalid asset name" }, 400);
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded) return json({ error: "release not found" }, 404);
+  const record = loaded.record;
+  try { assertRelease(record); } catch { return json({ error: "stored release state failed validation" }, 503); }
+  const eligible = record.release_checks_passed === true && (channel === "public" ? record.state === "public" :
+    record.state === "public" || (record.state === "sponsor-period" && record.sponsor_publication_complete === true && Date.parse(record.public_after) > Date.now()));
+  if (!eligible) return json({ error: "release is not eligible for the requested repository channel" }, 409);
+  if (record.state !== "sponsor-period") return json({ error: "private snapshot export is only available for gated releases" }, 409);
+  const asset = canonicalAssets(record.required_assets).find((candidate) => candidate.name === name);
+  if (!asset) return json({ error: "asset is not in the release manifest" }, 404);
+  const object = await env.RELEASES.get(asset.r2_key);
+  if (!object || !Number.isSafeInteger(object.size) || object.size <= 0 || object.size > MAX_RELEASE_ASSET_BYTES ||
+      checksumHex(object.checksums?.sha256) !== asset.sha256 || object.customMetadata?.releaseId !== id || object.customMetadata?.assetName !== name) {
+    return json({ error: "private asset failed stored identity or checksum verification" }, 502);
+  }
+  return new Response(request.method === "HEAD" ? null : object.body, { headers: {
+    "content-type": "application/vnd.debian.binary-package", "content-length": String(object.size),
+    "cache-control": "private, no-store", "x-content-type-options": "nosniff",
+  } });
+}
+
+async function registerRepositorySnapshotBuild(request, env, channel) {
+  if (!await snapshotBuilderIdentity(request, env)) return json({ error: "protected snapshot builder identity required" }, 401);
+  let body;
+  try { body = await readBoundedJson(request, MAX_REGISTRATION_BYTES); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  let key;
+  try { key = snapshotBuildKey(channel, body.id); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  if (!Array.isArray(body.release_ids) || body.release_ids.length === 0 || body.release_ids.length > 32 ||
+      new Set(body.release_ids).size !== body.release_ids.length) return json({ error: "snapshot build must name unique release ids" }, 400);
+  let files;
+  try { files = canonicalSnapshotBuildFiles(body.files); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const ineligibility = await snapshotEligibilityError(env, channel, body.release_ids);
+  if (ineligibility) return json({ error: ineligibility }, 409);
+  const record = { id: body.id, channel, suite: "focal", architecture: "amd64", release_ids: [...body.release_ids].sort(), files, created_at: new Date().toISOString() };
+  const prior = await readRecord(env.RELEASES, key);
+  if (prior && JSON.stringify({ ...prior.record, created_at: undefined }) === JSON.stringify({ ...record, created_at: undefined })) return json({ id: body.id, channel, replay: true }, 200);
+  if (prior) return json({ error: "snapshot build id is immutable and already registered" }, 409);
+  const saved = await writeRecord(env.RELEASES, key, record, null);
+  return saved ? json({ id: body.id, channel, files: files.length }, 201) : json({ error: "snapshot build id already exists" }, 409);
+}
+
+async function uploadRepositorySnapshotBuildFile(request, env, channel, id, encodedPath) {
+  if (!await snapshotBuilderIdentity(request, env)) return json({ error: "protected snapshot builder identity required" }, 401);
+  let path;
+  try { path = decodeURIComponent(encodedPath); }
+  catch { return json({ error: "invalid snapshot build path encoding" }, 400); }
+  if (!snapshotBuildFilePath(path)) return json({ error: "invalid snapshot build file path" }, 400);
+  let key;
+  try { key = snapshotBuildKey(channel, id); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const build = (await readRecord(env.RELEASES, key))?.record;
+  if (!build) return json({ error: "snapshot build is not registered" }, 404);
+  const ineligibility = await snapshotEligibilityError(env, channel, build.release_ids);
+  if (ineligibility) return json({ error: ineligibility }, 409);
+  const file = build.files.find((candidate) => candidate.path === path);
+  if (!file) return json({ error: "file is not in the immutable snapshot build manifest" }, 404);
+  const length = Number(request.headers.get("content-length"));
+  if (!Number.isSafeInteger(length) || length !== file.size || !request.body) return json({ error: "file content length must match the snapshot build manifest" }, 400);
+  const objectKey = `repository-snapshot-builds/${channel}/${id}/${path}`;
+  const stored = await env.RELEASES.put(objectKey, request.body, {
+    onlyIf: { etagDoesNotMatch: "*" }, sha256: checksumBuffer(file.sha256),
+    httpMetadata: { contentType: file.content_type },
+    customMetadata: { snapshotBuildId: id, channel, path, sha256: file.sha256 },
+  });
+  if (stored && stored.size === file.size && checksumHex(stored.checksums?.sha256) === file.sha256) return json({ path, sha256: file.sha256, stored: true }, 201);
+  const existing = await env.RELEASES.head(objectKey);
+  if (existing?.size === file.size && checksumHex(existing.checksums?.sha256) === file.sha256 &&
+      existing.customMetadata?.snapshotBuildId === id && existing.customMetadata?.channel === channel && existing.customMetadata?.path === path) {
+    return json({ path, sha256: file.sha256, stored: true, replay: true }, 200);
+  }
+  return json({ error: "snapshot build object already exists with different content or failed checksum validation" }, 409);
+}
+
+async function readRepositorySnapshotBuild(request, env, channel, id, encodedPath) {
+  if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot signer identity required" }, 401);
+  let path;
+  try { path = decodeURIComponent(encodedPath); }
+  catch { return json({ error: "invalid snapshot build path encoding" }, 400); }
+  let key;
+  try { key = snapshotBuildKey(channel, id); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const build = (await readRecord(env.RELEASES, key))?.record;
+  if (!build) return json({ error: "snapshot build is not available" }, 404);
+  const ineligibility = await snapshotEligibilityError(env, channel, build.release_ids);
+  if (ineligibility) return json({ error: "snapshot build release set is no longer eligible" }, 409);
+  if (path === "manifest.json") return json(build);
+  if (!snapshotBuildFilePath(path)) return json({ error: "invalid snapshot build file path" }, 400);
+  const file = build.files.find((candidate) => candidate.path === path);
+  if (!file) return json({ error: "file is not in the snapshot build manifest" }, 404);
+  const objectKey = `repository-snapshot-builds/${channel}/${id}/${path}`;
+  const metadata = await env.RELEASES.head(objectKey);
+  if (!metadata || metadata.size !== file.size || checksumHex(metadata.checksums?.sha256) !== file.sha256 ||
+      metadata.customMetadata?.snapshotBuildId !== id || metadata.customMetadata?.channel !== channel || metadata.customMetadata?.path !== path) {
+    return json({ error: "snapshot build file failed R2 readback verification" }, 502);
+  }
+  const object = request.method === "HEAD" ? metadata : await env.RELEASES.get(objectKey);
+  if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256) return json({ error: "snapshot build file failed R2 integrity verification" }, 502);
+  return new Response(request.method === "HEAD" ? null : object.body, { headers: {
+    "content-type": file.content_type, "content-length": String(file.size), "cache-control": "private, no-store",
+    "x-content-type-options": "nosniff",
+  } });
+}
+
+async function discardRepositorySnapshotBuild(env, channel, id) {
+  const key = snapshotBuildKey(channel, id);
+  const build = (await readRecord(env.RELEASES, key))?.record;
+  if (!build) return true;
+  try {
+    await Promise.all(build.files.map((file) => env.RELEASES.delete(`repository-snapshot-builds/${channel}/${id}/${file.path}`)));
+    await env.RELEASES.delete(key);
+    return true;
+  } catch { return false; }
+}
+
+async function registerRepositorySnapshot(request, env, channel) {
+  if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot workflow identity required" }, 401);
+  let body;
+  try { body = await readBoundedJson(request, MAX_REGISTRATION_BYTES); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  let key;
+  try { key = snapshotKey(channel, body.id); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  if (!Array.isArray(body.release_ids) || body.release_ids.length === 0 || body.release_ids.length > 32 ||
+      new Set(body.release_ids).size !== body.release_ids.length) return json({ error: "snapshot must name unique verified release ids" }, 400);
+  let files;
+  try { files = canonicalSnapshotFiles(body.files); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const ineligibility = await snapshotEligibilityError(env, channel, body.release_ids);
+  if (ineligibility) return json({ error: ineligibility }, 409);
+  const snapshot = { id: body.id, channel, suite: "focal", architecture: "amd64", release_ids: [...body.release_ids].sort(), files, created_at: new Date().toISOString() };
+  const prior = await readRecord(env.RELEASES, key);
+  if (prior && JSON.stringify({ ...prior.record, created_at: undefined }) === JSON.stringify({ ...snapshot, created_at: undefined })) return json({ id: body.id, channel, replay: true }, 200);
+  if (prior) return json({ error: "snapshot id is immutable and already registered" }, 409);
+  const saved = await writeRecord(env.RELEASES, key, snapshot, null);
+  return saved ? json({ id: body.id, channel, files: files.length }, 201) : json({ error: "snapshot id already exists" }, 409);
+}
+
+async function uploadRepositorySnapshotFile(request, env, channel, id, encodedPath) {
+  if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot workflow identity required" }, 401);
+  let path;
+  try { path = decodeURIComponent(encodedPath); }
+  catch { return json({ error: "invalid snapshot file path encoding" }, 400); }
+  if (!snapshotFilePath(path)) return json({ error: "invalid snapshot file path" }, 400);
+  let key;
+  try { key = snapshotKey(channel, id); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const snapshot = (await readRecord(env.RELEASES, key))?.record;
+  if (!snapshot) return json({ error: "repository snapshot is not registered" }, 404);
+  const ineligibility = await snapshotEligibilityError(env, channel, snapshot.release_ids);
+  if (ineligibility) return json({ error: ineligibility }, 409);
+  const file = snapshot.files.find((candidate) => candidate.path === path);
+  if (!file) return json({ error: "file is not in the immutable snapshot manifest" }, 404);
+  const length = Number(request.headers.get("content-length"));
+  if (!Number.isSafeInteger(length) || length !== file.size || !request.body) return json({ error: "file content length must match the verified snapshot manifest" }, 400);
+  const objectKey = `repository-snapshots/${channel}/${id}/${path}`;
+  let stored;
+  try {
+    stored = await env.RELEASES.put(objectKey, request.body, {
+      onlyIf: { etagDoesNotMatch: "*" }, sha256: checksumBuffer(file.sha256),
+      httpMetadata: { contentType: file.content_type },
+      customMetadata: { snapshotId: id, channel, path, sha256: file.sha256 },
+    });
+  } catch {
+    return json({ error: "R2 rejected the snapshot object checksum or upload" }, 422);
+  }
+  if (stored && stored.size === file.size && checksumHex(stored.checksums?.sha256) === file.sha256) return json({ path, sha256: file.sha256, stored: true }, 201);
+  const existing = await env.RELEASES.head(objectKey);
+  if (existing?.size === file.size && checksumHex(existing.checksums?.sha256) === file.sha256 &&
+      existing.customMetadata?.snapshotId === id && existing.customMetadata?.channel === channel && existing.customMetadata?.path === path) {
+    return json({ path, sha256: file.sha256, stored: true, replay: true }, 200);
+  }
+  return json({ error: "snapshot object already exists with different content or failed R2 checksum validation" }, 409);
+}
+
+async function activateRepositorySnapshot(request, env, channel, id) {
+  if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot workflow identity required" }, 401);
+  let key;
+  try { key = snapshotKey(channel, id); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const snapshot = (await readRecord(env.RELEASES, key))?.record;
+  if (!snapshot) return json({ error: "repository snapshot is not registered" }, 404);
+  const ineligibility = await snapshotEligibilityError(env, channel, snapshot.release_ids);
+  if (ineligibility) return json({ error: ineligibility }, 409);
+  for (const file of snapshot.files) {
+    const objectKey = `repository-snapshots/${channel}/${id}/${file.path}`;
+    const object = await env.RELEASES.head(objectKey);
+    if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256 ||
+        object.customMetadata?.snapshotId !== id || object.customMetadata?.channel !== channel || object.customMetadata?.path !== file.path) {
+      return json({ error: `snapshot upload is incomplete or failed readback: ${file.path}` }, 409);
+    }
+  }
+  const currentKey = `repository-current/${channel}.json`;
+  const active = await readRecord(env.RELEASES, currentKey);
+  if (active?.record.id === id) {
+    const cleanupPending = !await discardRepositorySnapshotBuild(env, channel, id);
+    return json({ id, channel, active: true, replay: true, cleanup_pending: cleanupPending }, 200);
+  }
+  const next = { id, channel, activated_at: new Date().toISOString() };
+  const saved = await writeRecord(env.RELEASES, currentKey, next, active?.etag || null);
+  if (!saved) return json({ error: "repository pointer changed concurrently; retry activation" }, 409);
+  const cleanupPending = !await discardRepositorySnapshotBuild(env, channel, id);
+  return json({ id, channel, active: true, cleanup_pending: cleanupPending }, 201);
+}
+
+async function serveRepositoryFile(request, env, channel, path) {
+  if (!snapshotFilePath(path)) return json({ error: "invalid repository metadata path" }, 400);
+  const keyring = path === "aptto-archive-keyring.gpg";
+  if (channel === "early" && !keyring && !await deviceTokenUser(request, env)) return new Response("sponsor authentication required", {
+    status: 401,
+    headers: { "www-authenticate": 'Basic realm="apt.to early repository"', "cache-control": "private, no-store", vary: "Authorization" },
+  });
+  const selectedChannel = keyring ? "public" : channel;
+  const active = (await readRecord(env.RELEASES, `repository-current/${selectedChannel}.json`))?.record;
+  if (!active) return json({ error: "repository snapshot is not available" }, 503);
+  const snapshot = (await readRecord(env.RELEASES, snapshotKey(selectedChannel, active.id)))?.record;
+  if (!snapshot) return json({ error: "repository snapshot is not available" }, 503);
+  const ineligibility = await snapshotEligibilityError(env, selectedChannel, snapshot.release_ids);
+  if (ineligibility) return json({ error: "repository snapshot is unavailable pending release promotion" }, 503);
+  const file = snapshot?.files.find((candidate) => candidate.path === path);
+  if (!file) return json({ error: "repository file not found" }, 404);
+  const objectKey = `repository-snapshots/${selectedChannel}/${active.id}/${path}`;
+  const metadata = await env.RELEASES.head(objectKey);
+  if (!metadata || metadata.size !== file.size || checksumHex(metadata.checksums?.sha256) !== file.sha256) return json({ error: "repository file failed integrity verification" }, 502);
+  const object = request.method === "HEAD" ? metadata : await env.RELEASES.get(objectKey);
+  if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256) return json({ error: "repository file failed integrity verification" }, 502);
+  const headers = new Headers({
+    "content-type": file.content_type,
+    "content-length": String(file.size),
+    "cache-control": channel === "early" ? "private, no-store" : (path.includes("/by-hash/") ? "public, max-age=31536000, immutable" : "public, max-age=300"),
+    "x-content-type-options": "nosniff",
+  });
+  if (channel === "early") headers.set("vary", "Authorization");
+  return new Response(request.method === "HEAD" ? null : object.body, { headers });
 }
 
 async function readRecord(bucket, key) {
@@ -756,7 +1161,7 @@ async function servePoolAsset(request, env, path) {
       const binary = canonicalAssets(record.required_assets).find((asset) => asset.name === name);
       const sourceAssets = record.source_assets?.length ? canonicalAssets(record.source_assets) : [];
       const sourceAsset = sourceAssets.find((asset) => asset.name === name);
-      if (binary) matches.push({ id: record.id, name, kind: "binary" });
+      if (binary) matches.push({ record, id: record.id, name, kind: "binary" });
       if (sourceAsset) matches.push({ record, asset: sourceAsset, kind: "source" });
     }
     cursor = page.truncated ? page.cursor : undefined;
@@ -1348,6 +1753,55 @@ export default {
       try { return await uploadReleaseAsset(request, env, id, name, "source"); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
+    const snapshotUploadRoute = url.pathname.match(/^\/internal\/repository-snapshots\/(public|early)\/([^/]+)\/files\/(.+)$/);
+    if (request.method === "PUT" && snapshotUploadRoute) {
+      try { return await uploadRepositorySnapshotFile(request, env, snapshotUploadRoute[1], snapshotUploadRoute[2], snapshotUploadRoute[3]); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const snapshotBuildFileRoute = url.pathname.match(/^\/internal\/repository-snapshot-builds\/(public|early)\/([^/]+)\/files\/(.+)$/);
+    if (["GET", "HEAD", "PUT"].includes(request.method) && snapshotBuildFileRoute) {
+      const [, channel, id, encodedPath] = snapshotBuildFileRoute;
+      try {
+        if (request.method === "PUT") return await uploadRepositorySnapshotBuildFile(request, env, channel, id, encodedPath);
+        return await readRepositorySnapshotBuild(request, env, channel, id, encodedPath);
+      } catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const snapshotBuildManifestRoute = url.pathname.match(/^\/internal\/repository-snapshot-builds\/(public|early)\/([^/]+)$/);
+    if (request.method === "GET" && snapshotBuildManifestRoute) {
+      const [, channel, id] = snapshotBuildManifestRoute;
+      try {
+        return await readRepositorySnapshotBuild(request, env, channel, id, "manifest.json");
+      } catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const snapshotBuildRegistrationRoute = url.pathname.match(/^\/internal\/repository-snapshot-builds\/(public|early)$/);
+    if (request.method === "POST" && snapshotBuildRegistrationRoute) {
+      try { return await registerRepositorySnapshotBuild(request, env, snapshotBuildRegistrationRoute[1]); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const snapshotActivationRoute = url.pathname.match(/^\/internal\/repository-snapshots\/(public|early)\/([^/]+)\/activate$/);
+    if (request.method === "POST" && snapshotActivationRoute) {
+      try { return await activateRepositorySnapshot(request, env, snapshotActivationRoute[1], snapshotActivationRoute[2]); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const snapshotRegistrationRoute = url.pathname.match(/^\/internal\/repository-snapshots\/(public|early)$/);
+    if (request.method === "POST" && snapshotRegistrationRoute) {
+      try { return await registerRepositorySnapshot(request, env, snapshotRegistrationRoute[1]); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const snapshotInventoryRoute = url.pathname.match(/^\/internal\/repository-snapshots\/(public|early)\/releases$/);
+    if (request.method === "GET" && snapshotInventoryRoute) {
+      try { return await listSnapshotReleases(request, env, snapshotInventoryRoute[1]); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const snapshotAssetRoute = url.pathname.match(/^\/internal\/repository-snapshots\/(public|early)\/releases\/([^/]+)\/assets\/([^/]+)$/);
+    if (["GET", "HEAD"].includes(request.method) && snapshotAssetRoute) {
+      let id;
+      let name;
+      try { id = decodeURIComponent(snapshotAssetRoute[2]); name = decodeURIComponent(snapshotAssetRoute[3]); }
+      catch { return json({ error: "invalid path encoding" }, 400); }
+      try { return await readSnapshotReleaseAsset(request, env, snapshotAssetRoute[1], id, name); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
     const revokeRoute = url.pathname.match(/^\/api\/device-tokens\/([a-f0-9]{64})\/revoke$/);
     if (request.method === "POST" && revokeRoute) {
       try { return await revokeDeviceToken(request, env, revokeRoute[1]); }
@@ -1370,6 +1824,19 @@ export default {
       try { path = decodeURIComponent(poolRoute[1]); }
       catch { return json({ error: "invalid repository path encoding" }, 400); }
       try { return await servePoolAsset(request, env, `pool/${path}`); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const repositoryFileRoute = url.pathname.match(/^\/dists\/(.+)$/);
+    if (["GET", "HEAD"].includes(request.method) && repositoryFileRoute) {
+      let path;
+      try { path = `dists/${decodeURIComponent(repositoryFileRoute[1])}`; }
+      catch { return json({ error: "invalid repository metadata path encoding" }, 400); }
+      const channel = new URL(request.url).hostname === "early.apt.to" ? "early" : "public";
+      try { return await serveRepositoryFile(request, env, channel, path); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    if (["GET", "HEAD"].includes(request.method) && url.pathname === "/aptto-archive-keyring.gpg") {
+      try { return await serveRepositoryFile(request, env, "public", "aptto-archive-keyring.gpg"); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
     if (request.method === "POST" && url.pathname === "/webhooks/github/sponsorship") {
