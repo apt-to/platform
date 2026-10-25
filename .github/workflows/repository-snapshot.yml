@@ -20,6 +20,7 @@ concurrency:
 jobs:
   build-indexes:
     if: >-
+      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
       github.ref == 'refs/heads/main' &&
       (github.event_name != 'workflow_run' ||
        (github.event.workflow_run.conclusion == 'success' &&

@@ -20,6 +20,13 @@ class WorkerRouteConfig(unittest.TestCase):
         )
         self.assertFalse(config["workers_dev"])
 
+    def test_snapshot_schedule_is_opt_in_until_repository_infrastructure_is_ready(self):
+        workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
+        self.assertRegex(
+            workflow,
+            r"build-indexes:\n\s+if: >-\n\s+vars\.APTTO_REPOSITORY_ENABLED == 'true' &&",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
