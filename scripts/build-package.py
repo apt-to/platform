@@ -26,6 +26,44 @@ def sha256(path):
     return result.hexdigest()
 
 
+def persist_release_candidates(selected, binary_manifest, output, package, version, source_commit):
+    entries = {item["name"]: item for item in binary_manifest["packages"]}
+    binary_output = output / "binary"
+    binary_output.mkdir()
+    release_candidates = []
+    for source_path in sorted(selected):
+        item = entries.get(source_path.name)
+        if not item:
+            raise RuntimeError("Selected package is missing from the verified binary manifest")
+        destination = binary_output / source_path.name
+        shutil.copyfile(source_path, destination)
+        digest = sha256(destination)
+        if digest != item["sha256"]:
+            raise RuntimeError("Persisted release candidate differs from the verified binary manifest")
+        control = dict(
+            line.split(": ", 1)
+            for line in item["control"].splitlines()
+            if ": " in line
+        )
+        release_candidates.append({
+            "name": destination.name,
+            "package": control["Package"],
+            "version": control["Version"],
+            "architecture": control["Architecture"],
+            "bytes": destination.stat().st_size,
+            "sha256": digest,
+        })
+    (output / "release-candidates.json").write_text(json.dumps({
+        "source": package,
+        "sourceVersion": version,
+        "sourceCommit": source_commit,
+        "distribution": "focal",
+        "architecture": "amd64",
+        "publication": "not published; runner-local candidates for a protected staging job",
+        "packages": release_candidates,
+    }, indent=2) + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path)
@@ -112,6 +150,7 @@ def main():
                 selected.append(target)
             if {p.name.split("_", 1)[0] for p in selected} != set(expected["binaryPackages"]):
                 raise RuntimeError("Could not extract every patched runtime package")
+            persist_release_candidates(selected, binary_manifest, output, package, policy["version"], commit)
             patched_context = temp / "patched-context"
             patched_context.mkdir()
             (patched_context / "aptto").mkdir()
