@@ -1977,7 +1977,7 @@ async function publishOne(env, key, now) {
   }
   if (!record.release_checks_passed) return;
   if (record.state === "prepared" && record.sponsor_delay_hours === 168) {
-    throw new Error("seven-day releases are disabled until sponsor authentication and private serving are integrated");
+    throw new Error("seven-day release must complete private sponsor publication before reconciliation");
   }
   if (!Number.isSafeInteger(record.source_release_id)) return;
   await verifySignedSourceTag(env, record.repository, record.tag, record.source_commit);

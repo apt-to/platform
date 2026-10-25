@@ -1374,7 +1374,7 @@ test("public release staging copies remain for 30 days and are deleted after an 
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("seven-day releases remain blocked until private sponsor serving exists", async () => {
+test("prepared seven-day releases cannot bypass the private sponsor publication transition", async () => {
   const bucket = new MemoryBucket({
     "release-state/pilot.json": {
       id: "pilot", state: "prepared", repository: "apt-to/packaging-libxml2", tag: "aptto/1.2.3",
@@ -1382,7 +1382,7 @@ test("seven-day releases remain blocked until private sponsor serving exists", a
       required_assets: [{ name: "libxml2.deb", sha256: "a".repeat(64), r2_key: "staging/libxml2" }],
     },
   });
-  await assert.rejects(publishOne({ RELEASES: bucket }, "release-state/pilot.json", new Date()), /sponsor authentication and private serving/);
+  await assert.rejects(publishOne({ RELEASES: bucket }, "release-state/pilot.json", new Date()), /complete private sponsor publication before reconciliation/);
   assert.equal((await (await bucket.get("release-state/pilot.json")).json()).state, "prepared");
 });
 
