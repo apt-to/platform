@@ -20,7 +20,7 @@ function packageRow(item) {
     <td class="version-cell" data-label="APTTO VERSION"><code>${escapeHtml(item.version)}</code><span class="unpublished-mark">NOT PUBLISHED</span></td>
     <td class="cve-cell" data-label="PATCH FOCUS">${cves}<small>Patch and regression details</small></td>
     <td class="policy-cell" data-label="BINARY ACCESS">${policy}</td>
-    <td data-label="DEVELOPMENT CHECKS"><a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Development checks passed<small>Shared two-package workflow ↗</small></a></td>
+    <td data-label="DEVELOPMENT CHECKS"><a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Development checks passed<small>Hosted build and regressions ↗</small></a></td>
     <td class="row-action" data-label="PUBLIC SOURCE"><a href="${escapeHtml(item.sourceUrl)}" aria-label="View ${escapeHtml(item.source)} source on GitHub">Source ↗</a></td>
   </tr>`;
 }
