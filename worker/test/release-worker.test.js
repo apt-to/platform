@@ -429,6 +429,7 @@ test("sponsor snapshot paginates current GitHub state, applies an explicit tier 
   globalThis.fetch = async (_url, options) => {
     const body = JSON.parse(options.body);
     requests.push(body.variables.after);
+    assert.match(body.query, /sponsorshipsAsMaintainer\(activeOnly: true/);
     const firstPage = body.variables.after === null;
     return Response.json({ data: { organization: {
       login: "apt-to", hasSponsorsListing: true,
@@ -438,6 +439,7 @@ test("sponsor snapshot paginates current GitHub state, applies an explicit tier 
           { isActive: true, isOneTimePayment: false, sponsorEntity: { __typename: "Organization", databaseId: 89, login: "sponsor-org" }, tier: { id: "tier-early", name: "Early access", isOneTime: false } },
           { isActive: true, isOneTimePayment: false, sponsorEntity: { __typename: "User", databaseId: 18, login: "bob" }, tier: { id: "tier-other", name: "Other", isOneTime: false } },
           { isActive: false, isOneTimePayment: false, sponsorEntity: { __typename: "User", databaseId: 19, login: "former" }, tier: { id: "tier-early", name: "Early access", isOneTime: false } },
+          { isActive: false, isOneTimePayment: true, sponsorEntity: { __typename: "User", databaseId: 21, login: "expired-one-time" }, tier: { id: "tier-early", name: "Early access", isOneTime: true } },
         ] : [
           { isActive: true, isOneTimePayment: true, sponsorEntity: { __typename: "User", databaseId: 20, login: "carol" }, tier: { id: "tier-early", name: "Early access", isOneTime: true } },
         ],
@@ -479,8 +481,8 @@ test("scheduled sponsor reconciliation persists an authoritative snapshot and co
     assert.equal(record.reconciled_at, snapshot.reconciled_at);
     assert.equal(record.sponsor_active, true);
     assert.equal(record.entitlement_source, "authoritative-snapshot");
-    assert.deepEqual((await readFreshSponsorSnapshot(bucket, new Date("2026-10-25T16:30:00Z"))).sponsors.map((sponsor) => sponsor.github_user_id), [17]);
-    assert.equal(await readFreshSponsorSnapshot(bucket, new Date("2026-10-25T16:30:00.001Z")), null);
+    assert.deepEqual((await readFreshSponsorSnapshot(bucket, new Date("2026-10-25T16:29:59.999Z"))).sponsors.map((sponsor) => sponsor.github_user_id), [17]);
+    assert.equal(await readFreshSponsorSnapshot(bucket, new Date("2026-10-25T16:30:00Z")), null);
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -507,6 +509,28 @@ test("failed sponsor refresh leaves the previous snapshot unchanged and unavaila
     await assert.rejects(fetchSponsorSnapshot({
       SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
     }, new Date("2026-10-25T16:00:00Z")), /listing is unavailable/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("authoritative inactive sponsor snapshot removes early-access eligibility", async () => {
+  const now = new Date("2026-10-25T16:00:00Z");
+  const bucket = new MemoryBucket({ "sponsor-entitlements/current.json": {
+    organization: "apt-to", tier_ids: ["tier-early"],
+    sponsors: [{ github_user_id: 17, github_login: "alice", tier_ids: ["tier-early"], has_one_time_sponsorship: false }],
+    reconciled_at: "2026-10-25T15:45:00.000Z", valid_until: "2026-10-25T16:15:00.000Z",
+    authority: "github-sponsors-graphql-active-only",
+  } });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ data: { organization: {
+    login: "apt-to", hasSponsorsListing: true,
+    sponsorshipsAsMaintainer: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+  } } });
+  try {
+    const snapshot = await reconcileSponsors({
+      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+    }, now);
+    assert.deepEqual(snapshot.sponsors, []);
+    assert.deepEqual((await readFreshSponsorSnapshot(bucket, now)).sponsors, []);
   } finally { globalThis.fetch = originalFetch; }
 });
 

@@ -1030,7 +1030,7 @@ async function readFreshSponsorSnapshot(bucket, now = new Date()) {
   if (!loaded) return null;
   const snapshot = loaded.record;
   if (snapshot.organization !== "apt-to" || snapshot.authority !== "github-sponsors-graphql-active-only" ||
-      !Number.isFinite(Date.parse(snapshot.valid_until)) || now.getTime() > Date.parse(snapshot.valid_until)) return null;
+      !Number.isFinite(Date.parse(snapshot.valid_until)) || now.getTime() >= Date.parse(snapshot.valid_until)) return null;
   return snapshot;
 }
 
