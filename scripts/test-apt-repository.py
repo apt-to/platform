@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build an isolated signed APT archive and test it with a fresh focal client."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -71,22 +72,17 @@ python3 /generate-apt-index.py --repo /repo --suite focal --architecture amd64 -
     fingerprint = subprocess.run(["gpg", "--batch", "--with-colons", "--list-keys"], env=env,
                                  check=True, capture_output=True, text=True).stdout
     fingerprint = next(line.split(":")[9] for line in fingerprint.splitlines() if line.startswith("fpr:"))
-    public_key = args.work / "aptto-test-archive.gpg"
-    run(["gpg", "--batch", "--export", "--output", str(public_key), fingerprint], env=env)
     release = dist / "Release"
     text = release.read_text()
     if "Architectures: amd64\n" not in text or "SHA256:\n" not in text:
         raise RuntimeError("APT Release metadata is missing required architecture or SHA-256 fields")
-    run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256", "--clearsign",
-         "--output", str(dist / "InRelease"), str(release)], env=env)
-    run(["gpg", "--batch", "--yes", "--local-user", fingerprint, "--digest-algo", "SHA256", "--armor", "--detach-sign",
-         "--output", str(dist / "Release.gpg"), str(release)], env=env)
-    verify_home = args.work / "verify-keyring"
-    verify_home.mkdir(mode=0o700)
-    verify_env = {**env, "GNUPGHOME": str(verify_home)}
-    run(["gpg", "--batch", "--import", str(public_key)], env=verify_env, stdout=subprocess.DEVNULL)
-    run(["gpg", "--batch", "--verify", str(dist / "InRelease")], env=verify_env, stdout=subprocess.DEVNULL)
-    run(["gpg", "--batch", "--verify", str(dist / "Release.gpg"), str(release)], env=verify_env, stdout=subprocess.DEVNULL)
+    generator_path = Path(__file__).resolve().parent / "generate-apt-index.py"
+    spec = importlib.util.spec_from_file_location("generate_apt_index", generator_path)
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    exported_key = generator.sign_release(dist, key_home, fingerprint)
+    public_key = args.work / "aptto-test-archive.gpg"
+    shutil.copyfile(exported_key, public_key)
 
     client_context = args.work / "apt-client-context"
     shutil.copytree(repo, client_context / "repo")
