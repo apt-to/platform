@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { createHash, createHmac, generateKeyPairSync, sign as signJwt } from "node:crypto";
 import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
 
+const TEST_RELEASE_TAG_SIGNER = "aptto-release-maintainer";
+
 class MemoryBucket {
   constructor(entries = {}) {
     this.entries = new Map(Object.entries(entries).map(([key, value]) => [key, { value, etag: `seed-${key}` }]));
@@ -927,6 +929,8 @@ test("release gate requires the named successful package job and exact tested so
   const originalFetch = globalThis.fetch;
   const calls = [];
   let displayTitle = `Verify libxml2 at ${"b".repeat(40)}`;
+  let signerLogin = TEST_RELEASE_TAG_SIGNER;
+  let annotatedSha = "d".repeat(40);
   globalThis.fetch = async (url) => {
     calls.push(String(url));
     if (String(url).endsWith("/actions/runs/456")) {
@@ -942,27 +946,50 @@ test("release gate requires the named successful package job and exact tested so
     if (String(url).endsWith("/git/ref/tags/aptto/1.2.3")) {
       return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
     }
+    if (String(url).endsWith("/graphql")) return Response.json({ data: { repository: { object: {
+      __typename: "Tag", oid: "d".repeat(40), name: "aptto/1.2.3",
+      tagger: { email: "releases@apt.to", user: { login: signerLogin } },
+    } } } });
     if (String(url).includes("/compare/aptto%2Ffocal...")) {
       return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
     }
-    return Response.json({ verification: { verified: true }, object: { type: "commit", sha: "b".repeat(40) } });
+    return Response.json({ sha: annotatedSha, verification: { verified: true, reason: "valid" }, tagger: { email: "releases@apt.to" }, object: { type: "commit", sha: "b".repeat(40) } });
   };
   try {
     const verified = await verifyPackageRun(
-      { GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" },
+      { GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER },
       "apt-to/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456,
     );
     assert.equal(verified.job_id, 9);
     assert.equal(verified.run_id, 456);
-    assert.equal(calls.length, 5);
+    assert.equal(calls.length, 6);
+    annotatedSha = "e".repeat(40);
+    await assert.rejects(
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "apt-to/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      /signed package tag must verify/,
+    );
+    annotatedSha = "d".repeat(40);
+    signerLogin = "unexpected-maintainer";
+    await assert.rejects(
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "apt-to/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      /configured GitHub account/,
+    );
+    signerLogin = TEST_RELEASE_TAG_SIGNER;
+    const savedLogin = signerLogin;
+    signerLogin = null;
+    await assert.rejects(
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "apt-to/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      /configured GitHub account/,
+    );
+    signerLogin = savedLogin;
     displayTitle = `Verify all at ${"b".repeat(40)}`;
     await assert.rejects(
-      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "apt-to/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "apt-to/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
       /successful package-verification dispatch/,
     );
     displayTitle = `Verify libxml2 at ${"b".repeat(40)}`;
     await assert.rejects(
-      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "apt-to/packaging-libxml2", "a".repeat(40), "aptto/1.2.3", 456),
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "apt-to/packaging-libxml2", "a".repeat(40), "aptto/1.2.3", 456),
       /successful package-verification dispatch/,
     );
   } finally {
@@ -979,13 +1006,28 @@ test("signed source tag must point to the tested commit", async () => {
     if (String(url).includes("/compare/aptto%2Ffocal...")) {
       return Response.json({ merge_base_commit: { sha: "e".repeat(40) } });
     }
-    return Response.json({ verification: { verified: true }, object: { type: "commit", sha: "e".repeat(40) } });
+    return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, object: { type: "commit", sha: "e".repeat(40) } });
   };
   try {
     await assert.rejects(
-      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "apt-to/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
+      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "apt-to/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
       /point to the tested source commit/,
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("release-tag verification fails closed without the approved signer account", async () => {
+  const originalFetch = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async () => { requests += 1; return Response.json({}); };
+  try {
+    await assert.rejects(
+      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "apt-to/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
+      /allowed GitHub release-tag signer is not configured/,
+    );
+    assert.equal(requests, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -997,14 +1039,18 @@ test("signed source commit must be reachable from the supported packaging branch
     if (String(url).endsWith("/git/ref/tags/aptto/1.2.3")) {
       return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
     }
+    if (String(url).endsWith("/graphql")) return Response.json({ data: { repository: { object: {
+      __typename: "Tag", oid: "d".repeat(40), name: "aptto/1.2.3",
+      tagger: { email: "releases@apt.to", user: { login: TEST_RELEASE_TAG_SIGNER } },
+    } } } });
     if (String(url).includes("/git/tags/")) {
-      return Response.json({ verification: { verified: true }, object: { type: "commit", sha: "b".repeat(40) } });
+      return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@apt.to" }, object: { type: "commit", sha: "b".repeat(40) } });
     }
     return Response.json({ merge_base_commit: { sha: "e".repeat(40) } });
   };
   try {
     await assert.rejects(
-      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "apt-to/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
+      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "apt-to/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
       /reachable from aptto\/focal/,
     );
   } finally {
@@ -1073,8 +1119,12 @@ test("scheduled reconciliation promotes a due sponsor release after missed runs"
     if (target.pathname.includes("/git/ref/tags/")) {
       return Response.json({ ref: "refs/tags/aptto/2.9.10-aptto1", object: { type: "tag", sha: "d".repeat(40) } });
     }
+    if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
+      __typename: "Tag", oid: "d".repeat(40), name: "aptto/2.9.10-aptto1",
+      tagger: { email: "releases@apt.to", user: { login: TEST_RELEASE_TAG_SIGNER } },
+    } } } });
     if (target.pathname.includes("/git/tags/")) {
-      return Response.json({ verification: { verified: true }, object: { type: "commit", sha: "b".repeat(40) } });
+      return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@apt.to" }, object: { type: "commit", sha: "b".repeat(40) } });
     }
     if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
     if (target.pathname.includes("/releases/tags/")) {
@@ -1087,7 +1137,7 @@ test("scheduled reconciliation promotes a due sponsor release after missed runs"
     return Response.json({});
   };
   try {
-    const failures = await reconcile({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, new Date("2026-10-10T12:00:00.000Z"));
+    const failures = await reconcile({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, new Date("2026-10-10T12:00:00.000Z"));
     assert.deepEqual(failures, []);
     const saved = await (await bucket.get(key)).json();
     assert.equal(saved.state, "public");
@@ -1126,8 +1176,12 @@ test("zero-hour package publication is authenticated and completes synchronously
     if (target.pathname.endsWith("/git/ref/tags/aptto/1.2.3")) {
       return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
     }
+    if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
+      __typename: "Tag", oid: "d".repeat(40), name: "aptto/1.2.3",
+      tagger: { email: "releases@apt.to", user: { login: TEST_RELEASE_TAG_SIGNER } },
+    } } } });
     if (target.pathname.includes("/git/tags/")) {
-      return Response.json({ verification: { verified: true }, object: { type: "commit", sha: "b".repeat(40) } });
+      return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@apt.to" }, object: { type: "commit", sha: "b".repeat(40) } });
     }
     if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
     if (target.pathname.endsWith("/releases/tags/aptto%2F1.2.3")) return new Response("not found", { status: 404 });
@@ -1164,11 +1218,11 @@ test("zero-hour package publication is authenticated and completes synchronously
     const token = signedOidcToken(privateKey, {}, privateKey, "immediate-release-test");
     const sourceResponse = await gateway.fetch(new Request("https://apt.to/internal/releases/pilot/publish-sources", {
       method: "POST", headers: { authorization: `Bearer ${token}` },
-    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" });
+    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER });
     assert.equal(sourceResponse.status, 200, await sourceResponse.clone().text());
     const response = await gateway.fetch(new Request(url, {
       method: "POST", headers: { authorization: `Bearer ${token}` },
-    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" });
+    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER });
     assert.equal(response.status, 200, await response.clone().text());
     const saved = await (await bucket.get("release-state/pilot.json")).json();
     assert.deepEqual(await response.json(), { id: "pilot", state: "public", source_release_tag: "aptto-source/1.2.3", public_published_at: saved.public_published_at });

@@ -1340,6 +1340,8 @@ async function verifyPackageRun(env, repository, sourceCommit, tag, runId) {
 }
 
 async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
+  const allowedSigner = String(env.APTTO_RELEASE_TAG_SIGNER || "").trim().toLowerCase();
+  if (!allowedSigner) throw new Error("allowed GitHub release-tag signer is not configured");
   const encodedTag = tag.split("/").map(encodeURIComponent).join("/");
   const refResponse = await githubRequest(env, `/repos/${repository}/git/ref/tags/${encodedTag}`);
   const ref = await refResponse.json();
@@ -1348,8 +1350,31 @@ async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
   if (object?.type !== "tag" || typeof object.sha !== "string") throw new Error("package release tag must be an annotated signed tag");
   const tagResponse = await githubRequest(env, `/repos/${repository}/git/tags/${object.sha}`);
   const annotated = await tagResponse.json();
-  if (annotated.verification?.verified !== true || annotated.object?.type !== "commit" || annotated.object.sha !== sourceCommit) {
+  if (annotated.sha !== object.sha || annotated.verification?.verified !== true || annotated.verification?.reason !== "valid" || annotated.object?.type !== "commit" || annotated.object.sha !== sourceCommit) {
     throw new Error("signed package tag must verify and point to the tested source commit");
+  }
+  const [owner, name] = repository.split("/");
+  const signerResponse = await fetch(`${env.GITHUB_API}/graphql`, {
+    method: "POST",
+    headers: {
+      accept: "application/vnd.github+json",
+      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      "content-type": "application/json",
+      "x-github-api-version": "2022-11-28",
+    },
+    body: JSON.stringify({
+      query: "query($owner: String!, $name: String!, $expression: String!) { repository(owner: $owner, name: $name) { object(expression: $expression) { __typename ... on Tag { oid name tagger { email user { login } } } } } }",
+      variables: { owner, name, expression: `refs/tags/${tag}` },
+    }),
+  });
+  if (!signerResponse.ok) throw new Error(`GitHub signer lookup returned ${signerResponse.status}`);
+  const signerPayload = await signerResponse.json();
+  if (signerPayload.errors?.length) throw new Error("GitHub signer lookup failed");
+  const signedTag = signerPayload.data?.repository?.object;
+  if (signedTag?.__typename !== "Tag" || signedTag.oid !== object.sha || signedTag.name !== tag ||
+      !signedTag.tagger?.email || signedTag.tagger.email.toLowerCase() !== annotated.tagger?.email?.toLowerCase() ||
+      signedTag.tagger.user?.login?.toLowerCase() !== allowedSigner) {
+    throw new Error("package release tag signer is not the configured GitHub account");
   }
   const ancestry = await githubRequest(env, `/repos/${repository}/compare/aptto%2Ffocal...${sourceCommit}`);
   const comparison = await ancestry.json();
