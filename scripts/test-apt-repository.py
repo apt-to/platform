@@ -26,12 +26,20 @@ def main():
     args = parser.parse_args()
 
     policy = json.loads((args.source / "debian/aptto/release-policy.json").read_text())
+    platform = json.loads((Path(__file__).resolve().parents[1] / "packages.json").read_text())
+    candidate = platform["packages"][policy["source"]]
+    binary_packages = candidate["binaryPackages"]
+    if (policy["version"] != policy["baseVersion"] + "+aptto1"
+            or policy["baseVersion"] != candidate["baselineVersion"]
+            or policy["architecture"] != platform["architecture"]
+            or policy["release"] != platform["release"]):
+        raise RuntimeError("source package policy does not match the reviewed focal candidate")
     manifest = json.loads((args.output / "binary-manifest.json").read_text())
     repo = args.work / "signed-repository"
     pool = repo / "pool/main" / policy["source"][0] / policy["source"]
     pool.mkdir(parents=True)
-    selected = [p for p in manifest["packages"] if p["control"].splitlines()[0].split(": ", 1)[1] in policy["binaryPackages"]]
-    if {p["control"].splitlines()[0].split(": ", 1)[1] for p in selected} != set(policy["binaryPackages"]):
+    selected = [p for p in manifest["packages"] if p["control"].splitlines()[0].split(": ", 1)[1] in binary_packages]
+    if {p["control"].splitlines()[0].split(": ", 1)[1] for p in selected} != set(binary_packages):
         raise RuntimeError("binary manifest does not contain all configured runtime packages")
     for item in selected:
         source = args.work / "patched-debs" / item["name"]
@@ -177,7 +185,7 @@ RUN bash /apt-client.sh
         run(["docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", client_image,
              "--build-arg", "BASE_IMAGE=" + args.base_image, "--build-arg", "TRUST_IMAGE=" + args.trust_image,
              "--build-arg", "ARCHIVE_SNAPSHOT=" + args.archive_snapshot,
-             "--build-arg", "BINARY_PACKAGES=" + " ".join(policy["binaryPackages"]),
+         "--build-arg", "BINARY_PACKAGES=" + " ".join(binary_packages),
              "--build-arg", "EXPECTED_VERSION=" + policy["version"], "--build-arg", "SOURCE_PACKAGE=" + policy["source"],
              str(client_context)])
         client_built = True
@@ -190,7 +198,7 @@ RUN bash /apt-client.sh
 
     (args.output / "repository-smoke.json").write_text(json.dumps({
         "source": policy["source"], "suite": "focal", "architecture": "amd64", "component": "main",
-        "binaryPackages": policy["binaryPackages"], "version": policy["version"],
+        "binaryPackages": binary_packages, "version": policy["version"],
         "sourcePackageFetched": True, "inReleaseVerified": True, "releaseGpgVerified": True,
         "byHashSha256": True, "temporaryTestKeyFingerprint": fingerprint,
         "releaseSha256": digest(release), "inReleaseSha256": digest(dist / "InRelease"),
