@@ -4,6 +4,10 @@
   "main": "src/index.js",
   "compatibility_date": "2026-10-25",
   "workers_dev": false,
+  "routes": [
+    { "pattern": "repo.apt.to", "custom_domain": true },
+    { "pattern": "early.apt.to", "custom_domain": true }
+  ],
   "assets": {
     "directory": "../site",
     "binding": "ASSETS",
