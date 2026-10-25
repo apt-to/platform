@@ -13,6 +13,7 @@ permissions:
 jobs:
   rebuild-and-stage:
     if: >-
+      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'workflow_dispatch' &&
       github.event.workflow_run.head_branch == 'main' &&

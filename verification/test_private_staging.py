@@ -64,6 +64,10 @@ class PrivateStagingManifest(unittest.TestCase):
         self.assertIn('gh run download "$RUN_ID" --repo apt-to/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
         self.assertIn('SOURCE_DIRECTORY: ${{ runner.temp }}/candidate/source', staging)
         self.assertIn('APTTO_RELEASE_ENDPOINT: https://repo.apt.to', staging)
+        self.assertRegex(
+            staging,
+            r"rebuild-and-stage:\n\s+if: >-\n\s+vars\.APTTO_REPOSITORY_ENABLED == 'true' &&",
+        )
 
     def test_release_endpoint_is_pinned_to_repository_hostname(self):
         self.assertEqual(STAGE.validate_endpoint("https://repo.apt.to/"), "https://repo.apt.to")
