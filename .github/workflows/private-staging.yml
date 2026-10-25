@@ -19,6 +19,7 @@ jobs:
       github.event.workflow_run.repository.full_name == 'apt-to/platform'
     runs-on: ubuntu-24.04
     timeout-minutes: 75
+    environment: aptto-signing
     permissions:
       actions: read
       contents: read

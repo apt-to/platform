@@ -35,7 +35,7 @@ function signedOidcToken(privateKey, overrides = {}, signatureKey = privateKey, 
     repository: "apt-to/platform", repository_id: "1433070541", repository_owner: "apt-to",
     repository_visibility: "public", event_name: "workflow_run", ref: "refs/heads/main",
     workflow_ref: "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main",
-    runner_environment: "github-hosted", run_id: "40210000000", run_attempt: 1,
+    runner_environment: "github-hosted", environment: "aptto-signing", run_id: "40210000000", run_attempt: 1,
     ...overrides,
   })).toString("base64url");
   const input = `${header}.${claims}`;
@@ -51,7 +51,11 @@ test("GitHub Actions OIDC accepts only signed tokens from the protected staging 
     const identity = await githubActionsIdentity(new Request("https://worker.test", {
       headers: { authorization: `Bearer ${signedOidcToken(privateKey)}` },
     }), {});
-    assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1 });
+    assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1, environment: "aptto-signing" });
+    const wrongEnvironment = signedOidcToken(privateKey, { environment: "unprotected" });
+    assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${wrongEnvironment}` } }), {}), null);
+    const missingEnvironment = signedOidcToken(privateKey, { environment: undefined });
+    assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${missingEnvironment}` } }), {}), null);
     const wrongWorkflow = signedOidcToken(privateKey, { workflow_ref: "apt-to/platform/.github/workflows/package-verification.yml@refs/heads/main" });
     assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${wrongWorkflow}` } }), {}), null);
     const wrongAudience = signedOidcToken(privateKey, { aud: "other-service" });

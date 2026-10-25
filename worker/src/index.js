@@ -47,9 +47,15 @@ async function githubActionsIdentity(request, env) {
         !Number.isSafeInteger(claims.iat) || claims.iat > now + 60 || claims.repository !== "apt-to/platform" || claims.repository_id !== "1433070541" ||
         claims.repository_owner !== "apt-to" || claims.repository_visibility !== "public" || claims.event_name !== "workflow_run" ||
         claims.ref !== "refs/heads/main" || claims.workflow_ref !== "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main" ||
-        claims.runner_environment !== "github-hosted" || !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(claims.run_attempt) ||
+        claims.runner_environment !== "github-hosted" || claims.environment !== "aptto-signing" ||
+        !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(claims.run_attempt) ||
         (claims.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || claims.nbf > now + 60)) || typeof claims.jti !== "string" || !claims.jti) return null;
-    return { type: "github-actions", run_id: Number(claims.run_id), run_attempt: claims.run_attempt };
+    return {
+      type: "github-actions",
+      run_id: Number(claims.run_id),
+      run_attempt: claims.run_attempt,
+      environment: claims.environment,
+    };
   } catch { return null; }
 }
 
