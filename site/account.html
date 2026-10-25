@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f3ee">
+    <meta name="description" content="Manage AptTo sponsor access and per-device APT credentials.">
+    <title>Sponsor access — AptTo</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/account.css">
+    <script type="module" src="/account.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#account-main">Skip to account</a>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="AptTo home"><span class="wordmark-mark">apt</span><span class="wordmark-dot">.</span><span>to</span></a>
+      <nav aria-label="Main navigation"><a href="/#catalogue">Packages</a><a class="nav-current" href="/account" aria-current="page">Sponsor access</a></nav>
+      <a class="github-link" href="https://github.com/apt-to/platform">Platform source ↗</a>
+    </header>
+
+    <main id="account-main" class="account-main">
+      <section class="account-heading" aria-labelledby="account-title">
+        <div>
+          <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>APTTO / ACCOUNT</p>
+          <h1 id="account-title">Sponsor <span>access.</span></h1>
+          <p class="lede">Manage the credentials used by your own Ubuntu machines to retrieve sponsor-period packages.</p>
+        </div>
+        <aside class="account-scope"><span>ACCESS WINDOW</span><strong>7 days</strong><small>Public source stays available from day one.</small></aside>
+      </section>
+
+      <p id="account-message" class="account-message" role="status" aria-live="polite">Checking your sign-in…</p>
+
+      <section id="signed-out" class="account-panel sign-in-panel" hidden aria-labelledby="signin-title">
+        <div class="panel-index">01 / IDENTITY</div>
+        <div><h2 id="signin-title">Sign in with GitHub</h2><p>Sign-in confirms your GitHub identity. AptTo checks sponsor eligibility separately before allowing early package access.</p></div>
+        <a class="action-button" href="/auth/github">Continue with GitHub <span aria-hidden="true">↗</span></a>
+      </section>
+
+      <div id="signed-in" hidden>
+        <section class="account-panel identity-panel" aria-labelledby="identity-title">
+          <div class="panel-index">01 / IDENTITY</div>
+          <div class="identity-copy"><h2 id="identity-title">Signed in as <span id="github-login"></span></h2><p id="sponsor-status" class="status-copy"></p></div>
+          <button id="sign-out" class="quiet-button" type="button">Sign out</button>
+        </section>
+
+        <section id="eligible-panel" class="device-section" hidden aria-labelledby="devices-title">
+          <div class="section-heading device-heading">
+            <div><p class="eyebrow">APT AUTHENTICATION</p><h2 id="devices-title">Device credentials</h2></div>
+            <p class="device-intro">Create one credential per machine. Store it in a root-readable APT auth.conf file and revoke it here when that machine no longer needs access.</p>
+          </div>
+
+          <div id="one-time-token" class="token-reveal" hidden role="region" aria-labelledby="token-title">
+            <div class="token-label"><span class="status-led" aria-hidden="true"></span><span id="token-title">New credential — shown once</span></div>
+            <p>Copy this directly into the machine’s <code>/etc/apt/auth.conf.d/</code> file. AptTo stores only a hash and cannot show it again.</p>
+            <div class="token-line"><code id="auth-line"></code><button id="copy-token" class="quiet-button" type="button">Copy line</button></div>
+            <button id="dismiss-token" class="dismiss-button" type="button">I’ve stored this credential</button>
+          </div>
+
+          <form id="device-form" class="create-device">
+            <label for="device-label">Machine label</label>
+            <div class="create-controls"><input id="device-label" name="label" maxlength="80" placeholder="e.g. build-server-01" required><button id="create-device" class="action-button" type="submit">Create credential <span aria-hidden="true">＋</span></button></div>
+            <p>Each credential expires after 90 days. Never paste it into a public URL or repository.</p>
+          </form>
+
+          <div class="device-list-heading"><h3>Registered machines</h3><span id="device-count" class="device-count">Loading…</span></div>
+          <p id="device-error" class="inline-error" role="alert" hidden></p>
+          <div id="device-list" class="device-list" aria-live="polite"></div>
+        </section>
+
+        <section id="not-eligible-panel" class="account-panel eligibility-panel" hidden aria-labelledby="eligibility-title">
+          <div class="panel-index">02 / SPONSORSHIP</div>
+          <div><h2 id="eligibility-title">Sponsor access is not active</h2><p id="eligibility-copy"></p><a id="sponsor-link" class="text-link" href="https://github.com/sponsors/apt-to">View AptTo sponsorship on GitHub ↗</a></div>
+        </section>
+      </div>
+
+      <section class="credential-note" aria-label="Credential guidance">
+        <span class="boundary-slash" aria-hidden="true">//</span>
+        <p><strong>Keep machine credentials private.</strong> Put each credential in a file under <code>/etc/apt/auth.conf.d/</code> with owner root and mode <code>0600</code>. Do not add credentials to source lists, shell history, logs, or shared build output.</p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="wordmark footer-wordmark" href="/" aria-label="AptTo home"><span class="wordmark-mark">apt</span><span class="wordmark-dot">.</span><span>to</span></a>
+      <p>Public source. Reproducible work. Carefully scoped maintenance.</p>
+      <div><a href="https://github.com/apt-to/platform">Platform</a><a href="https://github.com/apt-to/packaging-libxml2">libxml2 source</a><a href="https://github.com/apt-to/packaging-libarchive">libarchive source</a></div>
+      <span class="footer-year">APTTO / 2026</span>
+    </footer>
+  </body>
+</html>

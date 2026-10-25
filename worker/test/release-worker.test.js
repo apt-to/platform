@@ -457,6 +457,51 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("account status requires a valid session and fails closed when sponsor data is stale", async () => {
+  const session = "session-for-account-test";
+  const sessionHash = createHash("sha256").update(session).digest("hex");
+  const now = new Date();
+  const bucket = new MemoryBucket({
+    [`apt-sessions/${sessionHash}.json`]: {
+      github_user_id: 17, github_login: "alice", expires_at: new Date(now.getTime() + 3600000).toISOString(),
+    },
+    "sponsor-entitlements/current.json": {
+      organization: "apt-to", authority: "github-sponsors-graphql-active-only",
+      sponsors: [{ github_user_id: 17 }], valid_until: new Date(now.getTime() + 1800000).toISOString(),
+    },
+  });
+  const anonymous = await gateway.fetch(new Request("https://apt.to/api/me"), { RELEASES: bucket });
+  assert.equal(anonymous.status, 401);
+
+  const statusRequest = () => new Request("https://apt.to/api/me", { headers: { cookie: `aptto_session=${session}` } });
+  const eligible = await gateway.fetch(statusRequest(), { RELEASES: bucket });
+  assert.deepEqual(await eligible.json(), {
+    github_login: "alice", sponsorship: "eligible", snapshot_valid_until: new Date(now.getTime() + 1800000).toISOString(),
+  });
+
+  const snapshot = bucket.entries.get("sponsor-entitlements/current.json");
+  snapshot.value = { ...snapshot.value, valid_until: new Date(now.getTime() - 1).toISOString() };
+  const stale = await gateway.fetch(statusRequest(), { RELEASES: bucket });
+  assert.equal((await stale.json()).sponsorship, "unavailable");
+});
+
+test("Worker serves the account shell through its static assets binding and keeps unknown APIs private", async () => {
+  const requested = [];
+  const env = { ASSETS: { fetch: async (request) => {
+    requested.push(new URL(request.url).pathname);
+    return new Response("static", { status: 200 });
+  } } };
+  const account = await gateway.fetch(new Request("https://apt.to/account"), env);
+  assert.equal(account.status, 200);
+  assert.deepEqual(requested, ["/account.html"]);
+  const home = await gateway.fetch(new Request("https://apt.to/"), env);
+  assert.equal(home.status, 200);
+  assert.deepEqual(requested, ["/account.html", "/"]);
+  const missingApi = await gateway.fetch(new Request("https://apt.to/api/private"), env);
+  assert.equal(missingApi.status, 404);
+  assert.deepEqual(requested, ["/account.html", "/"]);
+});
+
 test("sponsorship cancellation webhook verifies signature and records delivery idempotently without granting or revoking access", async () => {
   const bucket = new MemoryBucket();
   const payload = JSON.stringify({ action: "cancelled", sponsorship: { sponsor: { id: 42 } } });

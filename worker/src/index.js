@@ -445,6 +445,18 @@ async function sessionUser(request, env) {
   return loaded.record;
 }
 
+async function accountStatus(request, env) {
+  const user = await sessionUser(request, env);
+  if (!user) return json({ error: "sign-in required" }, 401);
+  const snapshot = await readFreshSponsorSnapshot(env.RELEASES);
+  const eligible = snapshot?.sponsors.some((sponsor) => sponsor.github_user_id === user.github_user_id) === true;
+  return json({
+    github_login: user.github_login,
+    sponsorship: snapshot ? (eligible ? "eligible" : "not-eligible") : "unavailable",
+    snapshot_valid_until: snapshot?.valid_until || null,
+  });
+}
+
 async function logout(request, env) {
   assertSameOrigin(request, env);
   const session = cookieValue(request, "aptto_session");
@@ -975,6 +987,14 @@ async function reconcile(env, now = new Date()) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (request.method === "GET" && url.pathname === "/account") {
+      if (!env.ASSETS) return new Response("account page is not configured", { status: 503 });
+      return env.ASSETS.fetch(new Request(new URL("/account.html", request.url), request));
+    }
+    if (request.method === "GET" && url.pathname === "/api/me") {
+      try { return await accountStatus(request, env); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
     if (request.method === "GET" && url.pathname === "/auth/github") return beginGithubLogin(request, env);
     if (request.method === "GET" && url.pathname === "/auth/github/callback") {
       try { return await githubLoginCallback(request, env); }
@@ -1036,6 +1056,8 @@ export default {
       try { return await registerRelease(request, env); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
     }
+    if (url.pathname.startsWith("/api/")) return json({ error: "not found" }, 404);
+    if (env.ASSETS) return env.ASSETS.fetch(request);
     return json({ error: "not found" }, 404);
   },
   async scheduled(_event, env, context) {
