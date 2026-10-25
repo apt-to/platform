@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "target": { "distribution": "Ubuntu 20.04 LTS", "suite": "focal", "architecture": "amd64" },
+  "packages": [
+    {
+      "source": "libxml2",
+      "version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+      "cves": ["CVE-2025-49794", "CVE-2025-49796"],
+      "access": "sponsor",
+      "delayHours": 168,
+      "status": "development-checks-passed",
+      "verification": "https://github.com/apt-to/platform/actions/runs/40202672075",
+      "sourceUrl": "https://github.com/apt-to/packaging-libxml2/tree/aptto/focal"
+    },
+    {
+      "source": "libarchive",
+      "version": "3.4.0-2ubuntu1.5+aptto1",
+      "cves": ["CVE-2026-4111"],
+      "access": "public",
+      "delayHours": 0,
+      "status": "development-checks-passed",
+      "verification": "https://github.com/apt-to/platform/actions/runs/40202672075",
+      "sourceUrl": "https://github.com/apt-to/packaging-libarchive/tree/aptto/focal"
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f3ee">
+    <meta name="description" content="AptTo maintains tested backports of selected Ubuntu packages, with public source and transparent build evidence.">
+    <title>AptTo — maintained package backports</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/catalogue.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#catalogue">Skip to package catalogue</a>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="AptTo home"><span class="wordmark-mark">apt</span><span class="wordmark-dot">.</span><span>to</span></a>
+      <nav aria-label="Main navigation">
+        <a class="nav-current" href="#catalogue" aria-current="page">Packages</a>
+        <a href="https://github.com/apt-to/platform">Platform source <span aria-hidden="true">↗</span></a>
+      </nav>
+      <a class="github-link" href="https://github.com/apt-to">GitHub <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="intro-copy">
+          <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>APTTO / PACKAGE INDEX</p>
+          <h1 id="page-title">Package maintenance,<br><span>made inspectable.</span></h1>
+          <p class="lede">Selected Ubuntu package backports, built from public source with the patches, regressions and scan evidence alongside.</p>
+        </div>
+        <aside class="scope" aria-label="Current target">
+          <p class="scope-label">CURRENT TARGET</p>
+          <p class="scope-release">Ubuntu 20.04 <span>focal</span></p>
+          <p class="scope-arch">amd64 <span>·</span> selected packages</p>
+          <div class="scope-rule"></div>
+          <p class="scope-note">This is a package backport project, not an Ubuntu support programme.</p>
+        </aside>
+      </section>
+
+      <section class="notice" role="status" aria-live="polite">
+        <span class="notice-symbol" aria-hidden="true">i</span>
+        <p><strong>Development checks passed; release verification remains open.</strong> Sources and development test evidence are public. Production signing, package downloads and apt.to repository endpoints are not live yet.</p>
+        <a href="https://github.com/apt-to/platform/actions">View build runs <span aria-hidden="true">↗</span></a>
+      </section>
+
+      <section class="catalogue" id="catalogue" aria-labelledby="catalogue-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE CATALOGUE</p>
+            <h2 id="catalogue-title">Packages in verification</h2>
+          </div>
+          <label class="search-box">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="visually-hidden">Search packages or CVE identifiers</span>
+            <input id="package-search" type="search" placeholder="Search packages or CVEs" autocomplete="off">
+            <kbd>/</kbd>
+          </label>
+        </div>
+
+        <div class="filter-row" role="group" aria-label="Filter by release access policy">
+          <span class="filter-label">ACCESS POLICY</span>
+          <button class="filter-button is-selected" type="button" data-filter="all" aria-pressed="true">All candidates <span>00</span></button>
+          <button class="filter-button" type="button" data-filter="sponsor" aria-pressed="false">Sponsor first <span>00</span></button>
+          <button class="filter-button" type="button" data-filter="public" aria-pressed="false">Public immediately <span>00</span></button>
+          <span class="filter-spacer"></span>
+          <span class="result-count" id="result-count" aria-live="polite">Loading catalogue…</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">SOURCE PACKAGE</th>
+                <th scope="col">APTTO VERSION</th>
+                <th scope="col">PATCH FOCUS</th>
+                <th scope="col">BINARY ACCESS</th>
+                <th scope="col">DEVELOPMENT CHECKS</th>
+                <th scope="col"><span class="visually-hidden">Package links</span></th>
+              </tr>
+            </thead>
+            <tbody id="package-rows">
+              <tr><td colspan="6" class="loading-cell"><span class="loading-mark" aria-hidden="true"></span>Loading current package policy…</td></tr>
+            </tbody>
+          </table>
+          <div class="empty-state" id="empty-state" hidden>
+            <p class="empty-title">No packages match that search.</p>
+            <p>Try a source package name or CVE identifier.</p>
+            <button type="button" id="clear-search">Clear search</button>
+          </div>
+          <div class="error-state" id="error-state" hidden>
+            <p class="empty-title">Catalogue data could not be loaded.</p>
+            <p>Reload the page to try again, or open the public package source repositories on GitHub.</p>
+            <a href="https://github.com/apt-to">Browse apt-to on GitHub ↗</a>
+          </div>
+        </div>
+        <p class="table-caption"><span class="caption-mark" aria-hidden="true">↳</span> Every package row links to its public source and development checks. These checks do not complete release verification. No download action is shown until the production signed repository is live.</p>
+      </section>
+
+      <section class="how-it-works" aria-labelledby="process-title">
+        <div class="process-heading">
+          <p class="eyebrow">RELEASE MODEL</p>
+          <h2 id="process-title">Source stays open.<br>Binary timing varies.</h2>
+        </div>
+        <div class="process-steps">
+          <article class="process-step">
+            <span class="step-number">01</span>
+            <div><h3>Public source</h3><p>Packaging, patches and build recipes are available to inspect and reproduce from GitHub.</p></div>
+          </article>
+          <article class="process-step">
+            <span class="step-number">02</span>
+            <div><h3>Build and test</h3><p>Development checks cover clean focal builds, regressions, consumer use, a temporary signed APT client smoke test and advisory comparisons.</p></div>
+          </article>
+          <article class="process-step">
+            <span class="step-number">03</span>
+            <div><h3>Release by policy</h3><p>Once publication is implemented, selected binaries may have a seven-day sponsor window; others become public immediately.</p></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="boundary-note" aria-label="Maintenance boundary">
+        <span class="boundary-slash" aria-hidden="true">//</span>
+        <p><strong>Scope, plainly stated.</strong> AptTo evaluates and maintains specific packages and versions. It does not replace Ubuntu Pro, provide updates for the whole operating system, or claim that a package has no other vulnerabilities.</p>
+        <a href="https://github.com/apt-to/platform/blob/main/README.md">Read the build notes ↗</a>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="wordmark footer-wordmark" href="/" aria-label="AptTo home"><span class="wordmark-mark">apt</span><span class="wordmark-dot">.</span><span>to</span></a>
+      <p>Public source. Reproducible work. Carefully scoped maintenance.</p>
+      <div><a href="https://github.com/apt-to/platform">Platform</a><a href="https://github.com/apt-to/packaging-libxml2">libxml2 source</a><a href="https://github.com/apt-to/packaging-libarchive">libarchive source</a></div>
+      <span class="footer-year">APTTO / 2026</span>
+    </footer>
+  </body>
+</html>
