@@ -57,6 +57,13 @@ def main():
     scan_images = []
     with tempfile.TemporaryDirectory(prefix="aptto-build-inputs-") as directory:
         temp = Path(directory)
+        name = "aptto-build-" + package + "-" + uuid.uuid4().hex[:12]
+        container = name + "-job"
+        scan_base = name + "-baseline"
+        scan_patched = name + "-patched"
+        built = False
+        started = False
+        scan_images = []
         originals = temp / "originals"
         originals.mkdir()
         for item in provenance["source_integrity"]["archives"]:
@@ -152,6 +159,7 @@ def main():
                     "docker", "run", "--rm", "--platform", "linux/amd64",
                     "--mount", "type=bind,source=" + str(temp) + ",target=/work",
                     config["scannerImage"], "image", "--input", "/work/" + image_tar.name,
+                    "--user", str(os.getuid()) + ":" + str(os.getgid()),
                     "--cache-dir", "/work/trivy-cache", "--db-repository", config["scannerDatabaseReference"],
                     "--scanners", "vuln", "--list-all-pkgs", "--format", "json", "--output", "/work/" + phase + "-trivy.json",
                 ]
@@ -205,7 +213,6 @@ def main():
                     run(["docker", "image", "rm", image], timeout=60)
                 if built:
                     run(["docker", "image", "rm", name], timeout=60)
-
 
 if __name__ == "__main__":
     main()
