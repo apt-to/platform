@@ -472,6 +472,48 @@ test("early package URLs continue anonymously through the immutable public relea
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("repository pool paths resolve only manifest assets and preserve gated access", async () => {
+  const binaryName = "libxml2_1.2.3_amd64.deb";
+  const sourceName = "libxml2_1.2.3.dsc";
+  const record = {
+    id: "libxml2-1-2-3", state: "public", repository: "apt-to/packaging-libxml2", tag: "aptto/1.2.3",
+    public_release_id: 901, source_release_id: 902, sponsor_delay_hours: 168,
+    required_assets: [{ name: binaryName, sha256: "a".repeat(64), r2_key: `staging/libxml2-1-2-3/${"a".repeat(64)}` }],
+    source_assets: [{ name: sourceName, sha256: "b".repeat(64), r2_key: `staging/libxml2-1-2-3/source/${"b".repeat(64)}` }],
+  };
+  const bucket = new MemoryBucket({ "release-state/libxml2-1-2-3.json": record });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    if (value.endsWith("/releases/901/assets")) {
+      return Response.json([{ name: binaryName, browser_download_url: `https://github.com/apt-to/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}` }]);
+    }
+    if (value.endsWith("/releases/902/assets")) {
+      return Response.json([{ name: sourceName, browser_download_url: `https://github.com/apt-to/packaging-libxml2/releases/download/aptto-source/1.2.3/${sourceName}` }]);
+    }
+    throw new Error(`unexpected GitHub URL ${value}`);
+  };
+  try {
+    const env = { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" };
+    const binary = await gateway.fetch(new Request(`https://repo.apt.to/pool/main/l/libxml2/${binaryName}`), env);
+    assert.equal(binary.status, 302);
+    assert.equal(binary.headers.get("location"), `https://github.com/apt-to/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}`);
+    const source = await gateway.fetch(new Request(`https://repo.apt.to/pool/main/l/libxml2/${sourceName}`), env);
+    assert.equal(source.status, 302);
+    assert.equal(source.headers.get("location"), `https://github.com/apt-to/packaging-libxml2/releases/download/aptto-source/1.2.3/${sourceName}`);
+    const traversal = await gateway.fetch(new Request(`https://repo.apt.to/pool/main/l/libxml2/%2e%2e%2F${binaryName}`), env);
+    assert.equal(traversal.status, 400);
+
+    const gated = new MemoryBucket({ "release-state/libxml2-1-2-3.json": {
+      ...record, state: "sponsor-period", public_release_id: undefined,
+      sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString(),
+    } });
+    const denied = await gateway.fetch(new Request(`https://early.apt.to/pool/main/l/libxml2/${binaryName}`), { RELEASES: gated });
+    assert.equal(denied.status, 401);
+    assert.equal(denied.headers.get("cache-control"), "private, no-store");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("GitHub OAuth login issues hashed per-device APT credentials that can be listed and revoked", async () => {
   const bucket = new MemoryBucket();
   const env = { RELEASES: bucket, PUBLIC_ORIGIN: "https://apt.to", GITHUB_OAUTH_CLIENT_ID: "client-id", GITHUB_OAUTH_CLIENT_SECRET: "test-client-secret" };

@@ -710,6 +710,58 @@ async function serveEarlyAsset(request, env, id, name, now = new Date()) {
   return new Response(request.method === "HEAD" ? null : object.body, { status: range ? 206 : 200, headers });
 }
 
+async function servePublicSourceAsset(request, env, record, asset) {
+  if (!Number.isSafeInteger(record.source_release_id)) return json({ error: "public source release is unavailable" }, 404);
+  const response = await githubRequest(env, `/repos/${record.repository}/releases/${record.source_release_id}/assets`);
+  if (!response.ok) return json({ error: "public source asset lookup failed" }, 502);
+  const assets = await response.json();
+  const published = assets.find((candidate) => candidate.name === asset.name);
+  if (!published || typeof published.browser_download_url !== "string") return json({ error: "public source asset is missing" }, 404);
+  let destination;
+  try { destination = new URL(published.browser_download_url); } catch { return json({ error: "public source URL is invalid" }, 502); }
+  const [owner, repository] = record.repository.split("/");
+  if (destination.protocol !== "https:" || destination.hostname !== "github.com" ||
+      !destination.pathname.startsWith(`/${owner}/${repository}/releases/download/`)) {
+    return json({ error: "GitHub returned an unexpected public source URL" }, 502);
+  }
+  return new Response(null, { status: 302, headers: {
+    location: destination.toString(), "cache-control": "public, max-age=300", "referrer-policy": "no-referrer",
+  } });
+}
+
+async function servePoolAsset(request, env, path) {
+  const parts = path.split("/");
+  if (parts.length !== 5 || parts[0] !== "pool" || parts[1] !== "main" ||
+      parts.some((part) => !/^[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(part))) {
+    return json({ error: "invalid repository pool path" }, 400);
+  }
+  const name = parts[4];
+  let cursor;
+  const matches = [];
+  do {
+    const page = await env.RELEASES.list({ prefix: STATE_PREFIX, cursor, limit: 1000 });
+    for (const item of page.objects) {
+      const loaded = await readRecord(env.RELEASES, item.key);
+      const record = loaded?.record;
+      if (!record) continue;
+      assertRelease(record);
+      const source = packageName(record.repository);
+      if (path !== `pool/main/${source[0]}/${source}/${name}`) continue;
+      const binary = canonicalAssets(record.required_assets).find((asset) => asset.name === name);
+      const sourceAssets = record.source_assets?.length ? canonicalAssets(record.source_assets) : [];
+      const sourceAsset = sourceAssets.find((asset) => asset.name === name);
+      if (binary) matches.push({ id: record.id, name, kind: "binary" });
+      if (sourceAsset) matches.push({ record, asset: sourceAsset, kind: "source" });
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  if (matches.length === 0) return json({ error: "repository asset not found" }, 404);
+  if (matches.length !== 1) return json({ error: "repository asset mapping is ambiguous" }, 409);
+  const match = matches[0];
+  if (match.kind === "source") return servePublicSourceAsset(request, env, match.record, match.asset);
+  return serveEarlyAsset(request, env, match.id, match.name);
+}
+
 async function beginSponsorPublication(request, env, id, now = new Date()) {
   const identity = await githubActionsIdentity(request, env);
   if (!identity) {
@@ -1304,6 +1356,14 @@ export default {
         name = decodeURIComponent(earlyAssetRoute[2]);
       } catch { return json({ error: "invalid path encoding" }, 400); }
       try { return await serveEarlyAsset(request, env, id, name); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const poolRoute = url.pathname.match(/^\/pool\/(.+)$/);
+    if (["GET", "HEAD"].includes(request.method) && poolRoute) {
+      let path;
+      try { path = decodeURIComponent(poolRoute[1]); }
+      catch { return json({ error: "invalid repository path encoding" }, 400); }
+      try { return await servePoolAsset(request, env, `pool/${path}`); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
     if (request.method === "POST" && url.pathname === "/webhooks/github/sponsorship") {
