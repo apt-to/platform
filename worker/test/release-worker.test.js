@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash, createHmac } from "node:crypto";
-import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, parseUtc, publishOne, readFreshSponsorSnapshot, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
+import { createHash, createHmac, generateKeyPairSync, sign as signJwt } from "node:crypto";
+import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
 
 class MemoryBucket {
   constructor(entries = {}) {
@@ -25,6 +25,42 @@ class MemoryBucket {
     return { objects: [...this.entries.entries()].filter(([key]) => key.startsWith(prefix)).map(([key, entry]) => ({ key, etag: entry.etag })), truncated: false };
   }
 }
+
+function signedOidcToken(privateKey, overrides = {}, signatureKey = privateKey) {
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: "test-key" })).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const claims = Buffer.from(JSON.stringify({
+    iss: "https://token.actions.githubusercontent.com", aud: "aptto-release-gateway",
+    exp: now + 120, iat: now, nbf: now - 1, jti: "test-jti-12345678",
+    repository: "apt-to/platform", repository_id: "1433070541", repository_owner: "apt-to",
+    repository_visibility: "public", event_name: "workflow_run", ref: "refs/heads/main",
+    workflow_ref: "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main",
+    runner_environment: "github-hosted", run_id: "40210000000", run_attempt: 1,
+    ...overrides,
+  })).toString("base64url");
+  const input = `${header}.${claims}`;
+  return `${input}.${signJwt("RSA-SHA256", Buffer.from(input), signatureKey).toString("base64url")}`;
+}
+
+test("GitHub Actions OIDC accepts only signed tokens from the protected staging workflow", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: "test-key", use: "sig", alg: "RS256" };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  try {
+    const identity = await githubActionsIdentity(new Request("https://worker.test", {
+      headers: { authorization: `Bearer ${signedOidcToken(privateKey)}` },
+    }), {});
+    assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1 });
+    const wrongWorkflow = signedOidcToken(privateKey, { workflow_ref: "apt-to/platform/.github/workflows/package-verification.yml@refs/heads/main" });
+    assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${wrongWorkflow}` } }), {}), null);
+    const wrongAudience = signedOidcToken(privateKey, { aud: "other-service" });
+    assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${wrongAudience}` } }), {}), null);
+    const { privateKey: attackerKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const forged = signedOidcToken(privateKey, {}, attackerKey);
+    assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${forged}` } }), {}), null);
+  } finally { globalThis.fetch = originalFetch; }
+});
 
 class MemoryAssetBucket extends MemoryBucket {
   constructor(record) {
@@ -642,7 +678,7 @@ test("public state audits fail closed if GitHub reports a mutable release", asyn
     "release-state/pilot.json": {
       id: "pilot", state: "public", repository: "apt-to/packaging-libxml2", tag: "aptto/1.2.3",
       source_commit: "b".repeat(40), public_release_id: 42,
-      sponsor_delay_hours: 0,
+      sponsor_delay_hours: 168,
       required_assets: [{ name: "libxml2.deb", sha256: "a".repeat(64), r2_key: "staging/libxml2" }],
       verified_assets: [{ name: "libxml2.deb", sha256: "a".repeat(64), r2_key: "staging/libxml2" }],
     },

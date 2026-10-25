@@ -5,6 +5,53 @@ const MAX_REGISTRATION_BYTES = 64 * 1024;
 const MAX_SPONSOR_WEBHOOK_BYTES = 256 * 1024;
 const SPONSOR_ENTITLEMENTS_KEY = "sponsor-entitlements/current.json";
 const SPONSOR_SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000;
+const OIDC_ISSUER = "https://token.actions.githubusercontent.com";
+const OIDC_AUDIENCE = "aptto-release-gateway";
+let oidcKeys;
+
+function base64urlBytes(text) {
+  const value = text.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(text.length / 4) * 4, "=");
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+}
+
+async function githubActionsIdentity(request, env) {
+  const auth = request.headers.get("authorization") || "";
+  if (env.RELEASE_ADMIN_TOKEN && auth === `Bearer ${env.RELEASE_ADMIN_TOKEN}`) return { type: "admin" };
+  if (!auth.startsWith("Bearer ")) return null;
+  try {
+    const token = auth.slice(7);
+    if (token.length > 8192) return null;
+    const [encodedHeader, encodedClaims, encodedSignature, extra] = token.split(".");
+    if (!encodedHeader || !encodedClaims || !encodedSignature || extra !== undefined) return null;
+    const header = JSON.parse(new TextDecoder().decode(base64urlBytes(encodedHeader)));
+    const claims = JSON.parse(new TextDecoder().decode(base64urlBytes(encodedClaims)));
+    if (header.alg !== "RS256" || typeof header.kid !== "string") return null;
+    if (!oidcKeys) {
+      const response = await fetch(`${OIDC_ISSUER}/.well-known/jwks`);
+      if (!response.ok) return null;
+      oidcKeys = (await response.json()).keys || [];
+    }
+    let jwk = oidcKeys.find((candidate) => candidate.kid === header.kid && candidate.kty === "RSA" && candidate.use === "sig");
+    if (!jwk) {
+      const response = await fetch(`${OIDC_ISSUER}/.well-known/jwks`);
+      if (!response.ok) return null;
+      oidcKeys = (await response.json()).keys || [];
+      jwk = oidcKeys.find((candidate) => candidate.kid === header.kid && candidate.kty === "RSA" && candidate.use === "sig");
+    }
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    if (!await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, base64urlBytes(encodedSignature), new TextEncoder().encode(`${encodedHeader}.${encodedClaims}`))) return null;
+    const now = Math.floor(Date.now() / 1000);
+    const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (claims.iss !== OIDC_ISSUER || audiences.length !== 1 || audiences[0] !== OIDC_AUDIENCE || !Number.isSafeInteger(claims.exp) || claims.exp <= now ||
+        !Number.isSafeInteger(claims.iat) || claims.iat > now + 60 || claims.repository !== "apt-to/platform" || claims.repository_id !== "1433070541" ||
+        claims.repository_owner !== "apt-to" || claims.repository_visibility !== "public" || claims.event_name !== "workflow_run" ||
+        claims.ref !== "refs/heads/main" || claims.workflow_ref !== "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main" ||
+        claims.runner_environment !== "github-hosted" || !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(claims.run_attempt) ||
+        (claims.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || claims.nbf > now + 60)) || typeof claims.jti !== "string" || !claims.jti) return null;
+    return { type: "github-actions", run_id: Number(claims.run_id), run_attempt: claims.run_attempt };
+  } catch { return null; }
+}
 
 function requestError(message, status) {
   const error = new Error(message);
@@ -594,7 +641,8 @@ async function serveEarlyAsset(request, env, id, name, now = new Date()) {
 }
 
 async function beginSponsorPublication(request, env, id, now = new Date()) {
-  if (!env.RELEASE_ADMIN_TOKEN || request.headers.get("authorization") !== `Bearer ${env.RELEASE_ADMIN_TOKEN}`) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity) {
     return json({ error: "unauthorized" }, 401);
   }
   let key;
@@ -602,6 +650,7 @@ async function beginSponsorPublication(request, env, id, now = new Date()) {
   const loaded = await readRecord(env.RELEASES, key);
   if (!loaded) return json({ error: "release not found" }, 404);
   const record = loaded.record;
+  if (identity.type === "github-actions" && identity.run_id !== record.staging_run_id) return json({ error: "OIDC run identity does not match staged release" }, 403);
   if (record.sponsor_delay_hours !== 168 || record.release_checks_passed !== true) {
     return json({ error: "release is not eligible for sponsor publication" }, 409);
   }
@@ -666,6 +715,8 @@ function assertRelease(record) {
   if (!["apt-to/packaging-libxml2", "apt-to/packaging-libarchive"].includes(record.repository)) throw new Error("repository is not an approved pilot package");
   if (typeof record.tag !== "string" || !/^aptto\/[A-Za-z0-9.+~-]+$/.test(record.tag)) throw new Error("invalid immutable release tag");
   if (!Number.isInteger(record.sponsor_delay_hours) || ![0, 168].includes(record.sponsor_delay_hours)) throw new Error("policy must be 0 or 168 hours");
+  const expectedDelay = record.repository === "apt-to/packaging-libxml2" ? 168 : 0;
+  if (record.sponsor_delay_hours !== expectedDelay) throw new Error("release policy does not match the approved pilot package");
   if (!Array.isArray(record.required_assets) || record.required_assets.length === 0) throw new Error("required assets missing");
   canonicalAssets(record.required_assets);
 }
@@ -721,7 +772,8 @@ async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
 }
 
 async function registerRelease(request, env) {
-  if (!env.RELEASE_ADMIN_TOKEN || request.headers.get("authorization") !== `Bearer ${env.RELEASE_ADMIN_TOKEN}`) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity) {
     return json({ error: "unauthorized" }, 401);
   }
   const body = await readBoundedJson(request, MAX_REGISTRATION_BYTES);
@@ -735,18 +787,33 @@ async function registerRelease(request, env) {
     release_checks_passed: false,
     required_assets: releaseAssets(body.required_assets, body.id),
     created_at: new Date().toISOString(),
+    ...(identity.type === "github-actions" ? { staging_run_id: identity.run_id } : {}),
   };
   assertRelease(record);
   const verifiedRun = await verifyPackageRun(env, record.repository, record.source_commit, record.tag, body.verification_run_id);
   record.release_checks_passed = true;
   record.verification = verifiedRun;
+  const existing = await readRecord(env.RELEASES, stateKey(record.id));
+  if (existing) {
+    const current = existing.record;
+    const sameRelease = current.repository === record.repository && current.tag === record.tag && current.source_commit === record.source_commit &&
+      current.sponsor_delay_hours === record.sponsor_delay_hours &&
+      JSON.stringify(canonicalAssets(current.required_assets)) === JSON.stringify(canonicalAssets(record.required_assets));
+    if (!sameRelease) return json({ error: "release id already exists with different immutable release data" }, 409);
+    const next = await updateState(env.RELEASES, stateKey(record.id), (latest) => ({
+      ...latest,
+      ...(identity.type === "github-actions" ? { staging_run_id: identity.run_id } : {}),
+    }));
+    return json({ id: record.id, state: next.state, replay: true }, 200);
+  }
   const saved = await writeRecord(env.RELEASES, stateKey(record.id), record, null);
   if (!saved) return json({ error: "release id already exists" }, 409);
   return json({ id: record.id, state: record.state }, 201);
 }
 
 async function uploadReleaseAsset(request, env, id, name) {
-  if (!env.RELEASE_ADMIN_TOKEN || request.headers.get("authorization") !== `Bearer ${env.RELEASE_ADMIN_TOKEN}`) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity) {
     return json({ error: "unauthorized" }, 401);
   }
   let key;
@@ -755,6 +822,7 @@ async function uploadReleaseAsset(request, env, id, name) {
   const loaded = await readRecord(env.RELEASES, key);
   if (!loaded) return json({ error: "release not found" }, 404);
   const record = loaded.record;
+  if (identity.type === "github-actions" && identity.run_id !== record.staging_run_id) return json({ error: "OIDC run identity does not match staged release" }, 403);
   if (record.state !== "prepared" || record.release_checks_passed !== true) {
     return json({ error: "release is not accepting staged assets" }, 409);
   }
@@ -1070,4 +1138,4 @@ export default {
   },
 };
 
-export { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };
+export { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };

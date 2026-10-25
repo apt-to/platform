@@ -1,0 +1,73 @@
+name: Private binary staging
+
+on:
+  workflow_run:
+    workflows: [Package build and installed regressions]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  rebuild-and-stage:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_dispatch' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.repository.full_name == 'apt-to/platform'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - name: Validate source run metadata and download its candidate manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          RUN_TITLE: ${{ github.event.workflow_run.display_title }}
+          RUN_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+        run: |
+          test "$RUN_WORKFLOW_ID" = "395891327"
+          [[ "$RUN_TITLE" =~ ^Verify\ (libxml2|libarchive)\ at\ ([0-9a-f]{40})$ ]]
+          package="${BASH_REMATCH[1]}"
+          source_commit="${BASH_REMATCH[2]}"
+          mkdir -p "$RUNNER_TEMP/candidate"
+          gh run download "$RUN_ID" --repo apt-to/platform --name "verification-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate"
+          test -s "$RUNNER_TEMP/candidate/release-candidates.json"
+          printf '%s\n' "$package" > "$RUNNER_TEMP/candidate/package-name"
+          printf '%s\n' "$source_commit" > "$RUNNER_TEMP/candidate/source-commit"
+      - name: Check out trusted platform build tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Check out the exact packaging source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          package="$(cat "$RUNNER_TEMP/candidate/package-name")"
+          source_commit="$(cat "$RUNNER_TEMP/candidate/source-commit")"
+          git clone --no-checkout "https://github.com/apt-to/packaging-${package}.git" packaging
+          git -C packaging fetch --no-tags origin "$source_commit"
+          git -C packaging checkout --detach "$source_commit"
+          git -C packaging fetch --no-tags origin refs/heads/aptto/focal
+          git -C packaging merge-base --is-ancestor "$source_commit" FETCH_HEAD
+          echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
+      - name: Rebuild in the isolated focal builder and compare binary hashes
+        run: |
+          python3 scripts/build-package.py --source packaging --output build/recheck
+          python3 scripts/compare-release-candidates.py \
+            "$RUNNER_TEMP/candidate/release-candidates.json" \
+            build/recheck/release-candidates.json
+      - name: Register verified release and upload privately to R2
+        env:
+          APTTO_RELEASE_ENDPOINT: https://apt.to
+          VERIFICATION_RUN_ID: ${{ github.event.workflow_run.id }}
+          CANDIDATE_MANIFEST: ${{ runner.temp }}/candidate/release-candidates.json
+          BINARY_DIRECTORY: ${{ github.workspace }}/build/recheck/binary
+        run: python3 scripts/stage-release.py
