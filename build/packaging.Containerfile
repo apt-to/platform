@@ -24,7 +24,7 @@ RUN set -eu; \
     for binary in $binaries; do \
       test "$(apt-cache policy "$binary" | awk '/Candidate:/ {print $2}')" = "$EXPECTED_VERSION"; \
     done; \
-    apt-get install -y --no-install-recommends build-essential fakeroot dpkg-dev python3 valgrind pkg-config; \
+    apt-get install -y --no-install-recommends build-essential fakeroot dpkg-dev apt-utils gnupg python3 valgrind pkg-config; \
     apt-get build-dep -y --no-install-recommends "$SOURCE_PACKAGE"; \
     for binary in $binaries; do apt-get install -y --no-install-recommends "$binary=$EXPECTED_VERSION"; done; \
     rm -rf /var/lib/apt/lists/*

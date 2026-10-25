@@ -48,13 +48,6 @@ def main():
     if run(["git", "-C", str(source), "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
         raise RuntimeError("Commit the reviewed packaging changes before recording build evidence")
     commit = run(["git", "-C", str(source), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    name = "aptto-build-" + package + "-" + uuid.uuid4().hex[:12]
-    container = name + "-job"
-    scan_base = name + "-baseline"
-    scan_patched = name + "-patched"
-    built = False
-    started = False
-    scan_images = []
     with tempfile.TemporaryDirectory(prefix="aptto-build-inputs-") as directory:
         temp = Path(directory)
         name = "aptto-build-" + package + "-" + uuid.uuid4().hex[:12]
@@ -201,7 +194,10 @@ def main():
             audit_input_path = temp / "audit-input.json"
             audit_input_path.write_text(json.dumps(audit_input))
             run(["python3", str(ROOT / "scripts/advisory-audit.py"), "--input", str(audit_input_path), "--output", str(output / "advisory-comparison.json")])
-            print(package + ": build, installed regressions, consumer checks, matched scan images and version ordering passed")
+            run(["python3", str(ROOT / "scripts/test-apt-repository.py"), "--source", str(source), "--output", str(output),
+                 "--work", str(temp), "--builder-image", name, "--base-image", config["baseImage"],
+                 "--trust-image", config["scannerImage"], "--archive-snapshot", config["archiveSnapshot"]])
+            print(package + ": build, installed regressions, consumer checks, paired advisory audit, signed APT binary/source install and version ordering passed")
         finally:
             try:
                 if started:
