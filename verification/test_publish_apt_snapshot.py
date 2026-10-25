@@ -19,6 +19,9 @@ GENERATOR_SPEC.loader.exec_module(GENERATOR)
 SIGNER_SPEC = importlib.util.spec_from_file_location("sign_and_publish_apt_snapshot", ROOT / "scripts" / "sign-and-publish-apt-snapshot.py")
 SIGNER = importlib.util.module_from_spec(SIGNER_SPEC)
 SIGNER_SPEC.loader.exec_module(SIGNER)
+ROLLBACK_SPEC = importlib.util.spec_from_file_location("rollback_apt_snapshot", ROOT / "scripts" / "rollback-apt-snapshot.py")
+ROLLBACK = importlib.util.module_from_spec(ROLLBACK_SPEC)
+ROLLBACK_SPEC.loader.exec_module(ROLLBACK)
 
 
 class AptSnapshotPublisher(unittest.TestCase):
@@ -48,6 +51,21 @@ class AptSnapshotPublisher(unittest.TestCase):
             SIGNER.validate_snapshot_ids({"public": ids["early"], "early": ids["public"]})
         with self.assertRaisesRegex(ValueError, "exactly public and early"):
             SIGNER.validate_snapshot_ids({"public": ids["public"]})
+
+    def test_rollback_only_activates_a_matching_retained_snapshot_without_uploading_bytes(self):
+        snapshot_id = "focal-20261025T120000-r123-public"
+        with patch.object(ROLLBACK.PUBLISH, "call", return_value=(201, {"id": snapshot_id, "channel": "public", "active": True, "cleanup_pending": False})) as call:
+            result = ROLLBACK.rollback("https://repo.apt.to", "public", snapshot_id)
+        self.assertEqual(result, {"id": snapshot_id, "channel": "public", "active": True, "cleanup_pending": False})
+        call.assert_called_once_with(
+            f"https://repo.apt.to/internal/repository-snapshots/public/{snapshot_id}/activate", "POST", body={}
+        )
+
+    def test_rollback_rejects_wrong_channel_snapshot_and_noncanonical_endpoint(self):
+        with self.assertRaisesRegex(ValueError, "selected channel"):
+            ROLLBACK.rollback("https://repo.apt.to", "early", "focal-20261025T120000-r123-public")
+        with self.assertRaisesRegex(ValueError, "configured HTTPS"):
+            ROLLBACK.rollback("https://attacker.example", "public", "focal-20261025T120000-r123-public")
 
     def test_snapshot_files_reject_symlinked_index_files(self):
         target = self.dist / "main/binary-amd64/Packages.gz"

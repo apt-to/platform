@@ -8,6 +8,23 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Publish current package indexes or restore a retained snapshot
+        type: choice
+        required: true
+        default: publish
+        options: [publish, rollback]
+      rollback_channel:
+        description: Channel to restore when operation is rollback
+        type: choice
+        required: true
+        default: public
+        options: [public, early]
+      rollback_snapshot_id:
+        description: Exact retained focal snapshot ID for the selected channel
+        type: string
+        required: false
 
 permissions:
   actions: read
@@ -21,6 +38,7 @@ jobs:
   build-indexes:
     if: >-
       vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback') &&
       github.ref == 'refs/heads/main' &&
       (github.event_name != 'workflow_run' ||
        (github.event.workflow_run.conclusion == 'success' &&
@@ -62,6 +80,7 @@ jobs:
           PY
 
   sign-and-publish:
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback'
     needs: build-indexes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -86,3 +105,28 @@ jobs:
           APTTO_SIGNING_FINGERPRINT: ${{ vars.APTTO_SIGNING_FINGERPRINT }}
           APTTO_SNAPSHOT_IDS: ${{ needs.build-indexes.outputs.snapshot_ids }}
         run: python3 scripts/sign-and-publish-apt-snapshot.py --channel both
+
+  rollback:
+    if: >-
+      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.operation == 'rollback'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: aptto-signing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out trusted recovery tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Reactivate the exact retained snapshot
+        env:
+          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_ROLLBACK_CHANNEL: ${{ inputs.rollback_channel }}
+          APTTO_ROLLBACK_SNAPSHOT_ID: ${{ inputs.rollback_snapshot_id }}
+        run: python3 scripts/rollback-apt-snapshot.py

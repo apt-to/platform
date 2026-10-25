@@ -689,6 +689,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
   };
   const authorization = `Bearer ${signedOidcToken(privateKey, snapshotClaims, privateKey, keyId)}`;
   const stagingAuthorization = `Bearer ${signedOidcToken(privateKey, {}, privateKey, keyId)}`;
+  const firstId = "focal-20261025T120000-r101-public";
   const contents = new Map([
     ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
     ["dists/focal/InRelease", "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nOrigin: AptTo\n"],
@@ -711,9 +712,9 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     });
     const stagingRegistration = await gateway.fetch(stagingRequest("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "staging-cannot-publish", release_ids: ["pilot"], files })), env);
     assert.equal(stagingRegistration.status, 401, "the artifact staging workflow cannot register repository metadata");
-    const registration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-001", release_ids: ["pilot"], files })), env);
+    const registration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: firstId, release_ids: ["pilot"], files })), env);
     assert.equal(registration.status, 201);
-    const replay = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-001", release_ids: ["pilot"], files })), env);
+    const replay = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: firstId, release_ids: ["pilot"], files })), env);
     assert.equal(replay.status, 200, "repeated registration of the same immutable manifest is safe");
     bucket.entries.set("release-state/gated.json", {
       value: { ...release, id: "gated", state: "sponsor-period", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10+dfsg-5ubuntu0.20.04.10+aptto1", sponsor_delay_hours: 168, sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString() },
@@ -721,22 +722,40 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     });
     const prematurePublic = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-gated", release_ids: ["gated"], files })), env);
     assert.equal(prematurePublic.status, 409, "a seven-day release cannot enter the anonymous public index before promotion");
-    const beforeUpload = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/activate", "POST", "{}"), env);
+    const beforeUpload = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
     assert.equal(beforeUpload.status, 409);
     for (const [path, content] of contents) {
-      const result = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/files/${path}`, "PUT", content), env);
+      const result = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/files/${path}`, "PUT", content), env);
       assert.equal(result.status, 201, path);
     }
-    const stagingUpload = await gateway.fetch(stagingRequest("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/files/dists/focal/Release", "PUT", contents.get("dists/focal/Release")), env);
+    const stagingUpload = await gateway.fetch(stagingRequest(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/files/dists/focal/Release`, "PUT", contents.get("dists/focal/Release")), env);
     assert.equal(stagingUpload.status, 401, "the artifact staging workflow cannot write repository metadata");
-    const stagingActivation = await gateway.fetch(stagingRequest("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/activate", "POST", "{}"), env);
+    const stagingActivation = await gateway.fetch(stagingRequest(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
     assert.equal(stagingActivation.status, 401, "the artifact staging workflow cannot activate repository metadata");
-    const activated = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public/focal-snapshot-001/activate", "POST", "{}"), env);
+    const activated = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
     assert.equal(activated.status, 201);
     const served = await gateway.fetch(new Request("https://repo.apt.to/dists/focal/InRelease"), env);
     assert.equal(served.status, 200);
     assert.equal(await served.text(), contents.get("dists/focal/InRelease"));
     assert.equal(served.headers.get("cache-control"), "public, max-age=300");
+
+    const secondId = "focal-20261025T120100-r102-public";
+    const secondRegistration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: secondId, release_ids: ["pilot"], files })), env);
+    assert.equal(secondRegistration.status, 201);
+    for (const [path, content] of contents) {
+      const uploaded = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${secondId}/files/${path}`, "PUT", content), env);
+      assert.equal(uploaded.status, 201, path);
+    }
+    const secondActivation = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${secondId}/activate`, "POST", "{}"), env);
+    assert.equal(secondActivation.status, 201);
+    assert.equal(bucket.entries.get("repository-current/public.json").value.id, secondId);
+    const rollback = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
+    assert.equal(rollback.status, 201);
+    assert.equal((await rollback.json()).id, firstId);
+    assert.equal(bucket.entries.get("repository-current/public.json").value.id, firstId);
+    const restored = await gateway.fetch(new Request("https://repo.apt.to/dists/focal/InRelease"), env);
+    assert.equal(await restored.text(), contents.get("dists/focal/InRelease"));
+
     const keyring = await gateway.fetch(new Request("https://early.apt.to/aptto-archive-keyring.gpg"), env);
     assert.equal(keyring.status, 200, "the public trust anchor remains anonymously available");
     const privateIndex = await gateway.fetch(new Request("https://early.apt.to/dists/focal/InRelease"), env);
