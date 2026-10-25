@@ -158,8 +158,8 @@ def main():
                 command = [
                     "docker", "run", "--rm", "--platform", "linux/amd64",
                     "--mount", "type=bind,source=" + str(temp) + ",target=/work",
-                    config["scannerImage"], "image", "--input", "/work/" + image_tar.name,
-                    "--user", str(os.getuid()) + ":" + str(os.getgid()),
+                    "--user", str(os.getuid()) + ":" + str(os.getgid()), config["scannerImage"],
+                    "image", "--input", "/work/" + image_tar.name,
                     "--cache-dir", "/work/trivy-cache", "--db-repository", config["scannerDatabaseReference"],
                     "--scanners", "vuln", "--list-all-pkgs", "--format", "json", "--output", "/work/" + phase + "-trivy.json",
                 ]
