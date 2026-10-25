@@ -1,5 +1,13 @@
 const STATE_PREFIX = "release-state/";
 const MAX_RETRIES = 5;
+const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
+const MAX_REGISTRATION_BYTES = 64 * 1024;
+
+function requestError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -33,10 +41,63 @@ function canonicalAssets(assets) {
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function releaseAssets(assets, id) {
+  stateKey(id);
+  if (!Array.isArray(assets)) throw new Error("assets must be a non-empty array");
+  return canonicalAssets(assets.map((asset) => ({
+    ...asset,
+    r2_key: `staging/${id}/${asset?.sha256}`,
+  })));
+}
+
+function checksumBuffer(hex) {
+  return Uint8Array.from(hex.match(/.{2}/g), (pair) => Number.parseInt(pair, 16)).buffer;
+}
+
+function checksumHex(value) {
+  if (!value) return null;
+  return [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 async function readRecord(bucket, key) {
   const object = await bucket.get(key);
   if (!object) return null;
   return { record: await object.json(), etag: object.etag };
+}
+
+async function readBoundedJson(request, maxBytes) {
+  const declaredHeader = request.headers.get("content-length");
+  if (declaredHeader !== null) {
+    const declared = Number(declaredHeader);
+    if (!Number.isSafeInteger(declared) || declared < 0) throw requestError("invalid content-length", 400);
+    if (declared > maxBytes) throw requestError("request body exceeds the allowed size", 413);
+  }
+  if (!request.body) throw requestError("JSON request body is required", 400);
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw requestError("request body exceeds the allowed size", 413);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try { return JSON.parse(new TextDecoder().decode(bytes)); }
+  catch { throw requestError("request body must be valid JSON", 400); }
 }
 
 async function writeRecord(bucket, key, record, etag) {
@@ -124,7 +185,7 @@ async function registerRelease(request, env) {
   if (!env.RELEASE_ADMIN_TOKEN || request.headers.get("authorization") !== `Bearer ${env.RELEASE_ADMIN_TOKEN}`) {
     return json({ error: "unauthorized" }, 401);
   }
-  const body = await request.json();
+  const body = await readBoundedJson(request, MAX_REGISTRATION_BYTES);
   const record = {
     id: body.id,
     state: "prepared",
@@ -133,7 +194,7 @@ async function registerRelease(request, env) {
     source_commit: body.source_commit,
     sponsor_delay_hours: body.sponsor_delay_hours,
     release_checks_passed: false,
-    required_assets: canonicalAssets(body.required_assets),
+    required_assets: releaseAssets(body.required_assets, body.id),
     created_at: new Date().toISOString(),
   };
   assertRelease(record);
@@ -143,6 +204,52 @@ async function registerRelease(request, env) {
   const saved = await writeRecord(env.RELEASES, stateKey(record.id), record, null);
   if (!saved) return json({ error: "release id already exists" }, 409);
   return json({ id: record.id, state: record.state }, 201);
+}
+
+async function uploadReleaseAsset(request, env, id, name) {
+  if (!env.RELEASE_ADMIN_TOKEN || request.headers.get("authorization") !== `Bearer ${env.RELEASE_ADMIN_TOKEN}`) {
+    return json({ error: "unauthorized" }, 401);
+  }
+  let key;
+  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(name)) return json({ error: "invalid asset name" }, 400);
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded) return json({ error: "release not found" }, 404);
+  const record = loaded.record;
+  if (record.state !== "prepared" || record.release_checks_passed !== true) {
+    return json({ error: "release is not accepting staged assets" }, 409);
+  }
+  const asset = canonicalAssets(record.required_assets).find((candidate) => candidate.name === name);
+  if (!asset) return json({ error: "asset is not in the verified release manifest" }, 404);
+  const lengthHeader = request.headers.get("content-length");
+  const length = lengthHeader === null ? NaN : Number(lengthHeader);
+  if (!Number.isSafeInteger(length) || length <= 0 || length > MAX_RELEASE_ASSET_BYTES) {
+    return json({ error: "asset size must be declared and at most 64 MiB" }, 413);
+  }
+  if (!request.body) return json({ error: "asset body is required" }, 400);
+
+  const options = {
+    onlyIf: { etagDoesNotMatch: "*" },
+    sha256: checksumBuffer(asset.sha256),
+    httpMetadata: { contentType: "application/octet-stream" },
+    customMetadata: { sha256: asset.sha256, releaseId: id, assetName: name },
+  };
+  const stored = await env.RELEASES.put(asset.r2_key, request.body, options);
+  if (stored) {
+    if (stored.size !== length || checksumHex(stored.checksums?.sha256) !== asset.sha256) {
+      return json({ error: "R2 stored asset size or checksum did not match the verified manifest" }, 422);
+    }
+    return json({ name, sha256: asset.sha256, bytes: length, stored: true }, 201);
+  }
+
+  const existing = await env.RELEASES.head(asset.r2_key);
+  // R2 validates the supplied SHA-256 on put and exposes its computed checksum
+  // through checksums; user-supplied custom metadata alone is never sufficient.
+  if (existing?.size === length && checksumHex(existing.checksums?.sha256) === asset.sha256 &&
+      existing.customMetadata?.releaseId === id && existing.customMetadata?.assetName === name) {
+    return json({ name, sha256: asset.sha256, bytes: length, stored: true, replay: true }, 200);
+  }
+  return json({ error: "staging key already exists with different content" }, 409);
 }
 
 async function githubRequest(env, path, options = {}) {
@@ -341,9 +448,22 @@ async function reconcile(env, now = new Date()) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const assetRoute = url.pathname.match(/^\/internal\/releases\/([^/]+)\/assets\/([^/]+)$/);
+    if (request.method === "PUT" && assetRoute) {
+      let id;
+      let name;
+      try {
+        id = decodeURIComponent(assetRoute[1]);
+        name = decodeURIComponent(assetRoute[2]);
+      } catch {
+        return json({ error: "invalid path encoding" }, 400);
+      }
+      try { return await uploadReleaseAsset(request, env, id, name); }
+      catch (error) { return json({ error: String(error.message || error) }, 422); }
+    }
     if (request.method === "POST" && url.pathname === "/internal/releases") {
       try { return await registerRelease(request, env); }
-      catch (error) { return json({ error: String(error.message || error) }, 400); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
     }
     return json({ error: "not found" }, 404);
   },
@@ -354,4 +474,4 @@ export default {
   },
 };
 
-export { canonicalAssets, parseUtc, publishOne, reconcile, requireImmutableReleasesEnabled, updateState, verifyPackageRun, verifySignedSourceTag };
+export { canonicalAssets, parseUtc, publishOne, reconcile, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyPackageRun, verifySignedSourceTag };
