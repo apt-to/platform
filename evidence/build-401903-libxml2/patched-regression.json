@@ -1,0 +1,65 @@
+{
+  "source": "libxml2",
+  "phase": "patched",
+  "installedVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+  "expectedVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+  "checks": [
+    {
+      "command": [
+        "valgrind",
+        "--tool=memcheck",
+        "--error-exitcode=97",
+        "--leak-check=no",
+        "--log-file=/tmp/aptto-regression-8b15oixn/cve-2025-49794.valgrind",
+        "xmllint",
+        "--nonet",
+        "--schematron",
+        "debian/tests/fixtures/cve-2025-49794.sct",
+        "debian/tests/fixtures/cve-2025-49794_0.xml"
+      ],
+      "returncode": 3,
+      "stdout": "<?xml version=\"1.0\"?>\n<librar0>\n    <boo0 t=\"\">\n        <author/>\n    </boo0>\n    <ins/>\n</librar0>\n",
+      "stderr": "Pattern: \n/librar0/boo0 line 2:  \ndebian/tests/fixtures/cve-2025-49794_0.xml fails to validate\n",
+      "timedOut": false,
+      "cve": "CVE-2025-49794",
+      "memoryLog": "==20134== Memcheck, a memory error detector\n==20134== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n==20134== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info\n==20134== Command: xmllint --nonet --schematron debian/tests/fixtures/cve-2025-49794.sct debian/tests/fixtures/cve-2025-49794_0.xml\n==20134== Parent PID: 20132\n==20134== \n==20134== \n==20134== HEAP SUMMARY:\n==20134==     in use at exit: 0 bytes in 0 blocks\n==20134==   total heap usage: 307 allocs, 307 frees, 219,696 bytes allocated\n==20134== \n==20134== For a detailed leak analysis, rerun with: --leak-check=full\n==20134== \n==20134== For lists of detected and suppressed errors, rerun with: -s\n==20134== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n",
+      "passed": true
+    },
+    {
+      "command": [
+        "valgrind",
+        "--tool=memcheck",
+        "--error-exitcode=97",
+        "--leak-check=no",
+        "--log-file=/tmp/aptto-regression-8b15oixn/cve-2025-49796.valgrind",
+        "xmllint",
+        "--nonet",
+        "--schematron",
+        "debian/tests/fixtures/cve-2025-49796.sct",
+        "debian/tests/fixtures/cve-2025-49796_0.xml"
+      ],
+      "returncode": 3,
+      "stdout": "<?xml version=\"1.0\"?>\n<librar0>\n    <boo0/>\n</librar0>\n",
+      "stderr": "Pattern: \n/librar0/boo0 line 2:  \ndebian/tests/fixtures/cve-2025-49796_0.xml fails to validate\n",
+      "timedOut": false,
+      "cve": "CVE-2025-49796",
+      "memoryLog": "==20135== Memcheck, a memory error detector\n==20135== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.\n==20135== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info\n==20135== Command: xmllint --nonet --schematron debian/tests/fixtures/cve-2025-49796.sct debian/tests/fixtures/cve-2025-49796_0.xml\n==20135== Parent PID: 20132\n==20135== \n==20135== \n==20135== HEAP SUMMARY:\n==20135==     in use at exit: 0 bytes in 0 blocks\n==20135==   total heap usage: 253 allocs, 253 frees, 214,545 bytes allocated\n==20135== \n==20135== For a detailed leak analysis, rerun with: --leak-check=full\n==20135== \n==20135== For lists of detected and suppressed errors, rerun with: -s\n==20135== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n",
+      "passed": true
+    },
+    {
+      "command": [
+        "xmllint",
+        "--nonet",
+        "--xpath",
+        "string(/document/item)",
+        "/tmp/aptto-regression-8b15oixn/normal.xml"
+      ],
+      "returncode": 0,
+      "stdout": "compatible\n",
+      "stderr": "",
+      "timedOut": false,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

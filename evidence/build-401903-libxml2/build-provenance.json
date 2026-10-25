@@ -1,0 +1,11 @@
+{
+  "source": "libxml2",
+  "version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+  "sourceCommit": "5d4f212522dc479290443e9e97d3c42053a689df",
+  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "trustBundleImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "archiveSnapshot": "20261025T000000Z",
+  "builderImageId": "sha256:48e2c302f1c4661450e11090df36ae03b9ca5f49a3b766d54e4c31b15586b95d",
+  "toolchainInventory": "build-toolchain.tsv",
+  "publication": "none; binary outputs remained inside the disposable container"
+}

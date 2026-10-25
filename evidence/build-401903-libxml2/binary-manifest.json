@@ -1,0 +1,53 @@
+{
+  "purpose": "unpublished build verification; binaries not exported",
+  "packages": [
+    {
+      "name": "libxml2-dev_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_amd64.deb",
+      "sha256": "8ecd3e0260e6809c395b148ff54354c1f82128d0d3902948d06b2d8ffe95af19",
+      "bytes": 808108,
+      "control": "Package: libxml2-dev\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: amd64\nDepends: libicu-dev, libxml2 (= 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1)\n"
+    },
+    {
+      "name": "libxml2-doc_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_all.deb",
+      "sha256": "b87e6e2b6ce563568004958d9148aeb212262d067c7c98e06a7ba1e2249e4f15",
+      "bytes": 840412,
+      "control": "Package: libxml2-doc\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: all\n"
+    },
+    {
+      "name": "libxml2-utils_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_amd64.deb",
+      "sha256": "0497283cfce4bbeaa7eec42ca4075b69442f655fc7a2c54cbff66770774d8807",
+      "bytes": 110324,
+      "control": "Package: libxml2-utils\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: amd64\nDepends: libc6 (>= 2.7), libxml2 (>= 2.9.0)\n"
+    },
+    {
+      "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_amd64.deb",
+      "sha256": "4a78d74c0bd187df0210bf955a89d10d794fca3ecd57f5f32b31f314cd6d4b50",
+      "bytes": 711380,
+      "control": "Package: libxml2\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: amd64\nDepends: libc6 (>= 2.29), libicu66 (>= 66.1-1~), liblzma5 (>= 5.1.1alpha+20120614), zlib1g (>= 1:1.2.3.3)\n"
+    },
+    {
+      "name": "python-libxml2-dbg_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_amd64.deb",
+      "sha256": "b64b06bffc216ede9b30ba92e5c76a85165983b22fa391d1f9728590eb970e24",
+      "bytes": 363628,
+      "control": "Package: python-libxml2-dbg\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: amd64\nDepends: python-libxml2 (= 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1), python2-dbg (<< 2.8), python2-dbg (>= 2.7~), python2-dbg:any (<< 2.8), python2-dbg:any (>= 2.7~), libc6 (>= 2.14), libpython2.7-dbg (>= 2.7), libxml2 (>= 2.9.1)\n"
+    },
+    {
+      "name": "python-libxml2_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_amd64.deb",
+      "sha256": "71e15ebf66f2cd946e4431de565d20fef5cddcf07cd5bdf17625eecceb73dc5a",
+      "bytes": 214924,
+      "control": "Package: python-libxml2\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: amd64\nDepends: python2 (<< 2.8), python2 (>= 2.7~), python2:any (<< 2.8), python2:any (>= 2.7~), libc6 (>= 2.14), libpython2.7 (>= 2.7), libxml2 (>= 2.9.1)\n"
+    },
+    {
+      "name": "python3-libxml2-dbg_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_amd64.deb",
+      "sha256": "1f2b073c5994a6b84b5802fe4fb3d4038dc0cc70024b56deac2f68da6a5fe685",
+      "bytes": 447916,
+      "control": "Package: python3-libxml2-dbg\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: amd64\nDepends: python3-libxml2 (= 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1), python3-dbg (<< 3.9), python3-dbg (>= 3.8~), libc6 (>= 2.28), libxml2 (>= 2.9.1)\n"
+    },
+    {
+      "name": "python3-libxml2_2.9.10+dfsg-5ubuntu0.20.04.10+aptto1_amd64.deb",
+      "sha256": "3e7e1fc372f7f0b1add4961c2be99520a2c77a19fc27c2943b95a8180a344615",
+      "bytes": 199900,
+      "control": "Package: python3-libxml2\nVersion: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1\nArchitecture: amd64\nDepends: python3 (<< 3.9), python3 (>= 3.8~), python3:any, libc6 (>= 2.28), libxml2 (>= 2.9.1)\n"
+    }
+  ]
+}
