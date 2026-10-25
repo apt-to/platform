@@ -36,7 +36,20 @@ def fetch_inventory(endpoint, channel):
     releases = payload.get("releases")
     if not isinstance(releases, list) or not releases or len(releases) > 32:
         raise RuntimeError("release Worker returned an empty or oversized snapshot inventory")
-    return releases
+    return {"releases": releases, "active_snapshot": payload.get("active_snapshot")}
+
+
+def snapshot_inventory_matches(releases, active_snapshot):
+    """Trust a no-op only when the gateway confirms an eligible, intact active index."""
+    if not isinstance(active_snapshot, dict) or active_snapshot.get("healthy") is not True:
+        return False
+    active_id = active_snapshot.get("id")
+    if not isinstance(active_id, str) or not re.fullmatch(r"focal-[0-9]{8}T[0-9]{6}-r[0-9]{1,20}-(public|early)", active_id):
+        return False
+    current_ids = sorted(release.get("id") for release in releases if isinstance(release, dict))
+    active_ids = active_snapshot.get("release_ids")
+    return (isinstance(active_ids, list) and all(isinstance(item, str) for item in active_ids) and
+            len(active_ids) == len(set(active_ids)) and current_ids == sorted(active_ids))
 
 
 def validate_release(release):
@@ -140,8 +153,9 @@ def register_unsigned_build(endpoint, channel, snapshot_id, release_ids, reposit
     return len(files)
 
 
-def assemble_channel(endpoint, channel, work_root):
-    releases = fetch_inventory(endpoint, channel)
+def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
+    inventory = fetch_inventory(endpoint, channel)
+    releases = inventory["releases"]
     if channel == "public":
         releases = [release for release in releases if release["state"] == "public"]
     elif channel == "early":
@@ -150,6 +164,8 @@ def assemble_channel(endpoint, channel, work_root):
         raise RuntimeError(f"no currently eligible releases for {channel} channel")
     for release in releases:
         validate_release(release)
+    if not force_refresh and snapshot_inventory_matches(releases, inventory.get("active_snapshot")):
+        return {"channel": channel, "unchanged": True, "snapshot_build": None, "release_count": len(releases), "index_count": 0, "file_count": 0}
     repository = work_root / channel
     repository.mkdir(parents=True, exist_ok=False)
     release_ids = []
@@ -178,6 +194,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.apt.to"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
+    parser.add_argument("--force-refresh", action="store_true", help="rebuild even when the eligible release set matches the healthy active snapshot")
     args = parser.parse_args()
     PUBLISH.validate_identity()
     endpoint = args.endpoint.rstrip("/")
@@ -189,7 +206,7 @@ def main():
         channels = ("public", "early") if args.channel == "both" else (args.channel,)
         results = []
         for channel in channels:
-            results.append(assemble_channel(endpoint, channel, root))
+            results.append(assemble_channel(endpoint, channel, root, force_refresh=args.force_refresh))
         for result in results:
             print(json.dumps(result, sort_keys=True))
 

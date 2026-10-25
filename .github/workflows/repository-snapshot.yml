@@ -25,6 +25,11 @@ on:
         description: Exact retained focal snapshot ID for the selected channel
         type: string
         required: false
+      force_refresh:
+        description: Rebuild metadata even when the active package set is unchanged
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   actions: read
@@ -66,21 +71,29 @@ jobs:
         id: build
         env:
           APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_FORCE_SNAPSHOT_REFRESH: ${{ inputs.force_refresh }}
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/build-apt-snapshot.py --channel both | tee snapshot-builds.jsonl
+          build_args=()
+          if [[ "$APTTO_FORCE_SNAPSHOT_REFRESH" == "true" ]]; then build_args+=(--force-refresh); fi
+          python3 scripts/build-apt-snapshot.py --channel both "${build_args[@]}" | tee snapshot-builds.jsonl
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           from pathlib import Path
           rows = [json.loads(line) for line in Path("snapshot-builds.jsonl").read_text().splitlines()]
-          if {row.get("channel") for row in rows} != {"public", "early"} or any(not row.get("snapshot_build") for row in rows):
-              raise SystemExit("builder did not return exactly the public and early snapshot IDs")
-          print("snapshot_ids=" + json.dumps({row["channel"]: row["snapshot_build"] for row in rows}, separators=(",", ":")))
+          if ({row.get("channel") for row in rows} != {"public", "early"} or
+              any(not isinstance(row.get("unchanged"), bool) for row in rows) or
+              any(row["unchanged"] == bool(row.get("snapshot_build")) for row in rows)):
+              raise SystemExit("builder returned inconsistent unchanged flags or snapshot IDs")
+          snapshot_ids = {row["channel"]: row["snapshot_build"] for row in rows if row.get("snapshot_build")}
+          print("snapshot_ids=" + json.dumps(snapshot_ids, separators=(",", ":")))
           PY
 
   sign-and-publish:
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback'
+    if: >-
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback') &&
+      needs.build-indexes.outputs.snapshot_ids != '{}'
     needs: build-indexes
     runs-on: ubuntu-24.04
     timeout-minutes: 15

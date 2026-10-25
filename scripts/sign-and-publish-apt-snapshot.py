@@ -82,8 +82,8 @@ def sign_and_publish_channel(endpoint, channel, snapshot_id, key_home, fingerpri
 
 
 def validate_snapshot_ids(value):
-    if not isinstance(value, dict) or set(value) != {"public", "early"}:
-        raise ValueError("snapshot IDs must contain exactly public and early channels")
+    if not isinstance(value, dict) or not value or not set(value).issubset({"public", "early"}):
+        raise ValueError("snapshot IDs must contain at least one valid channel")
     pattern = r"focal-[0-9]{8}T[0-9]{6}-r[0-9]{1,20}-(public|early)"
     for channel, snapshot_id in value.items():
         match = re.fullmatch(pattern, snapshot_id) if isinstance(snapshot_id, str) else None
@@ -125,6 +125,8 @@ def main():
         channels = ("public", "early") if args.channel == "both" else (args.channel,)
         results = []
         for channel in channels:
+            if channel not in snapshot_ids:
+                continue
             snapshot_id = snapshot_ids[channel]
             results.append(sign_and_publish_channel(endpoint, channel, snapshot_id, key_home, args.signing_fingerprint, root))
         for result in results:

@@ -49,8 +49,9 @@ class AptSnapshotPublisher(unittest.TestCase):
         self.assertEqual(SIGNER.validate_snapshot_ids(ids), ids)
         with self.assertRaisesRegex(ValueError, "does not match its builder channel"):
             SIGNER.validate_snapshot_ids({"public": ids["early"], "early": ids["public"]})
-        with self.assertRaisesRegex(ValueError, "exactly public and early"):
-            SIGNER.validate_snapshot_ids({"public": ids["public"]})
+        self.assertEqual(SIGNER.validate_snapshot_ids({"public": ids["public"]}), {"public": ids["public"]})
+        with self.assertRaisesRegex(ValueError, "at least one valid channel"):
+            SIGNER.validate_snapshot_ids({})
 
     def test_rollback_only_activates_a_matching_retained_snapshot_without_uploading_bytes(self):
         snapshot_id = "focal-20261025T120000-r123-public"

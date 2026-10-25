@@ -35,6 +35,11 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertRegex(workflow, r"rollback:\n(?:.*\n){0,12}\s+environment: aptto-signing")
         self.assertIn("python3 scripts/rollback-apt-snapshot.py", workflow)
 
+    def test_snapshot_workflow_skips_signing_when_both_channels_are_unchanged(self):
+        workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
+        self.assertIn('snapshot_ids = {row["channel"]: row["snapshot_build"] for row in rows if row.get("snapshot_build")}', workflow)
+        self.assertIn("needs.build-indexes.outputs.snapshot_ids != '{}'", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

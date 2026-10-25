@@ -688,6 +688,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     event_name: "workflow_dispatch",
   };
   const authorization = `Bearer ${signedOidcToken(privateKey, snapshotClaims, privateKey, keyId)}`;
+  const builderAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "aptto-index-build" }, privateKey, keyId)}`;
   const stagingAuthorization = `Bearer ${signedOidcToken(privateKey, {}, privateKey, keyId)}`;
   const firstId = "focal-20261025T120000-r101-public";
   const contents = new Map([
@@ -734,6 +735,14 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     assert.equal(stagingActivation.status, 401, "the artifact staging workflow cannot activate repository metadata");
     const activated = await gateway.fetch(request(`https://repo.apt.to/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
     assert.equal(activated.status, 201);
+    const inventoryAfterActivation = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/public/releases", { headers: { authorization: builderAuthorization } }), env);
+    assert.equal(inventoryAfterActivation.status, 200);
+    assert.deepEqual((await inventoryAfterActivation.json()).active_snapshot, { id: firstId, release_ids: ["pilot"], healthy: true });
+    const activeReleaseObject = bucket.blobs.get(`repository-snapshots/public/${firstId}/dists/focal/Release`);
+    activeReleaseObject.customMetadata.path = "tampered";
+    const unhealthyInventory = await gateway.fetch(new Request("https://repo.apt.to/internal/repository-snapshots/public/releases", { headers: { authorization: builderAuthorization } }), env);
+    assert.equal((await unhealthyInventory.json()).active_snapshot.healthy, false, "a corrupted active snapshot must be rebuilt rather than treated as unchanged");
+    activeReleaseObject.customMetadata.path = "dists/focal/Release";
     const served = await gateway.fetch(new Request("https://repo.apt.to/dists/focal/InRelease"), env);
     assert.equal(served.status, 200);
     assert.equal(await served.text(), contents.get("dists/focal/InRelease"));

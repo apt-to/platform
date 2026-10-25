@@ -226,6 +226,25 @@ async function snapshotEligibilityError(env, channel, releaseIds, now = Date.now
   return null;
 }
 
+async function activeSnapshotHealth(env, channel, activeId) {
+  if (!activeId) return null;
+  let key;
+  try { key = snapshotKey(channel, activeId); } catch { return null; }
+  const snapshot = (await readRecord(env.RELEASES, key))?.record;
+  if (!snapshot || snapshot.id !== activeId || snapshot.channel !== channel || !Array.isArray(snapshot.release_ids)) return null;
+  let files;
+  try { files = canonicalSnapshotFiles(snapshot.files); } catch { return null; }
+  if (await snapshotEligibilityError(env, channel, snapshot.release_ids)) return { id: activeId, release_ids: snapshot.release_ids, healthy: false };
+  for (const file of files) {
+    const object = await env.RELEASES.head(`repository-snapshots/${channel}/${activeId}/${file.path}`);
+    if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256 ||
+        object.customMetadata?.snapshotId !== activeId || object.customMetadata?.channel !== channel || object.customMetadata?.path !== file.path) {
+      return { id: activeId, release_ids: snapshot.release_ids, healthy: false };
+    }
+  }
+  return { id: activeId, release_ids: snapshot.release_ids, healthy: true };
+}
+
 async function snapshotPublisherIdentity(request, env) {
   const identity = await githubActionsIdentity(request, env);
   if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-signing") return null;
@@ -278,7 +297,9 @@ async function listSnapshotReleases(request, env, channel) {
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
   releases.sort((a, b) => a.id.localeCompare(b.id));
-  return json({ channel, suite: "focal", architecture: "amd64", releases });
+  const activePointer = (await readRecord(env.RELEASES, `repository-current/${channel}.json`))?.record;
+  const activeSnapshot = await activeSnapshotHealth(env, channel, activePointer?.id);
+  return json({ channel, suite: "focal", architecture: "amd64", releases, active_snapshot: activeSnapshot });
 }
 
 async function readSnapshotReleaseAsset(request, env, channel, id, name) {

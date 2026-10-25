@@ -1,5 +1,7 @@
 import importlib.util
 from pathlib import Path
+import tempfile
+from unittest.mock import patch
 import unittest
 
 
@@ -53,6 +55,25 @@ class SnapshotAssemblyContract(unittest.TestCase):
         releases = [release_record(), release_record("sponsor-period")]
         selected = [release for release in releases if release["state"] in {"public", "sponsor-period"}]
         self.assertEqual(len(selected), 2)
+
+    def test_snapshot_noop_requires_a_healthy_active_snapshot_with_the_exact_release_set(self):
+        releases = [release_record()]
+        active = {"id": "focal-20261025T120000-r123-public", "release_ids": [releases[0]["id"]], "healthy": True}
+        self.assertTrue(BUILD.snapshot_inventory_matches(releases, active))
+        self.assertFalse(BUILD.snapshot_inventory_matches(releases, {**active, "healthy": False}))
+        self.assertFalse(BUILD.snapshot_inventory_matches(releases, {**active, "release_ids": ["another-release"]}))
+        self.assertFalse(BUILD.snapshot_inventory_matches(releases, {**active, "id": "untrusted"}))
+        self.assertFalse(BUILD.snapshot_inventory_matches(releases, None))
+
+    def test_unchanged_channel_skips_download_index_generation_and_staging(self):
+        releases = [release_record()]
+        active = {"id": "focal-20261025T120000-r123-public", "release_ids": [releases[0]["id"]], "healthy": True}
+        with patch.object(BUILD, "fetch_inventory", return_value={"releases": releases, "active_snapshot": active}):
+            with tempfile.TemporaryDirectory() as temporary:
+                result = BUILD.assemble_channel("https://repo.apt.to", "public", Path(temporary))
+                self.assertEqual(result["unchanged"], True)
+                self.assertIsNone(result["snapshot_build"])
+                self.assertFalse((Path(temporary) / "public").exists())
 
 
 if __name__ == "__main__":
