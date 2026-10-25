@@ -3,6 +3,8 @@ const MAX_RETRIES = 5;
 const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
 const MAX_REGISTRATION_BYTES = 64 * 1024;
 const MAX_SPONSOR_WEBHOOK_BYTES = 256 * 1024;
+const SPONSOR_ENTITLEMENTS_KEY = "sponsor-entitlements/current.json";
+const SPONSOR_SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000;
 
 function requestError(message, status) {
   const error = new Error(message);
@@ -167,6 +169,461 @@ async function acceptSponsorWebhook(request, env) {
     return json({ accepted: true, reconciliation_required: true }, 202);
   } catch (error) {
     return json({ error: String(error.message || error) }, error.status || 400);
+  }
+}
+
+function configuredSponsorTiers(value) {
+  const tiers = typeof value === "string" ? value.split(",").map((tier) => tier.trim()).filter(Boolean) : [];
+  if (tiers.length === 0 || tiers.some((tier) => tier.length > 200)) {
+    throw new Error("SPONSOR_ALLOWED_TIER_IDS must list the approved GitHub Sponsors tier IDs");
+  }
+  return new Set(tiers);
+}
+
+async function fetchSponsorSnapshot(env, now) {
+  if (!env.SPONSOR_GRAPHQL_TOKEN) throw new Error("GitHub Sponsors reconciliation token is not configured");
+  const allowedTiers = configuredSponsorTiers(env.SPONSOR_ALLOWED_TIER_IDS);
+  let after = null;
+  const sponsors = new Map();
+  let pages = 0;
+  do {
+    if (++pages > 100) throw new Error("GitHub Sponsors pagination limit exceeded");
+    const response = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${env.SPONSOR_GRAPHQL_TOKEN}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `query AptToSponsorReconciliation($after: String) {
+          organization(login: "apt-to") {
+            login
+            hasSponsorsListing
+            sponsorshipsAsMaintainer(activeOnly: true, includePrivate: true, first: 100, after: $after) {
+              nodes {
+                isActive
+                isOneTimePayment
+                sponsorEntity {
+                  __typename
+                  ... on User { databaseId login }
+                  ... on Organization { databaseId login }
+                }
+                tier { id name isOneTime }
+              }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }`,
+        variables: { after },
+      }),
+    });
+    if (!response.ok) throw new Error(`GitHub Sponsors GraphQL returned ${response.status}`);
+    const result = await response.json();
+    if (result.errors?.length) throw new Error("GitHub Sponsors GraphQL query failed");
+    const organization = result.data?.organization;
+    if (organization?.login?.toLowerCase() !== "apt-to" || organization.hasSponsorsListing !== true) {
+      throw new Error("apt-to GitHub Sponsors listing is unavailable");
+    }
+    const connection = organization.sponsorshipsAsMaintainer;
+    if (!connection || !Array.isArray(connection.nodes) || !connection.pageInfo) throw new Error("GitHub Sponsors response is incomplete");
+    for (const sponsorship of connection.nodes) {
+      const sponsor = sponsorship?.sponsorEntity;
+      const tier = sponsorship?.tier;
+      // Organization sponsors do not grant access to every member. Device entitlements
+      // are mapped only to the individual user's immutable GitHub database ID.
+      if (sponsorship.isActive === true && sponsor?.__typename === "User" && Number.isSafeInteger(sponsor.databaseId) &&
+          tier && allowedTiers.has(tier.id)) {
+        const current = sponsors.get(sponsor.databaseId);
+        const tierIds = new Set(current?.tier_ids || []);
+        tierIds.add(tier.id);
+        sponsors.set(sponsor.databaseId, {
+          github_user_id: sponsor.databaseId,
+          github_login: sponsor.login,
+          tier_ids: [...tierIds].sort(),
+          has_one_time_sponsorship: current?.has_one_time_sponsorship === true || sponsorship.isOneTimePayment === true,
+        });
+      }
+    }
+    after = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : null;
+    if (connection.pageInfo.hasNextPage && (typeof after !== "string" || !after)) throw new Error("GitHub Sponsors pagination cursor is missing");
+  } while (after);
+  return {
+    organization: "apt-to",
+    tier_ids: [...allowedTiers].sort(),
+    sponsors: [...sponsors.values()].sort((a, b) => a.github_user_id - b.github_user_id),
+    reconciled_at: now.toISOString(),
+    valid_until: new Date(now.getTime() + SPONSOR_SNAPSHOT_MAX_AGE_MS).toISOString(),
+    authority: "github-sponsors-graphql-active-only",
+  };
+}
+
+async function saveSponsorSnapshot(bucket, snapshot) {
+  const key = SPONSOR_ENTITLEMENTS_KEY;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
+    const previous = await bucket.get(key);
+    if (previous) {
+      const current = await previous.json();
+      if (Date.parse(current.reconciled_at) >= Date.parse(snapshot.reconciled_at)) return current;
+    }
+    const options = {
+      onlyIf: previous ? { etagMatches: previous.etag } : { etagDoesNotMatch: "*" },
+      httpMetadata: { contentType: "application/json", cacheControl: "no-store" },
+    };
+    const saved = await bucket.put(key, JSON.stringify(snapshot), options);
+    if (saved) return snapshot;
+  }
+  throw new Error("sponsor snapshot changed concurrently; retry reconciliation");
+}
+
+async function markSponsorEventsReconciled(bucket, snapshot) {
+  let cursor;
+  const failures = [];
+  const active = new Set(snapshot.sponsors.map((sponsor) => sponsor.github_user_id));
+  do {
+    const page = await bucket.list({ prefix: "sponsor-deliveries/", cursor, limit: 1000 });
+    for (const item of page.objects) {
+      try {
+        const loaded = await readRecord(bucket, item.key);
+        if (!loaded || loaded.record.reconciled_at) continue;
+        const updated = {
+          ...loaded.record,
+          reconciled_at: snapshot.reconciled_at,
+          sponsor_active: active.has(loaded.record.sponsor_id),
+          entitlement_source: "authoritative-snapshot",
+        };
+        const saved = await bucket.put(item.key, JSON.stringify(updated), {
+          onlyIf: { etagMatches: loaded.etag },
+          httpMetadata: { contentType: "application/json" },
+        });
+        if (!saved) failures.push(item.key);
+      } catch { failures.push(item.key); }
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return failures;
+}
+
+async function reconcileSponsors(env, now = new Date()) {
+  const snapshot = await fetchSponsorSnapshot(env, now);
+  const saved = await saveSponsorSnapshot(env.RELEASES, snapshot);
+  const eventFailures = await markSponsorEventsReconciled(env.RELEASES, saved);
+  if (eventFailures.length) throw new Error(`sponsor snapshot saved but ${eventFailures.length} webhook events still need reconciliation`);
+  return saved;
+}
+
+async function readFreshSponsorSnapshot(bucket, now = new Date()) {
+  const loaded = await readRecord(bucket, SPONSOR_ENTITLEMENTS_KEY);
+  if (!loaded) return null;
+  const snapshot = loaded.record;
+  if (snapshot.organization !== "apt-to" || snapshot.authority !== "github-sponsors-graphql-active-only" ||
+      !Number.isFinite(Date.parse(snapshot.valid_until)) || now.getTime() > Date.parse(snapshot.valid_until)) return null;
+  return snapshot;
+}
+
+function randomToken(bytes = 32) {
+  const value = crypto.getRandomValues(new Uint8Array(bytes));
+  return [...value].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function cookieValue(request, name) {
+  const cookies = request.headers.get("cookie") || "";
+  for (const part of cookies.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+    if (part.slice(0, separator).trim() === name) {
+      try { return decodeURIComponent(part.slice(separator + 1).trim()); } catch { return null; }
+    }
+  }
+  return null;
+}
+
+function setCookie(name, value, path, maxAge) {
+  return `${name}=${encodeURIComponent(value)}; Path=${path}; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Lax`;
+}
+
+function clearCookie(name, path) {
+  return `${name}=; Path=${path}; Max-Age=0; Secure; HttpOnly; SameSite=Lax`;
+}
+
+function assertSameOrigin(request, env) {
+  const expected = env.PUBLIC_ORIGIN || new URL(request.url).origin;
+  if (request.headers.get("origin") !== expected) throw requestError("request origin is not allowed", 403);
+}
+
+async function beginGithubLogin(request, env) {
+  if (!env.GITHUB_OAUTH_CLIENT_ID || !env.PUBLIC_ORIGIN) return json({ error: "GitHub sign-in is not configured" }, 503);
+  const state = randomToken();
+  const codeVerifier = randomToken(48);
+  const challengeDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier)));
+  const codeChallenge = btoa(String.fromCharCode(...challengeDigest)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  const stateHash = await sha256Hex(new TextEncoder().encode(state));
+  await env.RELEASES.put(`oauth-states/${stateHash}.json`, JSON.stringify({
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    code_verifier: codeVerifier,
+  }), { onlyIf: { etagDoesNotMatch: "*" }, httpMetadata: { contentType: "application/json" } });
+  const redirect = new URL("https://github.com/login/oauth/authorize");
+  redirect.searchParams.set("client_id", env.GITHUB_OAUTH_CLIENT_ID);
+  redirect.searchParams.set("redirect_uri", `${env.PUBLIC_ORIGIN}/auth/github/callback`);
+  redirect.searchParams.set("scope", "read:user");
+  redirect.searchParams.set("state", state);
+  redirect.searchParams.set("code_challenge", codeChallenge);
+  redirect.searchParams.set("code_challenge_method", "S256");
+  return new Response(null, {
+    status: 302,
+    headers: { location: redirect.toString(), "cache-control": "no-store", "set-cookie": setCookie("aptto_oauth_state", state, "/auth/github/callback", 600) },
+  });
+}
+
+async function consumeOauthState(request, env, returnedState) {
+  const cookieState = cookieValue(request, "aptto_oauth_state");
+  if (!cookieState || !returnedState || !constantTimeEqual(cookieState, returnedState)) return false;
+  const key = `oauth-states/${await sha256Hex(new TextEncoder().encode(returnedState))}.json`;
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded || loaded.record.consumed_at || Date.now() > Date.parse(loaded.record.expires_at)) return null;
+  const saved = await env.RELEASES.put(key, JSON.stringify({ ...loaded.record, code_verifier: null, consumed_at: new Date().toISOString() }), {
+    onlyIf: { etagMatches: loaded.etag }, httpMetadata: { contentType: "application/json" },
+  });
+  return saved ? loaded.record : null;
+}
+
+async function githubLoginCallback(request, env) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const oauthState = code ? await consumeOauthState(request, env, state) : null;
+  if (!oauthState?.code_verifier) return json({ error: "invalid or expired sign-in state" }, 400);
+  if (!env.GITHUB_OAUTH_CLIENT_ID || !env.GITHUB_OAUTH_CLIENT_SECRET || !env.PUBLIC_ORIGIN) return json({ error: "GitHub sign-in is not configured" }, 503);
+  const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify({
+      client_id: env.GITHUB_OAUTH_CLIENT_ID,
+      client_secret: env.GITHUB_OAUTH_CLIENT_SECRET,
+      code,
+      redirect_uri: `${env.PUBLIC_ORIGIN}/auth/github/callback`,
+      code_verifier: oauthState.code_verifier,
+    }),
+  });
+  if (!tokenResponse.ok) return json({ error: "GitHub sign-in token exchange failed" }, 502);
+  const tokenResult = await tokenResponse.json();
+  const scopes = new Set(String(tokenResult.scope || "").split(/[ ,]+/).filter(Boolean));
+  if (tokenResult.error || !tokenResult.access_token || !scopes.has("read:user")) return json({ error: "GitHub sign-in did not grant user identity permission" }, 403);
+  const userResponse = await fetch("https://api.github.com/user", {
+    headers: { accept: "application/vnd.github+json", authorization: `Bearer ${tokenResult.access_token}`, "x-github-api-version": "2022-11-28" },
+  });
+  if (!userResponse.ok) return json({ error: "GitHub identity lookup failed" }, 502);
+  const user = await userResponse.json();
+  if (!Number.isSafeInteger(user.id) || typeof user.login !== "string") return json({ error: "GitHub identity response is incomplete" }, 502);
+  const session = randomToken();
+  const sessionHash = await sha256Hex(new TextEncoder().encode(session));
+  const now = new Date();
+  await env.RELEASES.put(`apt-sessions/${sessionHash}.json`, JSON.stringify({
+    github_user_id: user.id,
+    github_login: user.login,
+    created_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  }), { onlyIf: { etagDoesNotMatch: "*" }, httpMetadata: { contentType: "application/json" } });
+  return new Response(null, {
+    status: 302,
+    headers: (() => {
+      const headers = new Headers({ location: `${env.PUBLIC_ORIGIN}/account`, "cache-control": "no-store" });
+      headers.append("set-cookie", clearCookie("aptto_oauth_state", "/auth/github/callback"));
+      headers.append("set-cookie", setCookie("aptto_session", session, "/", 7 * 24 * 60 * 60));
+      return headers;
+    })(),
+  });
+}
+
+async function sessionUser(request, env) {
+  const session = cookieValue(request, "aptto_session");
+  if (!session) return null;
+  const key = `apt-sessions/${await sha256Hex(new TextEncoder().encode(session))}.json`;
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded || loaded.record.revoked_at || Date.now() > Date.parse(loaded.record.expires_at)) return null;
+  return loaded.record;
+}
+
+async function logout(request, env) {
+  assertSameOrigin(request, env);
+  const session = cookieValue(request, "aptto_session");
+  if (session) {
+    const key = `apt-sessions/${await sha256Hex(new TextEncoder().encode(session))}.json`;
+    const loaded = await readRecord(env.RELEASES, key);
+    if (loaded && !loaded.record.revoked_at) {
+      const saved = await env.RELEASES.put(key, JSON.stringify({ ...loaded.record, revoked_at: new Date().toISOString() }), {
+        onlyIf: { etagMatches: loaded.etag }, httpMetadata: { contentType: "application/json" },
+      });
+      if (!saved) return json({ error: "session changed concurrently; retry logout" }, 409);
+    }
+  }
+  return new Response(null, { status: 204, headers: { "cache-control": "no-store", "set-cookie": clearCookie("aptto_session", "/") } });
+}
+
+async function issueDeviceToken(request, env) {
+  assertSameOrigin(request, env);
+  const user = await sessionUser(request, env);
+  if (!user) return json({ error: "sign-in required" }, 401);
+  const snapshot = await readFreshSponsorSnapshot(env.RELEASES);
+  if (!snapshot) return json({ error: "sponsor status is temporarily unavailable" }, 503);
+  if (!snapshot.sponsors.some((sponsor) => sponsor.github_user_id === user.github_user_id)) return json({ error: "active eligible sponsorship required" }, 403);
+  let body;
+  try { body = await readBoundedJson(request, 4096); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const label = typeof body.label === "string" ? body.label.trim() : "APT device";
+  if (!label || label.length > 80) return json({ error: "device label must be 1 to 80 characters" }, 400);
+  const token = `aptto_${randomToken()}`;
+  const tokenHash = await sha256Hex(new TextEncoder().encode(token));
+  const now = new Date();
+  const record = {
+    github_user_id: user.github_user_id,
+    created_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+    device_label: label,
+  };
+  const saved = await env.RELEASES.put(`apt-device-tokens/${tokenHash}.json`, JSON.stringify(record), {
+    onlyIf: { etagDoesNotMatch: "*" }, httpMetadata: { contentType: "application/json" },
+  });
+  if (!saved) return json({ error: "could not issue a unique device token; retry" }, 503);
+  return json({ token, label, expires_at: record.expires_at }, 201);
+}
+
+async function listDeviceTokens(request, env) {
+  const user = await sessionUser(request, env);
+  if (!user) return json({ error: "sign-in required" }, 401);
+  const tokens = [];
+  let cursor;
+  do {
+    const page = await env.RELEASES.list({ prefix: "apt-device-tokens/", cursor, limit: 1000 });
+    for (const item of page.objects) {
+      const loaded = await readRecord(env.RELEASES, item.key);
+      if (loaded?.record.github_user_id === user.github_user_id) {
+        tokens.push({
+          id: item.key.slice("apt-device-tokens/".length, -5),
+          label: loaded.record.device_label,
+          created_at: loaded.record.created_at,
+          expires_at: loaded.record.expires_at,
+          revoked_at: loaded.record.revoked_at || null,
+        });
+      }
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return json({ devices: tokens.sort((a, b) => a.created_at.localeCompare(b.created_at)) });
+}
+
+async function revokeDeviceToken(request, env, tokenId) {
+  assertSameOrigin(request, env);
+  const user = await sessionUser(request, env);
+  if (!user) return json({ error: "sign-in required" }, 401);
+  if (!/^[a-f0-9]{64}$/.test(tokenId)) return json({ error: "invalid device token id" }, 400);
+  const key = `apt-device-tokens/${tokenId}.json`;
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded || loaded.record.github_user_id !== user.github_user_id) return json({ error: "device token not found" }, 404);
+  if (loaded.record.revoked_at) return json({ revoked: true, already_revoked: true });
+  const saved = await env.RELEASES.put(key, JSON.stringify({ ...loaded.record, revoked_at: new Date().toISOString() }), {
+    onlyIf: { etagMatches: loaded.etag }, httpMetadata: { contentType: "application/json" },
+  });
+  if (!saved) return json({ error: "device token changed concurrently; retry" }, 409);
+  return json({ revoked: true });
+}
+
+async function deviceTokenUser(request, env, now = new Date()) {
+  const header = request.headers.get("authorization") || "";
+  const match = header.match(/^Basic ([A-Za-z0-9+/]+=*)$/);
+  if (!match) return null;
+  let credentials;
+  try { credentials = atob(match[1]); } catch { return null; }
+  const separator = credentials.indexOf(":");
+  if (separator < 0 || credentials.slice(0, separator) !== "apt") return null;
+  const token = credentials.slice(separator + 1);
+  if (!/^aptto_[a-f0-9]{64}$/.test(token)) return null;
+  const tokenHash = await sha256Hex(new TextEncoder().encode(token));
+  const loaded = await readRecord(env.RELEASES, `apt-device-tokens/${tokenHash}.json`);
+  if (!loaded || loaded.record.revoked_at || !Number.isSafeInteger(loaded.record.github_user_id) || now.getTime() > Date.parse(loaded.record.expires_at)) return null;
+  const snapshot = await readFreshSponsorSnapshot(env.RELEASES, now);
+  if (!snapshot?.sponsors.some((sponsor) => sponsor.github_user_id === loaded.record.github_user_id)) return null;
+  return loaded.record;
+}
+
+async function serveEarlyAsset(request, env, id, name, now = new Date()) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(name)) return json({ error: "invalid asset name" }, 400);
+  const user = await deviceTokenUser(request, env, now);
+  if (!user) return new Response("sponsor authentication required", {
+    status: 401,
+    headers: { "www-authenticate": 'Basic realm="apt.to early repository"', "cache-control": "private, no-store", vary: "Authorization" },
+  });
+  let key;
+  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
+  const loaded = await readRecord(env.RELEASES, key);
+  const release = loaded?.record;
+  if (!release || release.state !== "sponsor-period" || release.sponsor_delay_hours !== 168 || release.sponsor_publication_complete !== true ||
+      !Number.isFinite(Date.parse(release.public_after)) || now.getTime() >= Date.parse(release.public_after)) {
+    return json({ error: "sponsor release is unavailable" }, 404);
+  }
+  const asset = canonicalAssets(release.required_assets).find((candidate) => candidate.name === name);
+  if (!asset) return json({ error: "release asset not found" }, 404);
+  const object = await env.RELEASES.get(asset.r2_key);
+  if (!object || !Number.isSafeInteger(object.size) || checksumHex(object.checksums?.sha256) !== asset.sha256) {
+    return json({ error: "release asset failed integrity verification" }, 502);
+  }
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      "content-type": object.httpMetadata?.contentType || "application/octet-stream",
+      "content-length": String(object.size),
+      "content-disposition": `attachment; filename="${name}"`,
+      "cache-control": "private, no-store",
+      vary: "Authorization",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
+async function beginSponsorPublication(request, env, id, now = new Date()) {
+  if (!env.RELEASE_ADMIN_TOKEN || request.headers.get("authorization") !== `Bearer ${env.RELEASE_ADMIN_TOKEN}`) {
+    return json({ error: "unauthorized" }, 401);
+  }
+  let key;
+  try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
+  const loaded = await readRecord(env.RELEASES, key);
+  if (!loaded) return json({ error: "release not found" }, 404);
+  const record = loaded.record;
+  if (record.sponsor_delay_hours !== 168 || record.release_checks_passed !== true) {
+    return json({ error: "release is not eligible for sponsor publication" }, 409);
+  }
+  if (record.state === "sponsor-period" && record.sponsor_publication_complete === true) {
+    return json({ id, state: record.state, sponsor_published_at: record.sponsor_published_at, public_after: record.public_after }, 200);
+  }
+  if (record.state !== "prepared") return json({ error: "release is not prepared" }, 409);
+  const assets = canonicalAssets(record.required_assets);
+  for (const asset of assets) {
+    const stored = await env.RELEASES.head(asset.r2_key);
+    if (!stored || !Number.isSafeInteger(stored.size) || stored.size <= 0 || checksumHex(stored.checksums?.sha256) !== asset.sha256 ||
+        stored.customMetadata?.releaseId !== id || stored.customMetadata?.assetName !== asset.name) {
+      return json({ error: `private sponsor publication is incomplete or failed integrity check: ${asset.name}` }, 409);
+    }
+  }
+  const publishedAt = now;
+  const publicAfter = new Date(publishedAt.getTime() + 168 * 60 * 60 * 1000);
+  try {
+    const next = await updateState(env.RELEASES, key, (current) => {
+      if (current.state === "sponsor-period" && current.sponsor_publication_complete === true) return current;
+      if (current.state !== "prepared" || current.sponsor_delay_hours !== 168 || current.release_checks_passed !== true) {
+        throw requestError("release state changed before sponsor publication", 409);
+      }
+      return {
+        ...current,
+        state: "sponsor-period",
+        sponsor_publication_complete: true,
+        sponsor_published_at: publishedAt.toISOString(),
+        public_after: publicAfter.toISOString(),
+      };
+    });
+    return json({ id, state: next.state, sponsor_published_at: next.sponsor_published_at, public_after: next.public_after }, 201);
+  } catch (error) {
+    return json({ error: String(error.message || error) }, error.status || 409);
   }
 }
 
@@ -518,6 +975,47 @@ async function reconcile(env, now = new Date()) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (request.method === "GET" && url.pathname === "/auth/github") return beginGithubLogin(request, env);
+    if (request.method === "GET" && url.pathname === "/auth/github/callback") {
+      try { return await githubLoginCallback(request, env); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 502); }
+    }
+    if (request.method === "POST" && url.pathname === "/api/logout") {
+      try { return await logout(request, env); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    if (request.method === "GET" && url.pathname === "/api/device-tokens") {
+      try { return await listDeviceTokens(request, env); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    if (request.method === "POST" && url.pathname === "/api/device-tokens") {
+      try { return await issueDeviceToken(request, env); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const sponsorPublishRoute = url.pathname.match(/^\/internal\/releases\/([^/]+)\/publish-sponsor$/);
+    if (request.method === "POST" && sponsorPublishRoute) {
+      let id;
+      try { id = decodeURIComponent(sponsorPublishRoute[1]); }
+      catch { return json({ error: "invalid path encoding" }, 400); }
+      try { return await beginSponsorPublication(request, env, id); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const revokeRoute = url.pathname.match(/^\/api\/device-tokens\/([a-f0-9]{64})\/revoke$/);
+    if (request.method === "POST" && revokeRoute) {
+      try { return await revokeDeviceToken(request, env, revokeRoute[1]); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    const earlyAssetRoute = url.pathname.match(/^\/early\/releases\/([^/]+)\/assets\/([^/]+)$/);
+    if (request.method === "GET" && earlyAssetRoute) {
+      let id;
+      let name;
+      try {
+        id = decodeURIComponent(earlyAssetRoute[1]);
+        name = decodeURIComponent(earlyAssetRoute[2]);
+      } catch { return json({ error: "invalid path encoding" }, 400); }
+      try { return await serveEarlyAsset(request, env, id, name); }
+      catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
     if (request.method === "POST" && url.pathname === "/webhooks/github/sponsorship") {
       return acceptSponsorWebhook(request, env);
     }
@@ -541,10 +1039,13 @@ export default {
     return json({ error: "not found" }, 404);
   },
   async scheduled(_event, env, context) {
-    context.waitUntil(reconcile(env).then((failures) => {
-      if (failures.length) console.error("promotion reconciliation had failures", failures);
+    context.waitUntil(Promise.allSettled([reconcile(env), reconcileSponsors(env)]).then((results) => {
+      for (const [index, result] of results.entries()) {
+        if (result.status === "rejected") console.error(index === 0 ? "release reconciliation failed" : "sponsor reconciliation failed", String(result.reason?.message || result.reason));
+        else if (index === 0 && result.value.length) console.error("promotion reconciliation had failures", result.value);
+      }
     }));
   },
 };
 
-export { canonicalAssets, parseUtc, publishOne, reconcile, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };
+export { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };

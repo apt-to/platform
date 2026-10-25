@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
-import gateway, { canonicalAssets, parseUtc, publishOne, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
+import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, parseUtc, publishOne, readFreshSponsorSnapshot, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
 
 class MemoryBucket {
   constructor(entries = {}) {
@@ -20,6 +20,9 @@ class MemoryBucket {
     const next = { value, etag: `etag-${Math.random()}` };
     this.entries.set(key, next);
     return next;
+  }
+  async list({ prefix }) {
+    return { objects: [...this.entries.entries()].filter(([key]) => key.startsWith(prefix)).map(([key, entry]) => ({ key, etag: entry.etag })), truncated: false };
   }
 }
 
@@ -44,6 +47,25 @@ class MemoryAssetBucket extends MemoryBucket {
     return object;
   }
   async head(key) { return this.assets.get(key) || null; }
+}
+
+class MemorySponsorBucket extends MemoryBucket {
+  constructor(entries, assetKey, assetBytes) {
+    super(entries);
+    const digest = createHash("sha256").update(assetBytes).digest();
+    this.staged = {
+      size: assetBytes.length,
+      checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
+      httpMetadata: { contentType: "application/vnd.debian.binary-package" },
+      body: new Response(assetBytes).body,
+    };
+    this.assetKey = assetKey;
+  }
+  async head(key) { return key === this.assetKey ? this.staged : null; }
+  async get(key) {
+    if (key === this.assetKey) return { ...this.staged, body: new Response("private-package").body };
+    return super.get(key);
+  }
 }
 
 test("R2 state update uses conditional writes and retries a concurrent conflict", async () => {
@@ -181,9 +203,258 @@ test("GitHub webhook signature uses the documented HMAC SHA-256 scheme", async (
     },
     body,
   }), { SPONSOR_WEBHOOK_SECRET: "It's a Secret to Everybody", RELEASES: new MemoryBucket() }).then((response) => response.status), 400);
-  const { verifyGithubSignature } = await import("../src/index.js");
   assert.equal(await verifyGithubSignature("It's a Secret to Everybody", body, "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"), true);
   assert.equal(await verifyGithubSignature("wrong", body, "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"), false);
+});
+
+test("sponsor snapshot paginates current GitHub state, applies an explicit tier allowlist, and excludes organization members", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    requests.push(body.variables.after);
+    const firstPage = body.variables.after === null;
+    return Response.json({ data: { organization: {
+      login: "apt-to", hasSponsorsListing: true,
+      sponsorshipsAsMaintainer: {
+        nodes: firstPage ? [
+          { isActive: true, isOneTimePayment: false, sponsorEntity: { __typename: "User", databaseId: 17, login: "alice" }, tier: { id: "tier-early", name: "Early access", isOneTime: false } },
+          { isActive: true, isOneTimePayment: false, sponsorEntity: { __typename: "Organization", databaseId: 89, login: "sponsor-org" }, tier: { id: "tier-early", name: "Early access", isOneTime: false } },
+          { isActive: true, isOneTimePayment: false, sponsorEntity: { __typename: "User", databaseId: 18, login: "bob" }, tier: { id: "tier-other", name: "Other", isOneTime: false } },
+          { isActive: false, isOneTimePayment: false, sponsorEntity: { __typename: "User", databaseId: 19, login: "former" }, tier: { id: "tier-early", name: "Early access", isOneTime: false } },
+        ] : [
+          { isActive: true, isOneTimePayment: true, sponsorEntity: { __typename: "User", databaseId: 20, login: "carol" }, tier: { id: "tier-early", name: "Early access", isOneTime: true } },
+        ],
+        pageInfo: firstPage ? { hasNextPage: true, endCursor: "cursor-1" } : { hasNextPage: false, endCursor: null },
+      },
+    } } });
+  };
+  try {
+    const snapshot = await fetchSponsorSnapshot({ SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early" }, new Date("2026-10-25T16:00:00Z"));
+    assert.deepEqual(requests, [null, "cursor-1"]);
+    assert.deepEqual(snapshot.sponsors.map((sponsor) => sponsor.github_user_id), [17, 20]);
+    assert.equal(snapshot.sponsors[1].has_one_time_sponsorship, true);
+    assert.deepEqual(snapshot.tier_ids, ["tier-early"]);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("scheduled sponsor reconciliation persists an authoritative snapshot and consumes webhook markers", async () => {
+  const bucket = new MemoryBucket({
+    "sponsor-deliveries/delivery-12345678.json": {
+      delivery_id: "delivery-12345678", action: "cancelled", sponsor_id: 17,
+      received_at: "2026-10-25T15:00:00Z", effect: "reconciliation-required",
+    },
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ data: { organization: {
+    login: "apt-to", hasSponsorsListing: true,
+    sponsorshipsAsMaintainer: {
+      nodes: [{ isActive: true, isOneTimePayment: false, sponsorEntity: { __typename: "User", databaseId: 17, login: "alice" }, tier: { id: "tier-early", name: "Early access", isOneTime: false } }],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    },
+  } } });
+  try {
+    const snapshot = await reconcileSponsors({
+      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+    }, new Date("2026-10-25T16:00:00Z"));
+    assert.deepEqual(snapshot.sponsors.map((sponsor) => sponsor.github_user_id), [17]);
+    const event = await bucket.get("sponsor-deliveries/delivery-12345678.json");
+    const record = await event.json();
+    assert.equal(record.reconciled_at, snapshot.reconciled_at);
+    assert.equal(record.sponsor_active, true);
+    assert.equal(record.entitlement_source, "authoritative-snapshot");
+    assert.deepEqual((await readFreshSponsorSnapshot(bucket, new Date("2026-10-25T16:30:00Z"))).sponsors.map((sponsor) => sponsor.github_user_id), [17]);
+    assert.equal(await readFreshSponsorSnapshot(bucket, new Date("2026-10-25T16:30:00.001Z")), null);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("failed sponsor refresh leaves the previous snapshot unchanged and unavailable listings fail closed", async () => {
+  const oldSnapshot = {
+    organization: "apt-to", tier_ids: ["tier-early"],
+    sponsors: [{ github_user_id: 17, github_login: "alice", tier_ids: ["tier-early"], has_one_time_sponsorship: false }],
+    reconciled_at: "2026-10-25T15:00:00.000Z", valid_until: "2026-10-25T15:30:00.000Z",
+    authority: "github-sponsors-graphql-active-only",
+  };
+  const bucket = new MemoryBucket({ "sponsor-entitlements/current.json": oldSnapshot });
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response("unavailable", { status: 503 });
+    await assert.rejects(reconcileSponsors({
+      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+    }, new Date("2026-10-25T16:00:00Z")), /returned 503/);
+    assert.deepEqual(await (await bucket.get("sponsor-entitlements/current.json")).json(), oldSnapshot);
+
+    globalThis.fetch = async () => Response.json({ data: { organization: {
+      login: "apt-to", hasSponsorsListing: false,
+      sponsorshipsAsMaintainer: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+    } } });
+    await assert.rejects(fetchSponsorSnapshot({
+      SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+    }, new Date("2026-10-25T16:00:00Z")), /listing is unavailable/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("sponsor publication starts an exact 168-hour clock only after every private asset passes readback", async () => {
+  const digest = createHash("sha256").update("private-package").digest();
+  const release = {
+    id: "pilot", state: "prepared", repository: "apt-to/packaging-libxml2", tag: "aptto/1.2.3",
+    source_commit: "b".repeat(40), sponsor_delay_hours: 168, release_checks_passed: true,
+    required_assets: [{ name: "libxml2.deb", sha256: digest.toString("hex"), r2_key: `staging/pilot/${digest.toString("hex")}` }],
+  };
+  const bucket = new MemoryAssetBucket(release);
+  const key = release.required_assets[0].r2_key;
+  bucket.assets.set(key, {
+    size: Buffer.byteLength("private-package"),
+    checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
+    customMetadata: { releaseId: "pilot", assetName: "libxml2.deb" },
+  });
+  const started = new Date("2026-10-25T16:00:00.000Z");
+  const result = await beginSponsorPublication(new Request("https://worker.test/internal/releases/pilot/publish-sponsor", {
+    method: "POST", headers: { authorization: "Bearer admin-secret" },
+  }), { RELEASES: bucket, RELEASE_ADMIN_TOKEN: "admin-secret" }, "pilot", started);
+  assert.equal(result.status, 201);
+  const state = await (await bucket.get("release-state/pilot.json")).json();
+  assert.equal(state.sponsor_published_at, started.toISOString());
+  assert.equal(state.public_after, new Date(started.getTime() + 168 * 60 * 60 * 1000).toISOString());
+  assert.equal(state.sponsor_publication_complete, true);
+  const retry = await beginSponsorPublication(new Request("https://worker.test/internal/releases/pilot/publish-sponsor", {
+    method: "POST", headers: { authorization: "Bearer admin-secret" },
+  }), { RELEASES: bucket, RELEASE_ADMIN_TOKEN: "admin-secret" }, "pilot", new Date(started.getTime() + 1000));
+  assert.equal(retry.status, 200);
+  assert.equal((await retry.json()).public_after, state.public_after);
+});
+
+test("private early asset route requires a fresh sponsor entitlement and serves bytes without shared caching", async () => {
+  const token = `aptto_${"a".repeat(64)}`;
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const bytes = Buffer.from("private-package");
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const assetKey = `staging/pilot/${digest}`;
+  const now = new Date();
+  const bucket = new MemorySponsorBucket({
+    [`apt-device-tokens/${tokenHash}.json`]: {
+      github_user_id: 17, device_label: "workstation", created_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + 86400000).toISOString(),
+    },
+    "sponsor-entitlements/current.json": {
+      organization: "apt-to", authority: "github-sponsors-graphql-active-only",
+      sponsors: [{ github_user_id: 17, tier_ids: ["tier-early"] }],
+      reconciled_at: now.toISOString(), valid_until: new Date(now.getTime() + 1800000).toISOString(),
+    },
+    "release-state/pilot.json": {
+      id: "pilot", state: "sponsor-period", sponsor_delay_hours: 168, sponsor_publication_complete: true,
+      public_after: new Date(now.getTime() + 86400000).toISOString(),
+      required_assets: [{ name: "libxml2.deb", sha256: digest, r2_key: assetKey }],
+    },
+  }, assetKey, bytes);
+  const url = "https://worker.test/early/releases/pilot/assets/libxml2.deb";
+  assert.equal((await gateway.fetch(new Request(url), { RELEASES: bucket })).status, 401);
+  const response = await gateway.fetch(new Request(url, {
+    headers: { authorization: `Basic ${btoa(`apt:${token}`)}` },
+  }), { RELEASES: bucket });
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "private-package");
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.equal(response.headers.get("vary"), "Authorization");
+  const stale = await bucket.get("sponsor-entitlements/current.json");
+  const staleRecord = await stale.json();
+  bucket.entries.set("sponsor-entitlements/current.json", {
+    value: { ...staleRecord, valid_until: new Date(now.getTime() - 1).toISOString() }, etag: "stale",
+  });
+  assert.equal((await gateway.fetch(new Request(url, {
+    headers: { authorization: `Basic ${btoa(`apt:${token}`)}` },
+  }), { RELEASES: bucket })).status, 401);
+});
+
+test("GitHub OAuth login issues hashed per-device APT credentials that can be listed and revoked", async () => {
+  const bucket = new MemoryBucket();
+  const env = { RELEASES: bucket, PUBLIC_ORIGIN: "https://apt.to", GITHUB_OAUTH_CLIENT_ID: "client-id", GITHUB_OAUTH_CLIENT_SECRET: "test-client-secret" };
+  const login = await gateway.fetch(new Request("https://apt.to/auth/github"), env);
+  assert.equal(login.status, 302);
+  const authorization = new URL(login.headers.get("location"));
+  assert.equal(authorization.searchParams.get("scope"), "read:user");
+  assert.equal(authorization.searchParams.get("code_challenge_method"), "S256");
+  assert.match(authorization.searchParams.get("code_challenge"), /^[A-Za-z0-9_-]{43}$/);
+  const state = authorization.searchParams.get("state");
+  const stateCookie = login.headers.get("set-cookie").match(/aptto_oauth_state=([^;,]+)/)[1];
+  assert.equal(decodeURIComponent(stateCookie), state);
+
+  const now = new Date();
+  bucket.entries.set("sponsor-entitlements/current.json", {
+    value: {
+      organization: "apt-to", authority: "github-sponsors-graphql-active-only",
+      sponsors: [{ github_user_id: 17, tier_ids: ["tier-early"] }],
+      reconciled_at: now.toISOString(), valid_until: new Date(now.getTime() + 1800000).toISOString(),
+    }, etag: "snapshot",
+  });
+  const originalFetch = globalThis.fetch;
+  let oauthCalls = 0;
+  let submittedVerifier;
+  globalThis.fetch = async (url, options) => {
+    oauthCalls += 1;
+    if (String(url).includes("login/oauth/access_token")) {
+      submittedVerifier = JSON.parse(options.body).code_verifier;
+      return Response.json({ access_token: "transient-oauth-secret", scope: "read:user" });
+    }
+    if (String(url) === "https://api.github.com/user") return Response.json({ id: 17, login: "alice" });
+    throw new Error("unexpected test URL");
+  };
+  try {
+    const callback = await gateway.fetch(new Request(`https://apt.to/auth/github/callback?code=one-time-code&state=${state}`, {
+      headers: { cookie: `aptto_oauth_state=${stateCookie}` },
+    }), env);
+    assert.equal(callback.status, 302);
+    assert.equal(callback.headers.get("location"), "https://apt.to/account");
+    const callbackCookies = callback.headers.getSetCookie();
+    assert.equal(callbackCookies.length, 2);
+    const sessionCookie = callbackCookies.find((cookie) => cookie.startsWith("aptto_session=")).match(/aptto_session=([^;,]+)/)[1];
+    const stateRecord = await bucket.get(`oauth-states/${createHash("sha256").update(state).digest("hex")}.json`);
+    const consumedState = await stateRecord.json();
+    assert.equal(consumedState.code_verifier, null);
+    assert.ok(consumedState.consumed_at);
+    assert.equal(oauthCalls, 2);
+    assert.match(submittedVerifier, /^[a-f0-9]{96}$/);
+
+    const tokenResponse = await gateway.fetch(new Request("https://apt.to/api/device-tokens", {
+      method: "POST", headers: { origin: "https://apt.to", cookie: `aptto_session=${sessionCookie}`, "content-type": "application/json" },
+      body: JSON.stringify({ label: "workstation" }),
+    }), env);
+    assert.equal(tokenResponse.status, 201);
+    const issued = await tokenResponse.json();
+    assert.match(issued.token, /^aptto_[a-f0-9]{64}$/);
+    const tokenHash = createHash("sha256").update(issued.token).digest("hex");
+    assert.ok(bucket.entries.has(`apt-device-tokens/${tokenHash}.json`));
+    assert.equal(JSON.stringify([...bucket.entries.values()]).includes(issued.token), false);
+    assert.equal(JSON.stringify([...bucket.entries.values()]).includes("transient-oauth-secret"), false);
+
+    const listed = await gateway.fetch(new Request("https://apt.to/api/device-tokens", {
+      headers: { cookie: `aptto_session=${sessionCookie}` },
+    }), env);
+    assert.equal((await listed.json()).devices.length, 1);
+    const revoked = await gateway.fetch(new Request(`https://apt.to/api/device-tokens/${tokenHash}/revoke`, {
+      method: "POST", headers: { origin: "https://apt.to", cookie: `aptto_session=${sessionCookie}` },
+    }), env);
+    assert.equal(revoked.status, 200);
+    const listedAfterRevoke = await gateway.fetch(new Request("https://apt.to/api/device-tokens", {
+      headers: { cookie: `aptto_session=${sessionCookie}` },
+    }), env);
+    assert.ok((await listedAfterRevoke.json()).devices[0].revoked_at);
+
+    const loggedOut = await gateway.fetch(new Request("https://apt.to/api/logout", {
+      method: "POST", headers: { origin: "https://apt.to", cookie: `aptto_session=${sessionCookie}` },
+    }), env);
+    assert.equal(loggedOut.status, 204);
+    const afterLogout = await gateway.fetch(new Request("https://apt.to/api/device-tokens", {
+      headers: { cookie: `aptto_session=${sessionCookie}` },
+    }), env);
+    assert.equal(afterLogout.status, 401);
+
+    const replay = await gateway.fetch(new Request(`https://apt.to/auth/github/callback?code=one-time-code&state=${state}`, {
+      headers: { cookie: `aptto_oauth_state=${stateCookie}` },
+    }), env);
+    assert.equal(replay.status, 400);
+    assert.equal(oauthCalls, 2);
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test("sponsorship cancellation webhook verifies signature and records delivery idempotently without granting or revoking access", async () => {
