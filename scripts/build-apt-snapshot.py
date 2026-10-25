@@ -105,7 +105,8 @@ def download_asset(endpoint, channel, release, asset, target, *, private_binary=
         request = urllib.request.Request(url)
     total = 0
     digest = hashlib.sha256()
-    with PUBLISH.open_without_redirect(request, timeout=180) as response, target.open("xb") as output:
+    opener = urllib.request.build_opener() if not private_binary else urllib.request.build_opener(PUBLISH.NoRedirect())
+    with opener.open(request, timeout=180) as response, target.open("xb") as output:
         declared = response.headers.get("Content-Length")
         if declared is not None and (not declared.isdigit() or int(declared) > MAX_ASSET_BYTES):
             raise ValueError("package asset exceeds the 64 MiB limit")
@@ -179,7 +180,13 @@ def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
             download_asset(endpoint, channel, release, asset, pool / asset["name"],
                            private_binary=(channel == "early" and release["state"] == "sponsor-period"))
         for asset in release["source_assets"]:
-            download_asset(endpoint, channel, release, asset, pool / asset["name"])
+            target = pool / asset["name"]
+            if target.exists():
+                digest = hashlib.sha256(target.read_bytes()).hexdigest()
+                if digest != asset["sha256"]:
+                    raise ValueError(f"conflicting repository assets share the pool path: {asset['name']}")
+                continue
+            download_asset(endpoint, channel, release, asset, target)
         release_ids.append(release["id"])
     result = GENERATOR.generate(repository, "focal", "amd64", "main", "AptTo maintained packages")
     run_id = os.environ.get("GITHUB_RUN_ID", "")
@@ -187,7 +194,7 @@ def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
         raise RuntimeError("GitHub Actions run identity is required for immutable snapshot ids")
     snapshot_id = "focal-" + dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S") + "-r" + run_id + "-" + channel
     count = register_unsigned_build(endpoint, channel, snapshot_id, release_ids, repository)
-    return {"channel": channel, "snapshot_build": snapshot_id, "release_count": len(release_ids), "index_count": len(result["indexes"]), "file_count": count}
+    return {"channel": channel, "unchanged": False, "snapshot_build": snapshot_id, "release_count": len(release_ids), "index_count": len(result["indexes"]), "file_count": count}
 
 
 def main():

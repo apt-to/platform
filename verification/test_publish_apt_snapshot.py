@@ -131,6 +131,22 @@ class AptSnapshotPublisher(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not match the configured primary-key fingerprint"):
             PUBLISH.verify_release(self.repository, "0" * 40)
 
+        original_run = PUBLISH.subprocess.run
+        other_fingerprint = "1" * 40
+        def substituted_signer(command, **kwargs):
+            if "--with-colons" in command and "--list-keys" in command:
+                result = original_run(command, **kwargs)
+                return subprocess.CompletedProcess(command, 0, stdout=result.stdout + f"pub:u:255:22:OTHER::::::\nfpr:::::::::{other_fingerprint}:\n", stderr=result.stderr)
+            if "--decrypt" in command or "--verify" in command:
+                result = original_run(command, **kwargs)
+                status = result.stderr.decode("utf-8", errors="replace")
+                status += f"\n[GNUPG:] VALIDSIG {other_fingerprint} 2026-10-25 1792957274 0 4 0 1 8 01 {other_fingerprint}\n"
+                return subprocess.CompletedProcess(command, result.returncode, stdout=result.stdout, stderr=status.encode())
+            return original_run(command, **kwargs)
+        with patch.object(PUBLISH.subprocess, "run", side_effect=substituted_signer):
+            with self.assertRaisesRegex(ValueError, "signature is not valid under the published archive key"):
+                PUBLISH.verify_release(self.repository, fingerprint)
+
     def test_release_verification_requires_a_full_fingerprint(self):
         with self.assertRaisesRegex(ValueError, "configured 40- or 64-character"):
             PUBLISH.verify_release(self.repository, "short")

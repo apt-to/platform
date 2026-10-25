@@ -51,9 +51,9 @@ test("GitHub Actions OIDC accepts only signed tokens from the protected staging 
   globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
   try {
     const identity = await githubActionsIdentity(new Request("https://worker.test", {
-      headers: { authorization: `Bearer ${signedOidcToken(privateKey)}` },
+      headers: { authorization: `Bearer ${signedOidcToken(privateKey, { run_attempt: "1" })}` },
     }), {});
-    assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1, environment: "aptto-signing" });
+    assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1, environment: "aptto-signing", workflow: "private-staging" });
     const wrongEnvironment = signedOidcToken(privateKey, { environment: "unprotected" });
     assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${wrongEnvironment}` } }), {}), null);
     const missingEnvironment = signedOidcToken(privateKey, { environment: undefined });
@@ -195,6 +195,7 @@ class MemoryAssetBucket extends MemoryBucket {
     return object;
   }
   async head(key) { return this.assets.get(key) || null; }
+  async list({ prefix, cursor, limit = 1000 }) { return super.list({ prefix, cursor, limit }); }
   async get(key) {
     const asset = this.assets.get(key);
     if (asset) return {
@@ -690,6 +691,56 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("identical original source tarballs shared by successive releases resolve unambiguously", async () => {
+  const name = "libarchive_3.4.0.orig.tar.gz";
+  const digest = "b".repeat(64);
+  const records = [1, 2].map((revision) => ({
+    id: `libarchive-aptto${revision}`, state: "public", repository: "apt-to/packaging-libarchive",
+    tag: `aptto/3.4.0-2ubuntu1.5+aptto${revision}`, source_release_id: 900 + revision, sponsor_delay_hours: 0,
+    required_assets: [{ name: `libarchive13_aptto${revision}_amd64.deb`, sha256: "a".repeat(64), r2_key: `staging/libarchive-aptto${revision}/binary` }],
+    source_assets: [{ name, sha256: digest, r2_key: `staging/libarchive-aptto${revision}/source` }],
+  }));
+  const bucket = new MemoryBucket(Object.fromEntries(records.map((record) => [`release-state/${record.id}.json`, record])));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const releaseId = String(url).match(/\/releases\/(\d+)\/assets$/)?.[1];
+    if (!["901", "902"].includes(releaseId)) throw new Error(`Unexpected GitHub request: ${String(url)}`);
+    return Response.json([{ name, browser_download_url: `https://github.com/apt-to/packaging-libarchive/releases/download/source/${name}` }]);
+  };
+  try {
+    const response = await gateway.fetch(new Request(`https://repo.apt.to/pool/main/l/libarchive/${name}`), {
+      RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only",
+    });
+    assert.equal(response.status, 302);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("old by-hash indexes remain served from a retained eligible snapshot after activation", async () => {
+  const oldId = "focal-20261025T180000-r1-public";
+  const newId = "focal-20261025T190000-r2-public";
+  const path = `dists/focal/main/binary-amd64/Packages/by-hash/SHA256/${"a".repeat(64)}`;
+  const bytes = Buffer.from("old index bytes");
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const entries = {
+    "repository-current/public.json": { id: newId },
+    [`repository-snapshots/public/${newId}.json`]: { id: newId, channel: "public", release_ids: [], files: [] },
+    [`repository-snapshots/public/${oldId}.json`]: { id: oldId, channel: "public", release_ids: [], files: [{ path, size: bytes.length, sha256: "a".repeat(64), content_type: "text/plain; charset=utf-8" }] },
+  };
+  const bucket = new MemoryAssetBucket(null);
+  bucket.entries = new Map(Object.entries(entries).map(([key, value]) => [key, { value, etag: `etag-${key}` }]));
+  const objectKey = `repository-snapshots/public/${oldId}/${path}`;
+  bucket.assets.set(objectKey, { size: bytes.length, checksums: { sha256: Buffer.from("a".repeat(64), "hex") }, body: bytes });
+  const originalGet = bucket.get.bind(bucket);
+  bucket.get = async (key) => {
+    const asset = bucket.assets.get(key);
+    if (asset) return { ...asset, body: new Response(asset.body).body };
+    return originalGet(key);
+  };
+  const response = await gateway.fetch(new Request(`https://repo.apt.to/${path}`), { RELEASES: bucket });
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), bytes.toString());
+});
+
 test("APT snapshot manifests activate atomically after R2 readback and serve stable dists paths", async () => {
   const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const keyId = "snapshot-environment-test";
@@ -710,6 +761,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
   const authorization = `Bearer ${signedOidcToken(privateKey, snapshotClaims, privateKey, keyId)}`;
   const builderAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "aptto-index-build" }, privateKey, keyId)}`;
   const stagingAuthorization = `Bearer ${signedOidcToken(privateKey, {}, privateKey, keyId)}`;
+    const builderReleaseAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "aptto-index-build" }, privateKey, keyId)}`;
   const firstId = "focal-20261025T120000-r101-public";
   const contents = new Map([
     ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
@@ -733,6 +785,10 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     });
     const stagingRegistration = await gateway.fetch(stagingRequest("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "staging-cannot-publish", release_ids: ["pilot"], files })), env);
     assert.equal(stagingRegistration.status, 401, "the artifact staging workflow cannot register repository metadata");
+    const builderReleaseRegistration = await gateway.fetch(new Request("https://repo.apt.to/internal/releases", {
+      method: "POST", headers: { authorization: builderReleaseAuthorization, "content-length": "2" }, body: "{}",
+    }), env);
+    assert.equal(builderReleaseRegistration.status, 401, "the index builder cannot register package releases");
     const registration = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: firstId, release_ids: ["pilot"], files })), env);
     assert.equal(registration.status, 201);
     const replay = await gateway.fetch(request("https://repo.apt.to/internal/repository-snapshots/public", "POST", JSON.stringify({ id: firstId, release_ids: ["pilot"], files })), env);
@@ -1306,6 +1362,24 @@ test("seven-day releases remain blocked until private sponsor serving exists", a
   assert.equal((await (await bucket.get("release-state/pilot.json")).json()).state, "prepared");
 });
 
+test("prepared releases are not reconciled until the immutable source release is recorded", async () => {
+  const record = {
+    id: "pilot", state: "prepared", repository: "apt-to/packaging-libarchive", tag: "aptto/1.2.3+aptto1",
+    source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
+    required_assets: [{ name: "libarchive.deb", sha256: "a".repeat(64), r2_key: "staging/pilot/binary" }],
+    source_assets: [{ name: "libarchive.dsc", sha256: "c".repeat(64), r2_key: "staging/pilot/source" }],
+  };
+  const bucket = new MemoryBucket({ "release-state/pilot.json": record });
+  const originalFetch = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async () => { requests += 1; throw new Error("must wait for source publication"); };
+  try {
+    await publishOne({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "release-state/pilot.json", new Date());
+    assert.equal(requests, 0);
+    assert.equal((await (await bucket.get("release-state/pilot.json")).json()).state, "prepared");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("scheduled reconciliation promotes a due sponsor release after missed runs", async () => {
   const bytes = Buffer.from("verified sponsor package bytes");
   const digest = createHash("sha256").update(bytes).digest("hex");
@@ -1313,7 +1387,7 @@ test("scheduled reconciliation promotes a due sponsor release after missed runs"
   const key = "release-state/pilot.json";
   const bucket = new MemoryBucket({ [key]: {
     id: "pilot", state: "sponsor-period", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
-    source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168,
+    source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168, source_release_id: 902,
     sponsor_publication_complete: true, public_after: deadline.toISOString(),
     required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }],
   } });

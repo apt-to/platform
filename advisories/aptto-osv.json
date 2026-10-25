@@ -1,0 +1,197 @@
+{
+  "schema_version": "1.6.0",
+  "vulns": [
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "fixed_versions": [
+              "3.4.0-2ubuntu1.5+aptto1",
+              "3.4.0-2ubuntu1.5+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "release": "focal",
+            "source_package": "libarchive"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libarchive-tools"
+          },
+          "versions": [
+            "3.4.0-2ubuntu1.5"
+          ]
+        },
+        {
+          "database_specific": {
+            "fixed_versions": [
+              "3.4.0-2ubuntu1.5+aptto1",
+              "3.4.0-2ubuntu1.5+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "release": "focal",
+            "source_package": "libarchive"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libarchive13"
+          },
+          "versions": [
+            "3.4.0-2ubuntu1.5"
+          ]
+        }
+      ],
+      "database_specific": {
+        "aptto_fixed_version": "3.4.0-2ubuntu1.5+aptto1",
+        "baseline_version": "3.4.0-2ubuntu1.5",
+        "ecosystem": "AptTo:focal",
+        "severity": "MEDIUM",
+        "source_package": "libarchive",
+        "ubuntu_pro_fixed_version": "3.4.0-2ubuntu1.5+esm1",
+        "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075"
+      },
+      "details": "AptTo tracks the exact focal amd64 binary package identities below. The exact baseline is listed as affected; the AptTo backport and Canonical Ubuntu Pro fixed version are recorded as fixed versions in database_specific. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
+      "id": "CVE-2026-4111",
+      "modified": "2026-10-25T00:00:00Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://ubuntu.com/security/CVE-2026-4111"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "libarchive RAR5 decompression infinite loop in Ubuntu Focal packages"
+    },
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "release": "focal",
+            "source_package": "libxml2"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        },
+        {
+          "database_specific": {
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "release": "focal",
+            "source_package": "libxml2"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2-utils"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        }
+      ],
+      "database_specific": {
+        "aptto_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+        "baseline_version": "2.9.10+dfsg-5ubuntu0.20.04.10",
+        "ecosystem": "AptTo:focal",
+        "severity": "MEDIUM",
+        "source_package": "libxml2",
+        "ubuntu_pro_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
+        "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075"
+      },
+      "details": "AptTo tracks the exact focal amd64 binary package identities below. The exact baseline is listed as affected; the AptTo backport and Canonical Ubuntu Pro fixed version are recorded as fixed versions in database_specific. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
+      "id": "CVE-2025-49794",
+      "modified": "2026-10-25T00:00:00Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://ubuntu.com/security/CVE-2025-49794"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "libxml2 XPath Schematron use-after-free in Ubuntu Focal packages"
+    },
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "release": "focal",
+            "source_package": "libxml2"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        },
+        {
+          "database_specific": {
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "release": "focal",
+            "source_package": "libxml2"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2-utils"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        }
+      ],
+      "database_specific": {
+        "aptto_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1",
+        "baseline_version": "2.9.10+dfsg-5ubuntu0.20.04.10",
+        "ecosystem": "AptTo:focal",
+        "severity": "MEDIUM",
+        "source_package": "libxml2",
+        "ubuntu_pro_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
+        "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075"
+      },
+      "details": "AptTo tracks the exact focal amd64 binary package identities below. The exact baseline is listed as affected; the AptTo backport and Canonical Ubuntu Pro fixed version are recorded as fixed versions in database_specific. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
+      "id": "CVE-2025-49796",
+      "modified": "2026-10-25T00:00:00Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://ubuntu.com/security/CVE-2025-49796"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "libxml2 Schematron name-element memory corruption in Ubuntu Focal packages"
+    }
+  ]
+}

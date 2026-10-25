@@ -50,6 +50,10 @@ class AptRepositoryIndex(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "escapes"):
             GENERATOR.rewrite_release_checksums(self.release, self.dist)
 
+    def test_release_path_containment_works_without_path_is_relative_to(self):
+        self.assertTrue(hasattr(Path, "relative_to"))
+        GENERATOR.rewrite_release_checksums(self.release, self.dist)
+
     def test_generation_refuses_to_mix_with_an_existing_suite_snapshot(self):
         repo = Path(self.temp.name) / "repo"
         (repo / "pool").mkdir(parents=True)

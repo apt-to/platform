@@ -44,7 +44,11 @@ def rewrite_release_checksums(release_path, dist):
         raise ValueError("APT Release metadata has no index checksums")
     for relative, (expected_hash, expected_size) in entries.items():
         path = (dist / relative).resolve()
-        if not path.is_relative_to(dist.resolve()) or not path.is_file():
+        try:
+            path.relative_to(dist.resolve())
+        except ValueError:
+            raise ValueError(f"APT Release index path is missing or escapes the distribution: {relative}") from None
+        if not path.is_file():
             raise ValueError(f"APT Release index path is missing or escapes the distribution: {relative}")
         content = path.read_bytes()
         if len(content) != expected_size or hashlib.sha256(content).hexdigest() != expected_hash:

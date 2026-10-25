@@ -44,7 +44,8 @@ function showError(error) {
 
 function renderDevices(devices) {
   deviceList.replaceChildren();
-  const active = devices.filter((device) => !device.revoked_at).length;
+  const now = Date.now();
+  const active = devices.filter((device) => !device.revoked_at && Number.isFinite(Date.parse(device.expires_at)) && Date.parse(device.expires_at) > now).length;
   deviceCount.textContent = `${active} active / ${devices.length} total`;
   if (devices.length === 0) {
     const empty = document.createElement("p");
@@ -64,10 +65,11 @@ function renderDevices(devices) {
     meta.textContent = `Created ${formatDate(device.created_at)} · Expires ${formatDate(device.expires_at)}`;
     name.append(meta);
     const state = document.createElement("span");
-    state.className = `device-state${device.revoked_at ? " is-revoked" : ""}`;
-    state.textContent = device.revoked_at ? `REVOKED ${formatDate(device.revoked_at)}` : "ACTIVE";
+    const expired = !device.revoked_at && !(Number.isFinite(Date.parse(device.expires_at)) && Date.parse(device.expires_at) > now);
+    state.className = `device-state${device.revoked_at || expired ? " is-revoked" : ""}`;
+    state.textContent = device.revoked_at ? `REVOKED ${formatDate(device.revoked_at)}` : expired ? `EXPIRED ${formatDate(device.expires_at)}` : "ACTIVE";
     row.append(name, state);
-    if (!device.revoked_at) {
+    if (!device.revoked_at && !expired) {
       const revoke = document.createElement("button");
       revoke.className = "revoke-button";
       revoke.type = "button";
@@ -107,15 +109,17 @@ async function start() {
     const user = await api("/api/me");
     signedIn.hidden = false;
     document.querySelector("#github-login").textContent = `@${user.github_login}`;
+    eligiblePanel.hidden = false;
+    await loadDevices();
     if (user.sponsorship === "eligible") {
-      eligiblePanel.hidden = false;
       notEligiblePanel.hidden = true;
+      document.querySelector("#device-form").hidden = false;
       document.querySelector("#sponsor-status").textContent = "An active eligible sponsorship is confirmed. Device credentials are checked against current sponsor status when used.";
-      await loadDevices();
       setMessage("Sponsor status verified. Manage credentials for your machines below.", "success");
       return;
     }
-    eligiblePanel.hidden = true;
+    document.querySelector("#device-form").hidden = true;
+    tokenReveal.hidden = true;
     notEligiblePanel.hidden = false;
     const statusCopy = document.querySelector("#sponsor-status");
     if (user.sponsorship === "unavailable") {

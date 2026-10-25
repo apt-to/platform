@@ -51,7 +51,7 @@ def main():
     args = parser.parse_args()
     try:
         data = load(args.input)
-        required = ("source", "baselineVersion", "patchedVersion", "targetCves", "beforeTrivy", "afterTrivy", "beforeOsv", "afterOsv", "baselineRegression", "patchedRegression", "buildProvenance", "binaryManifest", "packagePolicy", "databaseSha256", "sourceCommit", "beforeScanMetadata", "afterScanMetadata", "scanImages")
+        required = ("source", "baselineVersion", "patchedVersion", "targetCves", "beforeTrivy", "afterTrivy", "beforeOsv", "afterOsv", "baselineRegression", "patchedRegression", "buildProvenance", "binaryManifest", "packagePolicy", "databaseSha256", "sourceCommit", "beforeScanMetadata", "afterScanMetadata", "scanImages", "aptToFeed", "beforeAptToScan", "afterAptToScan", "beforeAptToStatus", "afterAptToStatus")
         missing = [key for key in required if key not in data]
         if missing:
             raise ValueError("required evidence fields missing: " + ", ".join(missing))
@@ -104,6 +104,46 @@ def main():
                 if len(matches) != 1 or matches[0].get("ID") != binary + "@" + expected_version:
                     raise ValueError(f"{phase} Trivy report does not identify {binary} at the expected version")
             scan_metadata[phase] = {"imageId": sidecar["imageId"], "databaseSha256": sidecar["databaseSha256"], "reportSha256": sidecar["reportSha256"]}
+        aptto_feed = load(data["aptToFeed"])
+        if aptto_feed.get("schema_version") != "1.6.0" or not isinstance(aptto_feed.get("vulns"), list):
+            raise ValueError("AptTo advisory feed is not OSV-format")
+        feed_ids = {item.get("id") for item in aptto_feed["vulns"]}
+        if not set(targets).issubset(feed_ids):
+            raise ValueError("AptTo advisory feed is missing configured target CVEs")
+        aptto_scans = {}
+        for phase in ("before", "after"):
+            scan = load(data[phase + "AptToScan"])
+            expected_version = data["baselineVersion"] if phase == "before" else data["patchedVersion"]
+            package_versions = scan.get("scannedPackageVersions")
+            if (scan.get("scanner") != "aptto-dpkg-osv/1" or scan.get("release") != config["release"] or
+                    scan.get("architecture") != config["architecture"] or scan.get("imageId") != expected_ids[phase] or
+                    scan.get("advisoryFeedSha256") != sha256(data["aptToFeed"]) or
+                    scan.get("packagePolicySha256") != sha256(Path(__file__).resolve().parents[1] / "packages.json") or
+                    scan.get("statusFileSha256") != sha256(data[phase + "AptToStatus"]) or
+                    not isinstance(package_versions, dict) or
+                    any(package_versions.get(name) != expected_version for name in expected_binary_names)):
+                raise ValueError(f"{phase} AptTo scan does not bind the expected feed, image, package identities and versions")
+            findings = scan.get("findings")
+            if not isinstance(findings, list):
+                raise ValueError(f"{phase} AptTo scan findings are malformed")
+            if any(not isinstance(item, dict) or not isinstance(item.get("id"), str) or not isinstance(item.get("package"), str) for item in findings):
+                raise ValueError(f"{phase} AptTo scan findings are malformed")
+            findings_by_id = {item["id"] for item in findings}
+            summary_ids = scan.get("findingsById")
+            if not isinstance(summary_ids, list) or set(summary_ids) != findings_by_id:
+                raise ValueError(f"{phase} AptTo scan finding summary disagrees with its detailed findings")
+            finding_pairs = {(item.get("id"), item.get("package")) for item in findings}
+            expected_pairs = {(cve, binary) for cve in targets for binary in expected_binary_names}
+            if phase == "before" and (not set(targets).issubset(findings_by_id) or not expected_pairs.issubset(finding_pairs)):
+                raise ValueError("before AptTo scan did not detect every configured target CVE for every binary package")
+            if phase == "after" and findings_by_id & set(targets):
+                raise ValueError(f"{phase} AptTo scan does not prove the expected target advisory state")
+            aptto_scans[phase] = {
+                "imageId": scan["imageId"], "reportSha256": sha256(data[phase + "AptToScan"]),
+                "statusSha256": scan["statusFileSha256"],
+                "targetFindingIds": sorted(findings_by_id & set(targets)),
+                "unrelatedFindingIds": sorted(findings_by_id - set(targets)),
+            }
         all_vulns = before_vulns + after_vulns
         before_target_hits = {v.get("VulnerabilityID") for v in before_vulns if v.get("VulnerabilityID") in targets}
         after_target_hits = {v.get("VulnerabilityID") for v in after_vulns if v.get("VulnerabilityID") in targets}
@@ -123,7 +163,7 @@ def main():
             "scanner": {"image": config["scannerImage"], "databaseReference": config["scannerDatabaseReference"], "databaseSha256": data["databaseSha256"], "before": scan_metadata["before"], "after": scan_metadata["after"]},
             "canonicalOsv": {"ecosystem": config["advisoryEcosystem"], "before": {"responseSha256": sha256(data["beforeOsv"]), "targetRecords": before_osv, "allRecordIds": baseline_records}, "after": {"responseSha256": sha256(data["afterOsv"]), "targetRecords": after_osv, "allRecordIds": patched_records}},
             "trivy": {"before": {"sha256": sha256(data["beforeTrivy"]), "packageCount": len(before_pkgs), "findingCount": len(before_vulns), "targetFindings": [v for v in before_vulns if v.get("VulnerabilityID") in targets]}, "after": {"sha256": sha256(data["afterTrivy"]), "packageCount": len(after_pkgs), "findingCount": len(after_vulns), "targetFindings": [v for v in after_vulns if v.get("VulnerabilityID") in targets]}, "unrelatedFindings": unrelated},
-            "aptToAdvisoryIntegration": {"source": "Canonical Ubuntu OSV exact-version queries plus verified installed regression evidence", "baselineTargetFindingIds": sorted(before_target_hits), "patchedTargetFindingIds": sorted(after_target_hits), "findings": integrated_findings, "claim": "custom AptTo advisory scan; raw vendor Trivy reports remain separately preserved"},
+            "aptToAdvisoryIntegration": {"source": "AptTo OSV-format feed scan of installed dpkg status plus Canonical Ubuntu OSV exact-version queries and installed regression evidence", "scanner": "aptto-dpkg-osv/1", "feedSha256": sha256(data["aptToFeed"]), "before": aptto_scans["before"], "after": aptto_scans["after"], "baselineTargetFindingIds": aptto_scans["before"]["targetFindingIds"], "patchedTargetFindingIds": aptto_scans["after"]["targetFindingIds"], "unrelatedFindingIds": sorted(set(aptto_scans["before"]["unrelatedFindingIds"]) | set(aptto_scans["after"]["unrelatedFindingIds"])), "rawTrivyBaselineTargetFindingIds": sorted(before_target_hits), "rawTrivyPatchedTargetFindingIds": sorted(after_target_hits), "findings": integrated_findings, "claim": "custom AptTo advisory scan; raw vendor Trivy reports remain separately preserved"},
             "regression": {"baseline": str(data["baselineRegression"]), "patched": str(data["patchedRegression"]), "targetCves": targets},
             "assessment": {"ubuntuPublishedVersionStatus": "affected per Canonical OSV version query; preserved as vendor status", "aptToStatus": "backport regression verified for configured target CVEs; upstream vendor OSV still describes Ubuntu package versions", "unrelatedTrivyFindingsPreserved": True},
             "passed": True,

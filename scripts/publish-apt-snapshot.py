@@ -155,9 +155,8 @@ def verify_release(repository, expected_fingerprint):
             valid_signatures = re.findall(r"\[GNUPG:\] VALIDSIG ([A-F0-9]{40,64})(?: [^\n]*)?", status)
             signer_fingerprints = [signature.upper() for signature in valid_signatures]
             primary_signers = re.findall(r"\[GNUPG:\] VALIDSIG [A-F0-9]{40,64} (?:[^\n]* )?([A-F0-9]{40,64})$", status, re.MULTILINE)
-            trusted_signatures = [signer for signer in signer_fingerprints if signer in fingerprints]
-            trusted_signatures.extend(fingerprint.upper() for fingerprint in primary_signers if fingerprint.upper() == expected_fingerprint)
-            if len(valid_signatures) != 1 or not trusted_signatures:
+            trusted_signatures = [fingerprint.upper() for fingerprint in primary_signers if fingerprint.upper() == expected_fingerprint]
+            if len(valid_signatures) != 1 or len(trusted_signatures) != 1:
                 raise ValueError("APT Release signature is not valid under the published archive key")
 
 

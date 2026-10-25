@@ -54,19 +54,21 @@ async function githubActionsIdentity(request, env) {
     const stagingWorkflow = claims.workflow_ref === "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main" && claims.event_name === "workflow_run";
     const snapshotWorkflow = claims.workflow_ref === "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" &&
       ["workflow_run", "schedule", "workflow_dispatch"].includes(claims.event_name);
+    const runAttempt = typeof claims.run_attempt === "string" && /^\d+$/.test(claims.run_attempt) ? Number(claims.run_attempt) : claims.run_attempt;
     if (claims.iss !== OIDC_ISSUER || audiences.length !== 1 || audiences[0] !== OIDC_AUDIENCE || !Number.isSafeInteger(claims.exp) || claims.exp <= now ||
         !Number.isSafeInteger(claims.iat) || claims.iat > now + 60 || claims.repository !== "apt-to/platform" || claims.repository_id !== "1433070541" ||
         claims.repository_owner !== "apt-to" || claims.repository_visibility !== "public" || !(stagingWorkflow || snapshotWorkflow) ||
         claims.ref !== "refs/heads/main" ||
         claims.runner_environment !== "github-hosted" ||
         (stagingWorkflow ? claims.environment !== "aptto-signing" : !["aptto-index-build", "aptto-signing"].includes(claims.environment)) ||
-        !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(claims.run_attempt) ||
+        !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(runAttempt) || runAttempt < 1 ||
         (claims.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || claims.nbf > now + 60)) || typeof claims.jti !== "string" || !claims.jti) return null;
     return {
       type: "github-actions",
       run_id: Number(claims.run_id),
-      run_attempt: claims.run_attempt,
+      run_attempt: runAttempt,
       environment: claims.environment,
+      workflow: stagingWorkflow ? "private-staging" : "repository-snapshot",
     };
   } catch { return null; }
 }
@@ -177,7 +179,8 @@ function canonicalSnapshotBuildFiles(files) {
 function snapshotFilePath(value) {
   if (typeof value !== "string" || value.length > 512) return false;
   if (value === "aptto-archive-keyring.gpg") return true;
-  return /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(value);
+  return /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(value) ||
+    /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*\/by-hash\/SHA256\/[a-f0-9]{64}$/.test(value);
 }
 
 function snapshotContentType(path) {
@@ -733,9 +736,31 @@ async function serveRepositoryFile(request, env, channel, path) {
   if (!snapshot) return json({ error: "repository snapshot is not available" }, 503);
   const ineligibility = await snapshotEligibilityError(env, selectedChannel, snapshot.release_ids);
   if (ineligibility) return json({ error: "repository snapshot is unavailable pending release promotion" }, 503);
-  const file = snapshot?.files.find((candidate) => candidate.path === path);
+  let sourceSnapshot = snapshot;
+  let file = snapshot.files.find((candidate) => candidate.path === path);
+  if (!file && path.includes("/by-hash/SHA256/")) {
+    const hash = path.slice(path.lastIndexOf("/") + 1);
+    const hashPattern = /^[a-f0-9]{64}$/;
+    if (!hashPattern.test(hash)) return json({ error: "invalid repository metadata path" }, 400);
+    let cursor;
+    let found = false;
+    do {
+      const pages = await env.RELEASES.list({ prefix: `repository-snapshots/${selectedChannel}/`, cursor, limit: 1000 });
+      for (const item of pages.objects) {
+        const prefix = `repository-snapshots/${selectedChannel}/`;
+        if (!item.key.startsWith(prefix) || !item.key.endsWith(".json")) continue;
+        const id = item.key.slice(prefix.length, -5);
+        if (id === active.id || !/^[A-Za-z0-9][A-Za-z0-9-]{2,79}$/.test(id)) continue;
+        const candidate = (await readRecord(env.RELEASES, snapshotKey(selectedChannel, id)))?.record;
+        if (!candidate || await snapshotEligibilityError(env, selectedChannel, candidate.release_ids)) continue;
+        const oldFile = candidate.files?.find((entry) => entry.path === path);
+        if (oldFile && oldFile.sha256 === hash) { sourceSnapshot = candidate; file = oldFile; found = true; break; }
+      }
+      cursor = found || !pages.truncated ? undefined : pages.cursor;
+    } while (cursor);
+  }
   if (!file) return json({ error: "repository file not found" }, 404);
-  const objectKey = `repository-snapshots/${selectedChannel}/${active.id}/${path}`;
+  const objectKey = `repository-snapshots/${selectedChannel}/${sourceSnapshot.id}/${path}`;
   const metadata = await env.RELEASES.head(objectKey);
   if (!metadata || metadata.size !== file.size || checksumHex(metadata.checksums?.sha256) !== file.sha256) return json({ error: "repository file failed integrity verification" }, 502);
   const object = request.method === "HEAD" ? metadata : await env.RELEASES.get(objectKey);
@@ -1387,21 +1412,23 @@ async function servePoolAsset(request, env, path) {
       const binary = canonicalAssets(record.required_assets).find((asset) => asset.name === name);
       const sourceAssets = record.source_assets?.length ? canonicalAssets(record.source_assets) : [];
       const sourceAsset = sourceAssets.find((asset) => asset.name === name);
-      if (binary) matches.push({ record, id: record.id, name, kind: "binary" });
+      if (binary) matches.push({ record, id: record.id, asset: binary, name, kind: "binary" });
       if (sourceAsset) matches.push({ record, asset: sourceAsset, kind: "source" });
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
   if (matches.length === 0) return json({ error: "repository asset not found" }, 404);
-  if (matches.length !== 1) return json({ error: "repository asset mapping is ambiguous" }, 409);
   const match = matches[0];
+  if (matches.some((candidate) => candidate.kind !== match.kind || candidate.asset.sha256 !== match.asset.sha256)) {
+    return json({ error: "repository asset mapping is ambiguous" }, 409);
+  }
   if (match.kind === "source") return servePublicSourceAsset(request, env, match.record, match.asset);
   return serveEarlyAsset(request, env, match.id, match.name);
 }
 
 async function beginSponsorPublication(request, env, id, now = new Date()) {
   const identity = await githubActionsIdentity(request, env);
-  if (!identity) {
+  if (!identity || (identity.type !== "admin" && identity.workflow !== "private-staging")) {
     return json({ error: "unauthorized" }, 401);
   }
   let key;
@@ -1449,7 +1476,7 @@ async function beginSponsorPublication(request, env, id, now = new Date()) {
 
 async function publishImmediateRelease(request, env, id, now = new Date()) {
   const identity = await githubActionsIdentity(request, env);
-  if (!identity || identity.type !== "github-actions") return json({ error: "GitHub Actions identity required" }, 401);
+  if (!identity || (identity.type !== "admin" && (identity.type !== "github-actions" || identity.workflow !== "private-staging"))) return json({ error: "private staging workflow identity required" }, 401);
   let key;
   try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
   const loaded = await readRecord(env.RELEASES, key);
@@ -1476,7 +1503,7 @@ async function publishImmediateRelease(request, env, id, now = new Date()) {
 
 async function publishPublicSources(request, env, id, now = new Date()) {
   const identity = await githubActionsIdentity(request, env);
-  if (!identity || identity.type !== "github-actions") return json({ error: "GitHub Actions identity required" }, 401);
+  if (!identity || (identity.type !== "admin" && (identity.type !== "github-actions" || identity.workflow !== "private-staging"))) return json({ error: "private staging workflow identity required" }, 401);
   let key;
   try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
   const loaded = await readRecord(env.RELEASES, key);
@@ -1612,7 +1639,7 @@ async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
 
 async function registerRelease(request, env) {
   const identity = await githubActionsIdentity(request, env);
-  if (!identity) {
+  if (!identity || (identity.type !== "admin" && identity.workflow !== "private-staging")) {
     return json({ error: "unauthorized" }, 401);
   }
   const body = await readBoundedJson(request, MAX_REGISTRATION_BYTES);
@@ -1654,7 +1681,7 @@ async function registerRelease(request, env) {
 
 async function uploadReleaseAsset(request, env, id, name, kind = "binary") {
   const identity = await githubActionsIdentity(request, env);
-  if (!identity) {
+  if (!identity || (identity.type !== "admin" && identity.workflow !== "private-staging")) {
     return json({ error: "unauthorized" }, 401);
   }
   let key;
@@ -1952,6 +1979,7 @@ async function publishOne(env, key, now) {
   if (record.state === "prepared" && record.sponsor_delay_hours === 168) {
     throw new Error("seven-day releases are disabled until sponsor authentication and private serving are integrated");
   }
+  if (!Number.isSafeInteger(record.source_release_id)) return;
   await verifySignedSourceTag(env, record.repository, record.tag, record.source_commit);
   if (record.state === "sponsor-period" && now < parseUtc(record.public_after)) return;
   const release = await publishAssets(env, record);
