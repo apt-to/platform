@@ -98,9 +98,10 @@ def main():
             sidecar = load(data[phase + "ScanMetadata"])
             if sidecar.get("phase") != phase or sidecar.get("scannerImage") != config["scannerImage"] or sidecar.get("imageId") != expected_ids[phase] or sidecar.get("databaseSha256") != data["databaseSha256"] or sidecar.get("reportSha256") != sha256(report_path):
                 raise ValueError(f"{phase} Trivy scan metadata does not bind the exact image, scanner, DB and raw report")
-            versions = {p.get("Name"): p.get("Version") for p in packages_in_report}
             for binary in package["binaryPackages"]:
-                if versions.get(binary) != (data["baselineVersion"] if phase == "before" else data["patchedVersion"]):
+                matches = [p for p in packages_in_report if p.get("Name") == binary]
+                expected_version = data["baselineVersion"] if phase == "before" else data["patchedVersion"]
+                if len(matches) != 1 or matches[0].get("ID") != binary + "@" + expected_version:
                     raise ValueError(f"{phase} Trivy report does not identify {binary} at the expected version")
             scan_metadata[phase] = {"imageId": sidecar["imageId"], "databaseSha256": sidecar["databaseSha256"], "reportSha256": sidecar["reportSha256"]}
         all_vulns = before_vulns + after_vulns

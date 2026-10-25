@@ -32,8 +32,8 @@ class AdvisoryAuditContract(unittest.TestCase):
             root = Path(directory)
             before = root / "before.json"
             after = root / "after.json"
-            before_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0-2ubuntu1.5"}, {"Name": "libarchive-tools", "Version": "3.4.0-2ubuntu1.5"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
-            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0-2ubuntu1.5+aptto1"}, {"Name": "libarchive-tools", "Version": "3.4.0-2ubuntu1.5+aptto1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
+            before_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive13@3.4.0-2ubuntu1.5"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive-tools@3.4.0-2ubuntu1.5"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
+            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1", "ID": "libarchive13@3.4.0-2ubuntu1.5+aptto1"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1", "ID": "libarchive-tools@3.4.0-2ubuntu1.5+aptto1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
             before.write_text(json.dumps(before_data))
             after.write_text(json.dumps(after_data))
             osv_before = root / "osv-before.json"
