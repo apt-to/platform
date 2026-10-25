@@ -25,7 +25,8 @@ class ReleaseCandidateOutput(unittest.TestCase):
             binary.write_bytes(b"verified package bytes")
             source_files = {
                 "libarchive_3.4.0-2ubuntu1.5+aptto1.dsc": b"source descriptor",
-                "libarchive_3.4.0.orig.tar.xz": b"upstream source",
+                "libarchive_3.4.0.orig.tar.gz": b"upstream source",
+                "libarchive_3.4.0.orig.tar.gz.asc": b"upstream source signature",
                 "libarchive_3.4.0-2ubuntu1.5+aptto1.debian.tar.xz": b"debian source",
             }
             for name, content in source_files.items():

@@ -71,7 +71,7 @@ def persist_release_candidates(selected, binary_manifest, output, package, versi
         expected_prefix = f"{package}_{version}" if not is_original else f"{package}_"
         if not path.name.startswith(expected_prefix):
             raise RuntimeError("Source package filename does not match the candidate source and version")
-        if is_original and not re.fullmatch(re.escape(package) + r"_[A-Za-z0-9.+~:-]+\.orig\.tar\.[A-Za-z0-9]+", path.name):
+        if is_original and not re.fullmatch(re.escape(package) + r"_[A-Za-z0-9.+~:-]+\.orig\.tar\.[A-Za-z0-9]+(?:\.asc)?", path.name):
             raise RuntimeError("Original source tarball filename is invalid")
         if is_debian and not path.name.startswith(source_prefix + ".debian.tar."):
             raise RuntimeError("Debian source tarball filename does not match the candidate version")
