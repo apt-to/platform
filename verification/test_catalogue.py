@@ -11,6 +11,10 @@ class PublicCatalogueContract(unittest.TestCase):
         platform = json.loads((ROOT / "packages.json").read_text())
         catalogue = json.loads((ROOT / "site/catalogue.json").read_text())
         entries = {item["source"]: item for item in catalogue["packages"]}
+        verification_runs = {
+            "libxml2": "https://github.com/apt-to/platform/actions/runs/40285154915",
+            "libarchive": "https://github.com/apt-to/platform/actions/runs/40285159539",
+        }
         self.assertEqual(set(entries), set(platform["packages"]))
         self.assertEqual(catalogue["target"]["suite"], platform["release"])
         self.assertEqual(catalogue["target"]["architecture"], platform["architecture"])
@@ -21,7 +25,7 @@ class PublicCatalogueContract(unittest.TestCase):
             self.assertEqual(entry["delayHours"], policy["sponsorDelayHours"])
             self.assertEqual(entry["access"], "sponsor" if policy["sponsorDelayHours"] else "public")
             self.assertEqual(entry["status"], "development-checks-passed")
-            self.assertEqual(entry["verification"], "https://github.com/apt-to/platform/actions/runs/40202672075")
+            self.assertEqual(entry["verification"], verification_runs[source])
             self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/apt-to/packaging-{source}/tree/"))
 
         page = (ROOT / "site/index.html").read_text()
@@ -30,7 +34,7 @@ class PublicCatalogueContract(unittest.TestCase):
         self.assertIn("These checks do not complete release verification", page)
         self.assertIn("temporary signed APT client smoke test", page)
         app = (ROOT / "site/catalogue.js").read_text()
-        self.assertIn("Shared two-package workflow", app)
+        self.assertIn("Hosted build and regressions", app)
         self.assertIn("open the public package source repositories on GitHub", page)
         self.assertNotIn("browse the public package repositories directly", page)
         self.assertIn('all: packages.length', app)

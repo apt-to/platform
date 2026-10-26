@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-10-25T17:30:38Z",
+  "tool": "gpg (GnuPG) 2.5.19",
+  "keyring": "isolated temporary GNUPGHOME; key material removed after verification",
+  "keys": [
+    {
+      "name": "Marc Deslauriers",
+      "fingerprint": "50C4A0DDCF31E452CEB19B516569D855A744BE93",
+      "key_source": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x50C4A0DDCF31E452CEB19B516569D855A744BE93",
+      "fingerprint_source": "https://wiki.ubuntu.com/Security/GPG_key_table"
+    },
+    {
+      "name": "Martin Matuska",
+      "fingerprint": "CB55788360B992FA0885C878F040F7196BA99AF4",
+      "key_source": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xCB55788360B992FA0885C878F040F7196BA99AF4",
+      "fingerprint_source": "https://api.github.com/repos/libarchive/libarchive/git/tags/dd2eb0ae8defd2ffd2435de9665584f85016883c"
+    }
+  ],
+  "sources": [
+    {
+      "package": "libarchive",
+      "version": "3.4.0-2ubuntu1.5",
+      "publications": [
+        {
+          "pocket": "Updates",
+          "published_at": "2025-04-23T19:22:36.480004+00:00",
+          "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17204996"
+        },
+        {
+          "pocket": "Security",
+          "published_at": "2025-04-23T17:49:48.879007+00:00",
+          "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17204377"
+        }
+      ],
+      "descriptor": {
+        "name": "libarchive_3.4.0-2ubuntu1.5.dsc",
+        "bytes": 2617,
+        "sha256": "7bdeaab28719c714aec49ba87f0e80bed1e3bb0a72aab3dcd3dec3dd0ecbe0ac",
+        "source_url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.dsc",
+        "workspace_path": "source-inputs/libarchive_3.4.0-2ubuntu1.5.dsc"
+      },
+      "descriptor_members": [
+        {
+          "name": "libarchive_3.4.0.orig.tar.gz",
+          "bytes": 6908093,
+          "sha256": "8643d50ed40c759f5412a3af4e353cffbce4fdf3b5cf321cb72cacf06b2d825e",
+          "matches_descriptor": true,
+          "workspace_path": "source-inputs/libarchive_3.4.0.orig.tar.gz"
+        },
+        {
+          "name": "libarchive_3.4.0.orig.tar.gz.asc",
+          "bytes": 833,
+          "sha256": "5aa9d657d9d2f2481a8dce1bab4c733cfc18657b451f6551d60f37cce4ca2f57",
+          "matches_descriptor": true,
+          "workspace_path": "source-inputs/libarchive_3.4.0.orig.tar.gz.asc"
+        },
+        {
+          "name": "libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+          "bytes": 54556,
+          "sha256": "677bade6eeba5b5414d1ee48b8320e139d3ddb25f8d7b8728c04890571a491ed",
+          "matches_descriptor": true,
+          "workspace_path": "source-inputs/libarchive_3.4.0-2ubuntu1.5.debian.tar.xz"
+        }
+      ],
+      "signature": {
+        "verified": true,
+        "validsig_status": "[GNUPG:] VALIDSIG 50C4A0DDCF31E452CEB19B516569D855A744BE93 2025-04-10 1744309352 0 4 0 1 10 01 50C4A0DDCF31E452CEB19B516569D855A744BE93",
+        "signer_fingerprint": "50C4A0DDCF31E452CEB19B516569D855A744BE93"
+      }
+    },
+    {
+      "package": "libxml2",
+      "version": "2.9.10+dfsg-5ubuntu0.20.04.10",
+      "publications": [
+        {
+          "pocket": "Updates",
+          "published_at": "2025-04-28T14:11:49.338191+00:00",
+          "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17211645"
+        },
+        {
+          "pocket": "Security",
+          "published_at": "2025-04-28T12:20:08.269713+00:00",
+          "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17211576"
+        }
+      ],
+      "descriptor": {
+        "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+        "bytes": 3125,
+        "sha256": "f6bdb548b3e50216dc0721738ba8125277395d5de9e9c9900741fda82d3a7c88",
+        "source_url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+        "workspace_path": "source-inputs/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc"
+      },
+      "descriptor_members": [
+        {
+          "name": "libxml2_2.9.10+dfsg.orig.tar.xz",
+          "bytes": 2503560,
+          "sha256": "65ee7a2f5e100c64ddf7beb92297c9b2a30b994a76cd1fab67470cf22db6b7d0",
+          "matches_descriptor": true,
+          "workspace_path": "source-inputs/libxml2_2.9.10+dfsg.orig.tar.xz"
+        },
+        {
+          "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+          "bytes": 46084,
+          "sha256": "93996cc05c902fca661c0f4b5ccd2691e62cfda5e38b2556b68bafa51bf0b843",
+          "matches_descriptor": true,
+          "workspace_path": "source-inputs/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz"
+        }
+      ],
+      "signature": {
+        "verified": true,
+        "validsig_status": "[GNUPG:] VALIDSIG 50C4A0DDCF31E452CEB19B516569D855A744BE93 2025-04-24 1745524686 0 4 0 1 10 01 50C4A0DDCF31E452CEB19B516569D855A744BE93",
+        "signer_fingerprint": "50C4A0DDCF31E452CEB19B516569D855A744BE93"
+      }
+    }
+  ],
+  "upstream_archive_signature": {
+    "file": "libarchive_3.4.0.orig.tar.gz.asc",
+    "bytes": 833,
+    "sha256": "5aa9d657d9d2f2481a8dce1bab4c733cfc18657b451f6551d60f37cce4ca2f57",
+    "data_file": "libarchive_3.4.0.orig.tar.gz",
+    "data_bytes": 6908093,
+    "data_sha256": "8643d50ed40c759f5412a3af4e353cffbce4fdf3b5cf321cb72cacf06b2d825e",
+    "verified": true,
+    "validsig_status": "[GNUPG:] VALIDSIG CB55788360B992FA0885C878F040F7196BA99AF4 2019-06-13 1560416737 0 4 0 1 8 00 CB55788360B992FA0885C878F040F7196BA99AF4",
+    "signer_fingerprint": "CB55788360B992FA0885C878F040F7196BA99AF4",
+    "signature_source": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz.asc",
+    "key_fingerprint_source": "https://api.github.com/repos/libarchive/libarchive/git/tags/dd2eb0ae8defd2ffd2435de9665584f85016883c",
+    "workspace_paths": [
+      "source-inputs/libarchive_3.4.0.orig.tar.gz.asc",
+      "source-inputs/libarchive_3.4.0.orig.tar.gz"
+    ],
+    "signature_url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz.asc",
+    "data_url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz"
+  },
+  "verification_procedure": {
+    "scope": "Re-fetch and replay the currently selected Ubuntu focal Updates/Security source signatures and libarchive upstream archive signature from a clean platform checkout. Lower focal Release reference records are outside this verification.",
+    "requirements": "Python 3.10+, GnuPG 2.x, and network access to Launchpad HTTPS endpoints (including Launchpad file-host redirects) and keyserver.ubuntu.com.",
+    "replay_command": "python3 scripts/verify-source-signatures.py",
+    "behavior": "The committed script accepts HTTPS only from launchpad.net, Launchpad file-host redirects, and keyserver.ubuntu.com; fetches every descriptor, descriptor-listed archive, and public key into an automatically removed temporary directory; validates keyring primary fingerprints; parses each inline-signed descriptor and requires an exact filename/size/SHA-256 match between its signed Checksums-Sha256 field and the recorded member manifest; verifies all source hashes; verifies signatures in a temporary GNUPGHOME; and requires the recorded VALIDSIG signer fingerprint. Public-key export bytes are not pinned because keyserver re-exports may change without changing the key fingerprint.",
+    "source_checkout_paths": "All evidence inputs are fetched by URL from a clean checkout; no files from the author workspace or AptTo/source-inputs are needed.",
+    "observed_run": "The original verification was performed with GnuPG 2.5.19. On this macOS sandbox, key import emitted an agent IPC warning, but each individual signature verification returned status 0 with the recorded VALIDSIG. The replay script checks signature outcomes and fingerprints rather than relying on the import warning.",
+    "cleanup": "Temporary downloaded files and the temporary GnuPG home are removed automatically on exit."
+  }
+}

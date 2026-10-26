@@ -15,7 +15,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Check catalogue and package policy consistency
-        run: python3 -B -m unittest discover -s verification -p 'test_catalogue.py' -v
+      - name: Check package policies and release verification contracts
+        run: python3 -B -m unittest discover -s verification -p 'test_*.py' -v
       - name: Check catalogue JavaScript syntax
         run: node --check site/catalogue.js
+      - name: Check release worker syntax and state adapter
+        run: |
+          node --check worker/src/index.js
+          node --test worker/test/*.test.js

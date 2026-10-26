@@ -1,0 +1,175 @@
+name: Publish signed APT repository snapshots
+
+on:
+  workflow_run:
+    workflows: [Private binary staging]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "*/15 * * * *"
+    - cron: "25 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Publish current indexes, prune old snapshots, or restore a retained snapshot
+        type: choice
+        required: true
+        default: publish
+        options: [publish, rollback, prune]
+      rollback_channel:
+        description: Channel to restore when operation is rollback
+        type: choice
+        required: true
+        default: public
+        options: [public, early]
+      rollback_snapshot_id:
+        description: Exact retained focal snapshot ID for the selected channel
+        type: string
+        required: false
+      force_refresh:
+        description: Rebuild metadata even when the active package set is unchanged
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: aptto-repository-snapshots
+  cancel-in-progress: false
+
+jobs:
+  build-indexes:
+    if: >-
+      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback') &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'prune') &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.repository.full_name == 'apt-to/platform'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: aptto-index-build
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      snapshot_ids: ${{ steps.build.outputs.snapshot_ids }}
+    steps:
+      - name: Check out trusted snapshot publisher
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install focal repository metadata tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends apt-utils dpkg-dev xz-utils
+      - name: Assemble and privately stage unsigned indexes
+        id: build
+        env:
+          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_FORCE_SNAPSHOT_REFRESH: ${{ inputs.force_refresh }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_args=()
+          if [[ "$APTTO_FORCE_SNAPSHOT_REFRESH" == "true" ]]; then build_args+=(--force-refresh); fi
+          python3 scripts/build-apt-snapshot.py --channel both "${build_args[@]}" | tee snapshot-builds.jsonl
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          rows = [json.loads(line) for line in Path("snapshot-builds.jsonl").read_text().splitlines()]
+          if ({row.get("channel") for row in rows} != {"public", "early"} or
+              any(not isinstance(row.get("unchanged"), bool) for row in rows) or
+              any(row["unchanged"] == bool(row.get("snapshot_build")) for row in rows)):
+              raise SystemExit("builder returned inconsistent unchanged flags or snapshot IDs")
+          snapshot_ids = {row["channel"]: row["snapshot_build"] for row in rows if row.get("snapshot_build")}
+          print("snapshot_ids=" + json.dumps(snapshot_ids, separators=(",", ":")))
+          PY
+
+  sign-and-publish:
+    if: >-
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback') &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'prune') &&
+      needs.build-indexes.outputs.snapshot_ids != '{}'
+    needs: build-indexes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: aptto-signing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out trusted snapshot signer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install signing tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends gnupg
+      - name: Verify, sign and atomically publish snapshots
+        env:
+          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_SIGNING_KEY_ARMORED: ${{ secrets.APTTO_SIGNING_KEY_ARMORED }}
+          APTTO_SIGNING_FINGERPRINT: ${{ vars.APTTO_SIGNING_FINGERPRINT }}
+          APTTO_SNAPSHOT_IDS: ${{ needs.build-indexes.outputs.snapshot_ids }}
+        run: python3 scripts/sign-and-publish-apt-snapshot.py --channel both
+
+  snapshot-retention:
+    if: >-
+      always() &&
+      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '25 3 * * 0') ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'prune')) &&
+      needs.build-indexes.result != 'cancelled' &&
+      needs.sign-and-publish.result != 'cancelled'
+    needs: [build-indexes, sign-and-publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: aptto-signing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out trusted retention tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Prune old immutable snapshots and unsigned builds
+        env:
+          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+        run: python3 scripts/retain-apt-snapshots.py --channel both
+
+  rollback:
+    if: >-
+      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.operation == 'rollback'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: aptto-signing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out trusted recovery tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Reactivate the exact retained snapshot
+        env:
+          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_ROLLBACK_CHANNEL: ${{ inputs.rollback_channel }}
+          APTTO_ROLLBACK_SNAPSHOT_ID: ${{ inputs.rollback_snapshot_id }}
+        run: python3 scripts/rollback-apt-snapshot.py

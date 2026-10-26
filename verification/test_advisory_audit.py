@@ -46,6 +46,32 @@ class AdvisoryAuditContract(unittest.TestCase):
             image_ids = {"baselineImageId": "sha256:baseline", "patchedImageId": "sha256:patched"}
             image_path = root / "images.json"
             image_path.write_text(json.dumps(image_ids))
+            aptto_feed = ROOT / "advisories" / "aptto-osv.json"
+            aptto_scan_paths = {}
+            for phase, version, image_id, ids in (
+                ("before", "3.4.0-2ubuntu1.5", image_ids["baselineImageId"], ["CVE-2026-4111"]),
+                ("after", "3.4.0-2ubuntu1.5+aptto1", image_ids["patchedImageId"], []),
+            ):
+                status_path = root / (phase + "-aptto-status")
+                status_path.write_text("verified status inventory " + phase)
+                scan_path = root / (phase + "-aptto-scan.json")
+                scan_path.write_text(json.dumps({
+                    "scanner": "aptto-dpkg-osv/1", "release": "focal", "architecture": "amd64", "imageId": image_id,
+                    "advisoryFeedSha256": hashlib.sha256(aptto_feed.read_bytes()).hexdigest(),
+                    "packagePolicySha256": hashlib.sha256((ROOT / "packages.json").read_bytes()).hexdigest(),
+                    "statusFileSha256": hashlib.sha256(status_path.read_bytes()).hexdigest(),
+                    "scannedPackageVersions": {"libarchive13": version, "libarchive-tools": version},
+                    "findingsById": ids + (["CVE-UNRELATED"] if phase == "before" else []),
+                    "findings": [{"id": cve, "package": name} for cve in ids + (["CVE-UNRELATED"] if phase == "before" else []) for name in ("libarchive13", "libarchive-tools")],
+                }))
+                aptto_scan_paths[phase] = (scan_path, status_path)
+            package_policy = root / "release-policy.json"
+            package_policy.write_text(json.dumps({
+                "source": "libarchive",
+                "targetCves": ["CVE-2026-4111"],
+                "baseVersion": "3.4.0-2ubuntu1.5",
+                "version": "3.4.0-2ubuntu1.5+aptto1",
+            }))
             sidecars = {}
             for phase, report_path in (("before", before), ("after", after)):
                 sidecar_path = root / (phase + "-scan.json")
@@ -62,10 +88,13 @@ class AdvisoryAuditContract(unittest.TestCase):
                 "patchedRegression": str(ROOT / "evidence/build-401896-libarchive/patched-regression.json"),
                 "buildProvenance": str(ROOT / "evidence/build-401896-libarchive/build-provenance.json"),
                 "binaryManifest": str(ROOT / "evidence/build-401896-libarchive/binary-manifest.json"),
-                "packagePolicy": str(ROOT.parent / "packaging-libarchive/debian/aptto/release-policy.json"),
+                "packagePolicy": str(package_policy),
                 "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
                 "sourceCommit": "cad024301c68bb6cf2e4261d350095aaf050703f",
                 "beforeScanMetadata": sidecars["before"], "afterScanMetadata": sidecars["after"], "scanImages": str(image_path),
+                "aptToFeed": str(aptto_feed),
+                "beforeAptToScan": str(aptto_scan_paths["before"][0]), "afterAptToScan": str(aptto_scan_paths["after"][0]),
+                "beforeAptToStatus": str(aptto_scan_paths["before"][1]), "afterAptToStatus": str(aptto_scan_paths["after"][1]),
             }
             fixture = root / "input.json"
             fixture.write_text(json.dumps(input_data))
@@ -78,11 +107,20 @@ class AdvisoryAuditContract(unittest.TestCase):
             self.assertEqual(report["trivy"]["before"]["sha256"], original_before)
             self.assertEqual(report["trivy"]["after"]["sha256"], original_after)
             self.assertIn("CVE-UNRELATED", report["trivy"]["unrelatedFindings"])
-            self.assertEqual(report["aptToAdvisoryIntegration"]["baselineTargetFindingIds"], [])
+            self.assertEqual(report["aptToAdvisoryIntegration"]["baselineTargetFindingIds"], ["CVE-2026-4111"])
             self.assertEqual(report["aptToAdvisoryIntegration"]["patchedTargetFindingIds"], [])
+            self.assertEqual(report["aptToAdvisoryIntegration"]["unrelatedFindingIds"], ["CVE-UNRELATED"])
+            self.assertEqual(report["aptToAdvisoryIntegration"]["rawTrivyBaselineTargetFindingIds"], [])
             self.assertEqual(report["aptToAdvisoryIntegration"]["findings"][0]["patched"], "resolved by AptTo backport; exact installed version and target regression passed")
             self.assertEqual(hashlib.sha256(before.read_bytes()).hexdigest(), original_before)
             self.assertEqual(hashlib.sha256(after.read_bytes()).hexdigest(), original_after)
+            contradictory = json.loads(aptto_scan_paths["after"][0].read_text())
+            contradictory["findings"] = [{"id": "CVE-2026-4111", "package": "libarchive13"}]
+            contradictory["findingsById"] = []
+            aptto_scan_paths["after"][0].write_text(json.dumps(contradictory))
+            inconsistent = self.invoke(fixture, root / "inconsistent.json")
+            self.assertNotEqual(inconsistent.returncode, 0)
+            self.assertIn("summary disagrees", inconsistent.stderr)
             after_metadata_path = Path(sidecars["after"])
             after_metadata = json.loads(after_metadata_path.read_text())
             after_metadata["databaseSha256"] = "0" * 64

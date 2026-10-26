@@ -167,9 +167,11 @@ tbody tr:hover { background: rgba(255,255,255,.43); }
   .result-count { margin-left: auto; }
   table { min-width: 0; display: block; }
   thead { display: none; }
-  tbody, tbody tr { display: block; }
-  tbody tr { margin-bottom: 12px; padding: 4px 13px 10px; border: 1px solid var(--line); background: var(--paper-raised); }
+  tbody { display: block; }
+  tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); margin-bottom: 12px; padding: 4px 13px 10px; border: 1px solid var(--line); background: var(--paper-raised); }
   tbody th, tbody td { display: block; width: auto; min-width: 0; padding: 9px 0; text-align: left; }
+  .package-name, .version-cell, .cve-cell, .policy-cell { width: 100%; }
+  .policy-cell { min-width: 0; }
   .package-name { padding-bottom: 7px; font-size: 17px; }
   .package-name small { display: inline; margin: 0 0 0 8px; }
   tbody td { border-top: 1px solid #e4e5df; }

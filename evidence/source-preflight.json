@@ -36,8 +36,17 @@
               "bytes": 46084
             }
           ],
-          "signature_verified": false,
-          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+          "signature_verified": true,
+          "verification_scope": "HTTPS-published source descriptor SHA-256; OpenPGP cleartext signature verified against independently fingerprint-checked Ubuntu Security Team key; every descriptor-listed source archive SHA-256 and size verified.",
+          "signature_verification": {
+            "verified_at": "2026-10-25T17:30:38Z",
+            "method": "GnuPG inline cleartext-signature verification in an isolated temporary keyring",
+            "signer": "Marc Deslauriers <marc.deslauriers@ubuntu.com>",
+            "signer_fingerprint": "50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "fingerprint_source": "https://wiki.ubuntu.com/Security/GPG_key_table",
+            "public_key_source": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "record": "platform/evidence/source-signature-verification.json"
+          }
         }
       },
       {
@@ -71,8 +80,17 @@
               "bytes": 46084
             }
           ],
-          "signature_verified": false,
-          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+          "signature_verified": true,
+          "verification_scope": "HTTPS-published source descriptor SHA-256; OpenPGP cleartext signature verified against independently fingerprint-checked Ubuntu Security Team key; every descriptor-listed source archive SHA-256 and size verified.",
+          "signature_verification": {
+            "verified_at": "2026-10-25T17:30:38Z",
+            "method": "GnuPG inline cleartext-signature verification in an isolated temporary keyring",
+            "signer": "Marc Deslauriers <marc.deslauriers@ubuntu.com>",
+            "signer_fingerprint": "50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "fingerprint_source": "https://wiki.ubuntu.com/Security/GPG_key_table",
+            "public_key_source": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "record": "platform/evidence/source-signature-verification.json"
+          }
         }
       },
       {
@@ -150,8 +168,25 @@
               "bytes": 54556
             }
           ],
-          "signature_verified": false,
-          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+          "signature_verified": true,
+          "verification_scope": "HTTPS-published source descriptor SHA-256; OpenPGP cleartext signature verified against independently fingerprint-checked Ubuntu Security Team key; every descriptor-listed source archive SHA-256 and size verified.",
+          "signature_verification": {
+            "verified_at": "2026-10-25T17:30:38Z",
+            "method": "GnuPG inline cleartext-signature verification in an isolated temporary keyring",
+            "signer": "Marc Deslauriers <marc.deslauriers@ubuntu.com>",
+            "signer_fingerprint": "50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "fingerprint_source": "https://wiki.ubuntu.com/Security/GPG_key_table",
+            "public_key_source": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "record": "platform/evidence/source-signature-verification.json"
+          },
+          "upstream_archive_signature": {
+            "file": "libarchive_3.4.0.orig.tar.gz.asc",
+            "verified": true,
+            "signer_fingerprint": "CB55788360B992FA0885C878F040F7196BA99AF4",
+            "fingerprint_source": "https://api.github.com/repos/libarchive/libarchive/git/tags/dd2eb0ae8defd2ffd2435de9665584f85016883c",
+            "signature_source": "https://libarchive.org/downloads/",
+            "verification_record": "platform/evidence/source-signature-verification.json"
+          }
         }
       },
       {
@@ -192,8 +227,25 @@
               "bytes": 54556
             }
           ],
-          "signature_verified": false,
-          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+          "signature_verified": true,
+          "verification_scope": "HTTPS-published source descriptor SHA-256; OpenPGP cleartext signature verified against independently fingerprint-checked Ubuntu Security Team key; every descriptor-listed source archive SHA-256 and size verified.",
+          "signature_verification": {
+            "verified_at": "2026-10-25T17:30:38Z",
+            "method": "GnuPG inline cleartext-signature verification in an isolated temporary keyring",
+            "signer": "Marc Deslauriers <marc.deslauriers@ubuntu.com>",
+            "signer_fingerprint": "50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "fingerprint_source": "https://wiki.ubuntu.com/Security/GPG_key_table",
+            "public_key_source": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x50C4A0DDCF31E452CEB19B516569D855A744BE93",
+            "record": "platform/evidence/source-signature-verification.json"
+          },
+          "upstream_archive_signature": {
+            "file": "libarchive_3.4.0.orig.tar.gz.asc",
+            "verified": true,
+            "signer_fingerprint": "CB55788360B992FA0885C878F040F7196BA99AF4",
+            "fingerprint_source": "https://api.github.com/repos/libarchive/libarchive/git/tags/dd2eb0ae8defd2ffd2435de9665584f85016883c",
+            "signature_source": "https://libarchive.org/downloads/",
+            "verification_record": "platform/evidence/source-signature-verification.json"
+          }
         }
       },
       {

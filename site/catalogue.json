@@ -9,7 +9,7 @@
       "access": "sponsor",
       "delayHours": 168,
       "status": "development-checks-passed",
-      "verification": "https://github.com/apt-to/platform/actions/runs/40202672075",
+      "verification": "https://github.com/apt-to/platform/actions/runs/40285154915",
       "sourceUrl": "https://github.com/apt-to/packaging-libxml2/tree/aptto/focal"
     },
     {
@@ -19,7 +19,7 @@
       "access": "public",
       "delayHours": 0,
       "status": "development-checks-passed",
-      "verification": "https://github.com/apt-to/platform/actions/runs/40202672075",
+      "verification": "https://github.com/apt-to/platform/actions/runs/40285159539",
       "sourceUrl": "https://github.com/apt-to/packaging-libarchive/tree/aptto/focal"
     }
   ]
