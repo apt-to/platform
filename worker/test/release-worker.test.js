@@ -703,6 +703,43 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
     assert.equal(denied.status, 401);
     assert.equal(denied.headers.get("cache-control"), "private, no-store");
 
+    const gatedBytes = Buffer.from("sponsor-only package bytes");
+    const gatedDigest = createHash("sha256").update(gatedBytes).digest("hex");
+    const gatedKey = `staging/libxml2-1-2-3/${gatedDigest}`;
+    const now = new Date();
+    const sponsorToken = `aptto_${"c".repeat(64)}`;
+    const sponsorTokenHash = createHash("sha256").update(sponsorToken).digest("hex");
+    const sponsorBucket = new MemorySponsorBucket({
+      "release-state/libxml2-1-2-3.json": {
+        ...record,
+        state: "sponsor-period",
+        public_release_id: undefined,
+        sponsor_publication_complete: true,
+        public_after: new Date(now.getTime() + 86400000).toISOString(),
+        required_assets: [{ name: binaryName, sha256: gatedDigest, r2_key: gatedKey }],
+      },
+      [`apt-device-tokens/${sponsorTokenHash}.json`]: {
+        github_user_id: 17, expires_at: new Date(now.getTime() + 86400000).toISOString(),
+      },
+      "sponsor-entitlements/current.json": {
+        organization: "apt-to", authority: "github-sponsors-graphql-active-only",
+        sponsors: [{ github_user_id: 17, tier_ids: ["tier-early"] }],
+        reconciled_at: now.toISOString(), valid_until: new Date(now.getTime() + 1800000).toISOString(),
+      },
+    }, gatedKey, gatedBytes);
+    const sponsorAuthorization = `Basic ${btoa(`apt:${sponsorToken}`)}`;
+    const publicChannelEarlyBinary = await gateway.fetch(new Request(
+      `https://repo.apt.to/pool/main/l/libxml2/${binaryName}`,
+      { headers: { authorization: sponsorAuthorization } },
+    ), { RELEASES: sponsorBucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" });
+    assert.equal(publicChannelEarlyBinary.status, 404, "a valid sponsor credential must not expose a gated package from the public channel");
+    const earlyChannelBinary = await gateway.fetch(new Request(
+      `https://early.apt.to/pool/main/l/libxml2/${binaryName}`,
+      { headers: { authorization: sponsorAuthorization } },
+    ), { RELEASES: sponsorBucket });
+    assert.equal(earlyChannelBinary.status, 200, "the same gated package remains available from the authenticated early channel");
+    assert.equal(await earlyChannelBinary.text(), "sponsor-only package bytes");
+
     const promoted = new MemoryBucket({ "release-state/libxml2-1-2-3.json": {
       ...record, state: "public", public_release_id: 901,
     } });

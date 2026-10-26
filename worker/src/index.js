@@ -1302,7 +1302,7 @@ function ifRangeMatches(value, object, etag) {
   return Number.isFinite(requestedDate) && Number.isFinite(uploadedDate) && uploadedDate <= requestedDate;
 }
 
-async function serveEarlyAsset(request, env, id, name, now = new Date()) {
+async function serveEarlyAsset(request, env, id, name, now = new Date(), channel = "early") {
   if (!/^[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(name)) return json({ error: "invalid asset name" }, 400);
   let key;
   try { key = stateKey(id); } catch { return json({ error: "invalid release id" }, 400); }
@@ -1310,6 +1310,9 @@ async function serveEarlyAsset(request, env, id, name, now = new Date()) {
   const release = loaded?.record;
   if (!release) {
     return json({ error: "sponsor release is unavailable" }, 404);
+  }
+  if (channel === "public" && release.state !== "public") {
+    return json({ error: "package is not publicly available" }, 404);
   }
   const asset = canonicalAssets(release.required_assets).find((candidate) => candidate.name === name);
   if (!asset) return json({ error: "release asset not found" }, 404);
@@ -1391,7 +1394,7 @@ async function servePublicSourceAsset(request, env, record, asset) {
   } });
 }
 
-async function servePoolAsset(request, env, path) {
+async function servePoolAsset(request, env, path, channel) {
   const parts = path.split("/");
   if (parts.length !== 5 || parts[0] !== "pool" || parts[1] !== "main" ||
       parts.some((part) => !/^[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(part))) {
@@ -1423,7 +1426,7 @@ async function servePoolAsset(request, env, path) {
     return json({ error: "repository asset mapping is ambiguous" }, 409);
   }
   if (match.kind === "source") return servePublicSourceAsset(request, env, match.record, match.asset);
-  return serveEarlyAsset(request, env, match.id, match.name);
+  return serveEarlyAsset(request, env, match.id, match.name, new Date(), channel);
 }
 
 async function beginSponsorPublication(request, env, id, now = new Date()) {
@@ -2151,7 +2154,8 @@ export default {
       let path;
       try { path = decodeURIComponent(poolRoute[1]); }
       catch { return json({ error: "invalid repository path encoding" }, 400); }
-      try { return await servePoolAsset(request, env, `pool/${path}`); }
+      const channel = url.hostname === "early.apt.to" ? "early" : "public";
+      try { return await servePoolAsset(request, env, `pool/${path}`, channel); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
     const repositoryFileRoute = url.pathname.match(/^\/dists\/(.+)$/);
