@@ -1410,49 +1410,61 @@ test("prepared releases are not reconciled until the immutable source release is
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("scheduled reconciliation promotes a due sponsor release after missed runs", async () => {
+test("sponsor promotion boundary is closed immediately before and open exactly at 168 hours", async () => {
   const bytes = Buffer.from("verified sponsor package bytes");
   const digest = createHash("sha256").update(bytes).digest("hex");
   const deadline = new Date("2026-10-01T12:00:00.000Z");
   const key = "release-state/pilot.json";
-  const bucket = new MemoryBucket({ [key]: {
-    id: "pilot", state: "sponsor-period", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
-    source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168, source_release_id: 902,
-    sponsor_publication_complete: true, public_after: deadline.toISOString(),
-    required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }],
-  } });
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
-    const target = new URL(String(url));
-    if (target.pathname.includes("/git/ref/tags/")) {
-      return Response.json({ ref: "refs/tags/aptto/2.9.10-aptto1", object: { type: "tag", sha: "d".repeat(40) } });
-    }
-    if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
-      __typename: "Tag", oid: "d".repeat(40), name: "aptto/2.9.10-aptto1",
-      tagger: { email: "releases@apt.to", user: { login: TEST_RELEASE_TAG_SIGNER } },
-    } } } });
-    if (target.pathname.includes("/git/tags/")) {
-      return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@apt.to" }, object: { type: "commit", sha: "b".repeat(40) } });
-    }
-    if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
-    if (target.pathname.includes("/releases/tags/")) {
-      return Response.json({ id: 901, tag_name: "aptto/2.9.10-aptto1", draft: false, immutable: true, assets: [{ name: "libxml2_amd64.deb" }] });
-    }
-    if (target.pathname.endsWith("/releases/901/assets")) {
-      return Response.json([{ name: "libxml2_amd64.deb", url: "https://api.github.com/assets/libxml2_amd64.deb" }]);
-    }
-    if (target.pathname === "/assets/libxml2_amd64.deb") return new Response(bytes);
-    return Response.json({});
-  };
   try {
-    const failures = await reconcile({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, new Date("2026-10-10T12:00:00.000Z"));
-    assert.deepEqual(failures, []);
-    const saved = await (await bucket.get(key)).json();
-    assert.equal(saved.state, "public");
-    assert.equal(saved.public_release_id, 901);
-    assert.equal(saved.public_published_at, "2026-10-10T12:00:00.000Z");
-    assert.equal(saved.staging_cleanup_after, "2026-11-09T12:00:00.000Z");
-    assert.deepEqual(saved.verified_assets, [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }]);
+    for (const [offsetMs, expectedState] of [[-1, "sponsor-period"], [0, "public"], [1, "public"]]) {
+      const bucket = new MemoryBucket({ [key]: {
+        id: "pilot", state: "sponsor-period", repository: "apt-to/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
+        source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168, source_release_id: 902,
+        sponsor_publication_complete: true, public_after: deadline.toISOString(),
+        required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }],
+      } });
+      let packageAssetDownloads = 0;
+      globalThis.fetch = async (url) => {
+        const target = new URL(String(url));
+        if (target.pathname.includes("/git/ref/tags/")) {
+          return Response.json({ ref: "refs/tags/aptto/2.9.10-aptto1", object: { type: "tag", sha: "d".repeat(40) } });
+        }
+        if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
+          __typename: "Tag", oid: "d".repeat(40), name: "aptto/2.9.10-aptto1",
+          tagger: { email: "releases@apt.to", user: { login: TEST_RELEASE_TAG_SIGNER } },
+        } } } });
+        if (target.pathname.includes("/git/tags/")) {
+          return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@apt.to" }, object: { type: "commit", sha: "b".repeat(40) } });
+        }
+        if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
+        if (target.pathname.includes("/releases/tags/")) {
+          return Response.json({ id: 901, tag_name: "aptto/2.9.10-aptto1", draft: false, immutable: true, assets: [{ name: "libxml2_amd64.deb" }] });
+        }
+        if (target.pathname.endsWith("/releases/901/assets")) {
+          return Response.json([{ name: "libxml2_amd64.deb", url: "https://api.github.com/assets/libxml2_amd64.deb" }]);
+        }
+        if (target.pathname === "/assets/libxml2_amd64.deb") {
+          packageAssetDownloads += 1;
+          return new Response(bytes);
+        }
+        return Response.json({});
+      };
+      const now = new Date(deadline.getTime() + offsetMs);
+      const failures = await reconcile({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, now);
+      assert.deepEqual(failures, [], `reconciliation should succeed at ${offsetMs} ms from deadline`);
+      const saved = await (await bucket.get(key)).json();
+      assert.equal(saved.state, expectedState, `release state at ${offsetMs} ms from deadline`);
+      if (offsetMs < 0) {
+        assert.equal(packageAssetDownloads, 0, "private package bytes must not be fetched for public publication before the deadline");
+        assert.equal(saved.public_release_id, undefined);
+      } else {
+        assert.equal(saved.public_release_id, 901);
+        assert.equal(packageAssetDownloads, 1, "eligible release bytes are fetched and verified exactly once");
+        assert.equal(saved.public_published_at, now.toISOString());
+        assert.deepEqual(saved.verified_assets, [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }]);
+      }
+    }
   } finally { globalThis.fetch = originalFetch; }
 });
 
