@@ -1,4 +1,4 @@
-# AptTo hosting cost model
+# GetPatched hosting cost model
 
 Prepared 25 October 2026 from current provider documentation. This is a usage model, not a billing approval or an account-specific quote. It excludes any paid plan already attached to Diderichsens and assumes the three AptTo repositories remain public.
 
