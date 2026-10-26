@@ -25,9 +25,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .skip-link:focus { clip: auto; width: auto; height: auto; margin: 1rem; padding: .6rem 1rem; background: var(--ink); color: white; z-index: 4; }
 
 .site-header { min-height: 72px; padding: 0 clamp(22px, 5vw, 80px); display: flex; align-items: center; gap: 54px; border-bottom: 1px solid var(--line); background: var(--paper-raised); }
-.wordmark { display: inline-flex; align-items: baseline; color: var(--ink); font-weight: 700; font-size: 24px; letter-spacing: -.09em; text-decoration: none; }
-.wordmark-mark { letter-spacing: -.1em; }
-.wordmark-dot { color: #c36e30; }
+.wordmark { display: inline-flex; align-items: baseline; flex: 0 0 auto; color: var(--ink); font-weight: 700; font-size: 20px; letter-spacing: -.065em; text-decoration: none; }
+.wordmark-text { color: var(--ink); }
 .site-header nav { display: flex; align-self: stretch; align-items: center; gap: 32px; flex: 1; }
 .site-header nav a, .github-link { text-decoration: none; font-size: 13px; color: #515c56; }
 .site-header nav .nav-current { height: 100%; display: flex; align-items: center; border-bottom: 2px solid var(--green); color: var(--ink); font-weight: 600; }
@@ -145,10 +144,11 @@ tbody tr:hover { background: rgba(255,255,255,.43); }
 }
 
 @media (max-width: 620px) {
-  .site-header { min-height: 62px; gap: 22px; padding-inline: 18px; }
-  .site-header nav { gap: 15px; }
+  .site-header { min-height: 62px; gap: 12px; padding-inline: 18px; }
+  .wordmark { font-size: 17px; }
+  .site-header nav { gap: 10px; }
   .site-header nav a, .github-link { font-size: 11px; }
-  .github-link { padding: 6px 8px; }
+  .github-link { padding: 5px 6px; font-size: 10px; }
   main { padding-inline: 18px; }
   .intro { padding: 45px 0 30px; grid-template-columns: 1fr; gap: 26px; }
   h1 { font-size: clamp(41px, 12vw, 58px); }
@@ -190,6 +190,14 @@ tbody tr:hover { background: rgba(255,255,255,.43); }
   .site-footer { padding-inline: 18px; }
   .site-footer p { flex: 1; }
   .site-footer div { flex-wrap: wrap; gap: 8px 16px; }
+}
+
+@media (max-width: 380px) {
+  .site-header { gap: 8px; padding-inline: 12px; }
+  .wordmark { font-size: 15px; }
+  .site-header nav { gap: 7px; }
+  .site-header nav a { font-size: 10px; }
+  .github-link { font-size: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
