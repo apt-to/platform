@@ -94,7 +94,7 @@ def validate_snapshot_ids(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.apt.to"))
+    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
     parser.add_argument("--signing-fingerprint", default=os.environ.get("APTTO_SIGNING_FINGERPRINT"))
     args = parser.parse_args()
@@ -103,8 +103,8 @@ def main():
         raise SystemExit("APTTO_SIGNING_FINGERPRINT is required")
     endpoint = args.endpoint.rstrip("/")
     parsed = urllib.parse.urlsplit(endpoint)
-    if parsed.scheme != "https" or parsed.hostname != "repo.apt.to" or parsed.path or parsed.query or parsed.fragment:
-        raise SystemExit("snapshot endpoint must be the configured HTTPS repo.apt.to gateway")
+    if parsed.scheme != "https" or parsed.hostname != "repo.getpatched.dev" or parsed.path or parsed.query or parsed.fragment:
+        raise SystemExit("snapshot endpoint must be the configured HTTPS repo.getpatched.dev gateway")
     try:
         snapshot_ids = json.loads(os.environ.get("APTTO_SNAPSHOT_IDS", ""))
     except json.JSONDecodeError as error:

@@ -2,6 +2,12 @@
 
 Updated 26 October 2026. This is an evidence ledger; candidate verification is not a public release or live deployment.
 
+## Current identity and deployment checkpoint
+
+- The GitHub organization was renamed from `apt-to` to `getpatched` on 26 October 2026. GitHub now lists `getpatched/platform`, `getpatched/packaging-libxml2`, and `getpatched/packaging-libarchive`; the local platform checkout points to `https://github.com/getpatched/platform.git`. Older `apt-to` Actions and pull-request URLs below are retained as historical evidence links.
+- The selected project domain is `getpatched.dev`. The old `apt.to` domain is no longer available to this project, so its former Cloudflare zone and DNS observations below are historical only and must not be used for deployment. No active `getpatched.dev` Cloudflare zone or DNS configuration has been verified in this task.
+- No Cloudflare-related API token variable surfaced from the configured shell, and Wrangler is not installed. No DNS, Worker, or R2 changes have been made in this continuation. GitHub currently exposes only the `aptto-index-build` and `aptto-signing` environments; `aptto-worker-deploy` is still absent.
+
 ## Current state
 
 - Fresh libxml2 verification (26 Oct 2026): run [40317332296](https://github.com/apt-to/platform/actions/runs/40317332296) completed successfully from platform `main` commit `37e63dc82de2918b2775795cc99959d6976ba24a`, using package source commit `5d4f212522dc479290443e9e97d3c42053a689df`. It built `2.9.10+dfsg-5ubuntu0.20.04.10+aptto1`. Both target CVEs appeared in the baseline package-aware scan and their vulnerable baseline regressions reproduced crashes; the patched regressions and normal XPath consumer check passed, and the after scan had no target findings. Pinned Trivy 0.70.0 reported zero findings before and after, so it is not the evidence of remediation. The isolated focal client verified `InRelease`, detached Release signature, SHA-256 by-hash indexes, binary package metadata and source fetch. No candidate was published. Reports and source packages are retained in [run 40317332296 artifacts](https://github.com/apt-to/platform/actions/runs/40317332296/artifacts).

@@ -44,7 +44,7 @@ def build_feed(config):
                     "ecosystem": "AptTo:focal", "source_package": source,
                     "baseline_version": baseline, "aptto_fixed_version": fixed,
                     "ubuntu_pro_fixed_version": UBUNTU_FIXED[source], "severity": "MEDIUM",
-                    "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075",
+            "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075",
                 },
             })
     return {"schema_version": "1.6.0", "vulns": advisories}

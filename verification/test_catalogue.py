@@ -26,10 +26,10 @@ class PublicCatalogueContract(unittest.TestCase):
             self.assertEqual(entry["access"], "sponsor" if policy["sponsorDelayHours"] else "public")
             self.assertEqual(entry["status"], "development-checks-passed")
             self.assertEqual(entry["verification"], verification_runs[source])
-            self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/apt-to/packaging-{source}/tree/"))
+            self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/tree/"))
 
         page = (ROOT / "site/index.html").read_text()
-        self.assertIn("Production signing, package downloads and apt.to repository endpoints are not live yet", page)
+        self.assertIn("Production signing, package downloads and getpatched.dev repository endpoints are not live yet", page)
         self.assertIn("No download action is shown until the production signed repository is live", page)
         self.assertIn("These checks do not complete release verification", page)
         self.assertIn("temporary signed APT client smoke test", page)

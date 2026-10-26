@@ -59,15 +59,15 @@ class AptSnapshotPublisher(unittest.TestCase):
     def test_rollback_only_activates_a_matching_retained_snapshot_without_uploading_bytes(self):
         snapshot_id = "focal-20261025T120000-r123-public"
         with patch.object(ROLLBACK.PUBLISH, "call", return_value=(201, {"id": snapshot_id, "channel": "public", "active": True, "cleanup_pending": False})) as call:
-            result = ROLLBACK.rollback("https://repo.apt.to", "public", snapshot_id)
+            result = ROLLBACK.rollback("https://repo.getpatched.dev", "public", snapshot_id)
         self.assertEqual(result, {"id": snapshot_id, "channel": "public", "active": True, "cleanup_pending": False})
         call.assert_called_once_with(
-            f"https://repo.apt.to/internal/repository-snapshots/public/{snapshot_id}/activate", "POST", body={}
+            f"https://repo.getpatched.dev/internal/repository-snapshots/public/{snapshot_id}/activate", "POST", body={}
         )
 
     def test_rollback_rejects_wrong_channel_snapshot_and_noncanonical_endpoint(self):
         with self.assertRaisesRegex(ValueError, "selected channel"):
-            ROLLBACK.rollback("https://repo.apt.to", "early", "focal-20261025T120000-r123-public")
+            ROLLBACK.rollback("https://repo.getpatched.dev", "early", "focal-20261025T120000-r123-public")
         with self.assertRaisesRegex(ValueError, "configured HTTPS"):
             ROLLBACK.rollback("https://attacker.example", "public", "focal-20261025T120000-r123-public")
 
@@ -76,15 +76,15 @@ class AptSnapshotPublisher(unittest.TestCase):
                   "retained_builds": 0, "deleted_builds": 2, "pending_builds": 0, "deleted_objects": 20}
         result = {"channels": {"public": counts, "early": counts}, "rollback_snapshots_kept_per_channel": 5}
         with patch.object(RETENTION.PUBLISH, "call", return_value=(200, result)) as call:
-            self.assertEqual(RETENTION.retain("https://repo.apt.to", ["public", "early"]), result)
-        call.assert_called_once_with("https://repo.apt.to/internal/repository-snapshots/retention", "POST", body={"channels": ["public", "early"]})
+            self.assertEqual(RETENTION.retain("https://repo.getpatched.dev", ["public", "early"]), result)
+        call.assert_called_once_with("https://repo.getpatched.dev/internal/repository-snapshots/retention", "POST", body={"channels": ["public", "early"]})
         with self.assertRaisesRegex(ValueError, "configured HTTPS"):
             RETENTION.retain("https://attacker.example", ["public"])
         with self.assertRaisesRegex(ValueError, "unique public"):
-            RETENTION.retain("https://repo.apt.to", ["public", "public"])
+            RETENTION.retain("https://repo.getpatched.dev", ["public", "public"])
         with patch.object(RETENTION.PUBLISH, "call", return_value=(200, {"channels": {"public": counts}, "rollback_snapshots_kept_per_channel": 99})):
             with self.assertRaisesRegex(RuntimeError, "unexpected rollback retention policy"):
-                RETENTION.retain("https://repo.apt.to", ["public"])
+                RETENTION.retain("https://repo.getpatched.dev", ["public"])
 
     def test_snapshot_files_reject_symlinked_index_files(self):
         target = self.dist / "main/binary-amd64/Packages.gz"
@@ -119,7 +119,7 @@ class AptSnapshotPublisher(unittest.TestCase):
         signer.mkdir(mode=0o700)
         env = {**os.environ, "GNUPGHOME": str(signer)}
         generated = subprocess.run(
-            ["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "", "--quick-generate-key", "AptTo Test <test@apt.to>", "ed25519", "sign", "0"],
+            ["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "", "--quick-generate-key", "AptTo Test <test@getpatched.dev>", "ed25519", "sign", "0"],
             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
         )
         if generated.returncode:
@@ -154,8 +154,8 @@ class AptSnapshotPublisher(unittest.TestCase):
     def test_publication_requires_the_pinned_github_environment_and_workflow(self):
         values = {
             "GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "workflow_dispatch",
-            "GITHUB_REPOSITORY": "apt-to/platform", "GITHUB_REF": "refs/heads/main",
-            "GITHUB_WORKFLOW_REF": "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
+            "GITHUB_REPOSITORY": "getpatched/platform", "GITHUB_REF": "refs/heads/main",
+            "GITHUB_WORKFLOW_REF": "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
             "ACTIONS_ID_TOKEN_REQUEST_URL": "https://pipelines.actions.githubusercontent.com/token", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "test-only",
         }
         with patch.dict(os.environ, values, clear=True):
@@ -165,12 +165,12 @@ class AptSnapshotPublisher(unittest.TestCase):
         with patch.dict(os.environ, {**values, "GITHUB_REF": "refs/heads/feature"}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "restricted"):
                 PUBLISH.validate_identity()
-        with patch.dict(os.environ, {**values, "GITHUB_WORKFLOW_REF": "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main"}, clear=True):
+        with patch.dict(os.environ, {**values, "GITHUB_WORKFLOW_REF": "getpatched/platform/.github/workflows/private-staging.yml@refs/heads/main"}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "protected AptTo workflow"):
                 PUBLISH.validate_identity()
 
     def test_publication_rejects_non_aptto_hosts_before_requesting_an_oidc_token(self):
-        with self.assertRaisesRegex(ValueError, "HTTPS repo.apt.to gateway"):
+        with self.assertRaisesRegex(ValueError, "HTTPS repo.getpatched.dev gateway"):
             PUBLISH.publish("https://attacker.example", "public", "snapshot-001", ["pilot"], self.repository, "0" * 40)
 
 

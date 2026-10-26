@@ -32,7 +32,7 @@ jobs:
       - name: Check out public packaging
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: apt-to/packaging-${{ matrix.package }}
+          repository: getpatched/packaging-${{ matrix.package }}
           ref: ${{ inputs.source_commit }}
           path: packaging
           persist-credentials: false

@@ -68,7 +68,7 @@ python3 /generate-apt-index.py --repo /repo --suite focal --architecture amd64 -
     key_home.mkdir(mode=0o700)
     env = {**os.environ, "GNUPGHOME": str(key_home)}
     run(["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "", "--quick-generate-key",
-         "AptTo Temporary Repository Test <repo-test@apt.to>", "rsa3072", "sign", "0"], env=env)
+         "AptTo Temporary Repository Test <repo-test@getpatched.dev>", "rsa3072", "sign", "0"], env=env)
     fingerprint = subprocess.run(["gpg", "--batch", "--with-colons", "--list-keys"], env=env,
                                  check=True, capture_output=True, text=True).stdout
     fingerprint = next(line.split(":")[9] for line in fingerprint.splitlines() if line.startswith("fpr:"))

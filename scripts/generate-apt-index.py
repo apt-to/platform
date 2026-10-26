@@ -155,7 +155,7 @@ def generate(repo, suite, architecture, component, description):
     command = [
         "apt-ftparchive",
         "-o", "APT::FTPArchive::Release::Origin=AptTo",
-        "-o", "APT::FTPArchive::Release::Label=apt.to",
+        "-o", "APT::FTPArchive::Release::Label=getpatched.dev",
         "-o", f"APT::FTPArchive::Release::Suite={suite}",
         "-o", f"APT::FTPArchive::Release::Codename={suite}",
         "-o", f"APT::FTPArchive::Release::Architectures={architecture}",
