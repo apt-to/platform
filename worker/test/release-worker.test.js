@@ -937,9 +937,15 @@ test("protected retention keeps the active snapshot and five rollback snapshots 
     "dists/focal/main/binary-amd64/Packages.xz", "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz",
     "dists/focal/main/source/Sources.xz",
   ].map((path) => ({ path, size: 1, sha256: createHash("sha256").update("x").digest("hex") }));
-  const staleBuildId = "focal-20261024T000000-r200-public";
-  const freshBuildId = "focal-20261025T000000-r201-public";
-  for (const [id, createdAt] of [[staleBuildId, "2026-10-23T00:00:00.000Z"], [freshBuildId, "2026-10-25T00:00:00.000Z"]]) {
+  const buildIdAt = (timestamp, run) => {
+    const iso = new Date(timestamp).toISOString();
+    return `focal-${iso.slice(0, 10).replaceAll("-", "")}T${iso.slice(11, 19).replaceAll(":", "")}-r${run}-public`;
+  };
+  const staleBuildAt = Date.now() - 48 * 60 * 60 * 1000;
+  const freshBuildAt = Date.now() - 12 * 60 * 60 * 1000;
+  const staleBuildId = buildIdAt(staleBuildAt, 200);
+  const freshBuildId = buildIdAt(freshBuildAt, 201);
+  for (const [id, createdAt] of [[staleBuildId, new Date(staleBuildAt).toISOString()], [freshBuildId, new Date(freshBuildAt).toISOString()]]) {
     bucket.entries.set(`repository-snapshot-builds/public/${id}.json`, {
       value: { id, channel: "public", release_ids: ["pilot"], files: buildFiles, created_at: createdAt },
       etag: `build-${id}`,
