@@ -12,8 +12,8 @@ class PublicCatalogueContract(unittest.TestCase):
         catalogue = json.loads((ROOT / "site/catalogue.json").read_text())
         entries = {item["source"]: item for item in catalogue["packages"]}
         verification_runs = {
-            "libxml2": "https://github.com/apt-to/platform/actions/runs/40285154915",
-            "libarchive": "https://github.com/apt-to/platform/actions/runs/40285159539",
+            "libxml2": "https://github.com/getpatched/platform/actions/runs/40285154915",
+            "libarchive": "https://github.com/getpatched/platform/actions/runs/40285159539",
         }
         self.assertEqual(set(entries), set(platform["packages"]))
         self.assertEqual(catalogue["target"]["suite"], platform["release"])
