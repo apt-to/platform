@@ -4,15 +4,15 @@ Updated 26 October 2026. This is an evidence ledger; candidate verification is n
 
 ## Current state
 
-- Public repositories: [platform](https://github.com/apt-to/platform), [packaging-libxml2](https://github.com/apt-to/packaging-libxml2), [packaging-libarchive](https://github.com/apt-to/packaging-libarchive). Platform PR [#1](https://github.com/apt-to/platform/pull/1) is open and requires independent approval. Current pushed head is `9672f4b4d209f2caeb0753415feb8e31165eff2f`; this working tree has follow-up scanner and documentation changes that have not yet been pushed.
-- The hosted catalogue check passed in [run 40232570349](https://github.com/apt-to/platform/actions/runs/40232570349). Existing candidate runs predate the current scanner hardening described below.
+- Public repositories: [platform](https://github.com/apt-to/platform), [packaging-libxml2](https://github.com/apt-to/packaging-libxml2), [packaging-libarchive](https://github.com/apt-to/packaging-libarchive). Platform PR [#1](https://github.com/apt-to/platform/pull/1) is open and requires independent approval. Current pushed head is `7d0bc1e269c75db690d26555f5a0dd0e3f23f10a`; hosted platform quality passed in [run 40278841713](https://github.com/apt-to/platform/actions/runs/40278841713).
+- The original candidate builds passed before scanner hardening. Later reruns on the hardened scanner exposed intermittent HTTP 503 responses from `snapshot.ubuntu.com` while retrieving pinned Focal `.deb` files. Focal-compatible bounded APT retries are now in the pushed recipe. Fresh libxml2 and libarchive runs [40282738950](https://github.com/apt-to/platform/actions/runs/40282738950) and [40282741614](https://github.com/apt-to/platform/actions/runs/40282741614) are in progress; treat the earlier successful candidate evidence as historical until these finish.
 - Cloudflare read-only checks authenticated to the credential's account and found the existing `apt.to` zone in `pending` state with no DNS records. The project setup names the account **Diderichsens**, while the API display name is **Diderichsen**; the account and zone were matched by ID. Preserve this distinction and select by IDs before any mutation. Public DNS still points to Afternic (`ns1.afternic.com`, `ns2.afternic.com`) and parking addresses. Account inventory showed 12 Workers, four R2 buckets and 10 Pages projects, with no AptTo-named resources. No Cloudflare or DNS state was changed.
 - GitHub reports no `apt-to` Sponsors listing. Only `marktopper` is an organization member. Existing `aptto-index-build` and `aptto-signing` environments are branch-limited; signing requires one reviewer and prevents self-review, but has no independent configured reviewer and no environment secrets or variables. Production sponsor authentication, signing, publication, and promotion are not configured or tested.
 - Estimated current pilot storage is about 10.26 MiB per two-package candidate pair, or about 41 MiB-month for four pairs retained 30 days. Public GitHub-hosted build/release infrastructure is expected to remain in free public-repository allowances. R2 is estimated free within 10 GB-month, 1M Class A and 10M Class B requests; above those allowances the documented Standard rates are $0.015/GB-month, $4.50/M Class A and $0.36/M Class B, with free internet egress. A paid Workers plan is estimated at $5/month and has not been enabled or authorized. Recheck current pricing and quotas before launch; see [operations-cost.md](docs/operations-cost.md).
 
 ## Candidate build evidence
 
-The following are successful hosted, isolated focal/amd64 candidate checks only. They are not published packages, signed production releases, or live APT endpoints. Full manifests and verification evidence are in the linked workflow artifacts (GitHub retains them for 30 days).
+The following are the original successful hosted, isolated focal/amd64 candidate checks, performed before scanner hardening. They are not published packages, signed production releases, or live APT endpoints. Full manifests and verification evidence are in the linked workflow artifacts (GitHub retains them for 30 days). Fresh runs listed above are still pending.
 
 | Source | Source commit | Source/base version | Candidate version | Policy | Hosted verification |
 | --- | --- | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ Temporary local APT smoke-test metadata was signed with disposable test keys, no
 
 ## Scanner hardening in this working tree
 
-The advisory scanner now treats an exact reviewed vulnerable baseline as affected, versions at or above a reviewed fixed boundary as clean for that advisory, and unknown versions below those boundaries as unsupported/error rather than clean. This closes a fail-open gap for older or intermediate package revisions. The advisory feed and regression tests were updated. Focused scanner tests passed 10/10; the full Python verification suite passed 61/61 with disposable GPG-agent IPC enabled; `git diff --check` passed. A fresh independent read-only review found no actionable scanner correctness or regression findings. These edits are uncommitted and have not run in hosted CI; rerun hosted package builds after they are pushed.
+The advisory scanner now treats an exact reviewed vulnerable baseline as affected, versions at or above a reviewed fixed boundary as clean for that advisory, and unknown versions below those boundaries as unsupported/error rather than clean. This closes a fail-open gap for older or intermediate package revisions. The advisory feed and regression tests were updated. Focused scanner tests passed 10/10; the full Python verification suite passed 61/61 with disposable GPG-agent IPC enabled; hosted platform quality passed; fresh independent reviews found no actionable scanner or retry-recipe findings. The package build recipe preserves the pinned Focal snapshot and package versions, detects partial index updates with Focal-compatible output checks, and applies bounded retries to APT operations.
 
 ## Unfulfilled acceptance gates
 
@@ -62,6 +62,6 @@ The advisory scanner now treats an exact reviewed vulnerable baseline as affecte
 
 ## Next actions
 
-1. Push the reviewed scanner and status changes to PR #1 after the fresh review of this final diff, then verify hosted quality and rerun both candidate workflows against the hardened scanner.
+1. Finish fresh candidate runs [40282738950](https://github.com/apt-to/platform/actions/runs/40282738950) and [40282741614](https://github.com/apt-to/platform/actions/runs/40282741614), inspect their verification artifacts, and update this ledger with exact outcomes.
 2. Resolve independent GitHub review and Sponsors enrollment; in parallel, prepare exact scoped Cloudflare/signing credential requirements and a DNS preservation plan without changing live DNS.
 3. Continue the implementation gates above; do not label candidates released or the platform complete until live acceptance evidence exists.

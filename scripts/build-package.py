@@ -177,7 +177,7 @@ def main():
                 "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"], str(ROOT),
-            ])
+            ], timeout=2700)
             built = True
             builder = run(["docker", "image", "inspect", name, "--format", "{{.Id}}"], capture_output=True, text=True).stdout.strip()
             started = True
