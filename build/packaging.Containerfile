@@ -10,6 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eu; \
     test -n "$ARCHIVE_SNAPSHOT"; \
     apt_get() { apt-get -o Acquire::Retries=3 "$@"; }; \
+    apt_retry() { attempt=0; until apt_get "$@"; do attempt=$((attempt + 1)); if [ "$attempt" -ge 3 ]; then return 1; fi; sleep $((attempt * 10)); done; }; \
     : > /etc/apt/sources.list; \
     for suite in focal focal-updates focal-security; do \
       printf 'deb https://snapshot.ubuntu.com/ubuntu/%s/ %s main universe restricted multiverse\n' "$ARCHIVE_SNAPSHOT" "$suite" >> /etc/apt/sources.list; \
@@ -29,11 +30,11 @@ RUN set -eu; \
       rm -rf /var/lib/apt/lists/*; \
     done; \
     cat /tmp/apt-update.log; \
-    apt_get -y dist-upgrade; \
+    apt_retry -y dist-upgrade; \
     for binary in $binaries; do \
       test "$(apt-cache policy "$binary" | awk '/Candidate:/ {print $2}')" = "$EXPECTED_VERSION"; \
     done; \
-    apt_get install -y --no-install-recommends build-essential fakeroot dpkg-dev apt-utils gnupg python3 valgrind pkg-config; \
-    apt_get build-dep -y --no-install-recommends "$SOURCE_PACKAGE"; \
-    for binary in $binaries; do apt_get install -y --no-install-recommends "$binary=$EXPECTED_VERSION"; done; \
+    apt_retry install -y --no-install-recommends build-essential fakeroot dpkg-dev apt-utils gnupg python3 valgrind pkg-config; \
+    apt_retry build-dep -y --no-install-recommends "$SOURCE_PACKAGE"; \
+    for binary in $binaries; do apt_retry install -y --no-install-recommends "$binary=$EXPECTED_VERSION"; done; \
     rm -rf /var/lib/apt/lists/*
