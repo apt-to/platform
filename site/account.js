@@ -100,7 +100,7 @@ async function loadDevices() {
 }
 
 function showTokenOnce(token) {
-  authLine.textContent = `machine early.apt.to login apt password ${token}`;
+  authLine.textContent = `machine early.getpatched.dev login apt password ${token}`;
   tokenReveal.hidden = false;
 }
 

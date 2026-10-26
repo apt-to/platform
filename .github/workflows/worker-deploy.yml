@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm_production:
-        description: Confirm deployment of the current main branch to the apt.to Worker
+        description: Confirm deployment of the current main branch to the getpatched.dev Worker
         type: boolean
         required: true
         default: false
@@ -65,6 +65,6 @@ jobs:
           trap 'rm -f "$response_file"' EXIT
           for path in / /account; do
             curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 \
-              --output "$response_file" "https://apt.to${path}"
+              --output "$response_file" "https://getpatched.dev${path}"
             grep -q 'AptTo' "$response_file"
           done

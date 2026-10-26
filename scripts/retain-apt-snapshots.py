@@ -16,8 +16,8 @@ def retain(endpoint, channels):
     if not isinstance(channels, (list, tuple)) or not channels or len(channels) > 2 or len(set(channels)) != len(channels) or any(channel not in {"public", "early"} for channel in channels):
         raise ValueError("retention channels must be unique public and/or early values")
     parsed = urllib.parse.urlsplit(endpoint)
-    if parsed.scheme != "https" or parsed.hostname != "repo.apt.to" or parsed.path not in ("", "/") or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError("snapshot retention endpoint must be the configured HTTPS repo.apt.to gateway")
+    if parsed.scheme != "https" or parsed.hostname != "repo.getpatched.dev" or parsed.path not in ("", "/") or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("snapshot retention endpoint must be the configured HTTPS repo.getpatched.dev gateway")
     status, result = PUBLISH.call(endpoint.rstrip("/") + "/internal/repository-snapshots/retention", "POST", body={"channels": list(channels)})
     results = result.get("channels") if isinstance(result, dict) else None
     if status != 200 or not isinstance(results, dict) or set(results) != set(channels):
@@ -37,7 +37,7 @@ def retain(endpoint, channels):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.apt.to"))
+    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
     args = parser.parse_args()
     PUBLISH.validate_identity()

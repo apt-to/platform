@@ -61,18 +61,18 @@ class PrivateStagingManifest(unittest.TestCase):
         producer = (ROOT / ".github/workflows/package-verification.yml").read_text()
         staging = (ROOT / ".github/workflows/private-staging.yml").read_text()
         self.assertIn('name: source-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}', producer)
-        self.assertIn('gh run download "$RUN_ID" --repo apt-to/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
+        self.assertIn('gh run download "$RUN_ID" --repo getpatched/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
         self.assertIn('SOURCE_DIRECTORY: ${{ runner.temp }}/candidate/source', staging)
-        self.assertIn('APTTO_RELEASE_ENDPOINT: https://repo.apt.to', staging)
+        self.assertIn('APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev', staging)
         self.assertRegex(
             staging,
             r"rebuild-and-stage:\n\s+if: >-\n\s+vars\.APTTO_REPOSITORY_ENABLED == 'true' &&",
         )
 
     def test_release_endpoint_is_pinned_to_repository_hostname(self):
-        self.assertEqual(STAGE.validate_endpoint("https://repo.apt.to/"), "https://repo.apt.to")
-        for endpoint in ("http://repo.apt.to", "https://apt.to", "https://attacker.example", "https://repo.apt.to/path"):
-            with self.subTest(endpoint=endpoint), self.assertRaisesRegex(ValueError, "repo.apt.to gateway"):
+        self.assertEqual(STAGE.validate_endpoint("https://repo.getpatched.dev/"), "https://repo.getpatched.dev")
+        for endpoint in ("http://repo.getpatched.dev", "https://getpatched.dev", "https://attacker.example", "https://repo.getpatched.dev/path"):
+            with self.subTest(endpoint=endpoint), self.assertRaisesRegex(ValueError, "repo.getpatched.dev gateway"):
                 STAGE.validate_endpoint(endpoint)
 
     def test_debian_source_filename_allowlist_accepts_normal_underscored_names(self):

@@ -15,9 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def validate_endpoint(value):
     endpoint = value.rstrip("/")
     parsed = urllib.parse.urlsplit(endpoint)
-    if (parsed.scheme != "https" or parsed.hostname != "repo.apt.to" or parsed.port not in (None, 443) or
+    if (parsed.scheme != "https" or parsed.hostname != "repo.getpatched.dev" or parsed.port not in (None, 443) or
             parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment):
-        raise ValueError("release endpoint must be the configured HTTPS repo.apt.to gateway")
+        raise ValueError("release endpoint must be the configured HTTPS repo.getpatched.dev gateway")
     return endpoint
 
 
@@ -85,7 +85,7 @@ def main():
             raise RuntimeError(f"candidate source file failed local manifest verification: {item['name']}")
 
     endpoint = validate_endpoint(os.environ["APTTO_RELEASE_ENDPOINT"])
-    source_repo = f"apt-to/packaging-{package}"
+    source_repo = f"getpatched/packaging-{package}"
     release_id = f"{package}-{manifest['sourceVersion'].lower()}"
     release_id = "-".join(filter(None, re.split(r"[^a-z0-9]+", release_id)))
     assets = [{"name": item["name"], "sha256": item["sha256"]} for item in candidates]

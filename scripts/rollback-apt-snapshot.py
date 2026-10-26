@@ -22,8 +22,8 @@ def rollback(endpoint, channel, snapshot_id):
     if not match or match.group(1) != channel:
         raise ValueError("snapshot ID must be a retained focal snapshot for the selected channel")
     parsed = urllib.parse.urlsplit(endpoint)
-    if parsed.scheme != "https" or parsed.hostname != "repo.apt.to" or parsed.path not in ("", "/") or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError("snapshot rollback endpoint must be the configured HTTPS repo.apt.to gateway")
+    if parsed.scheme != "https" or parsed.hostname != "repo.getpatched.dev" or parsed.path not in ("", "/") or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("snapshot rollback endpoint must be the configured HTTPS repo.getpatched.dev gateway")
     url = endpoint.rstrip("/") + f"/internal/repository-snapshots/{channel}/{snapshot_id}/activate"
     status, result = PUBLISH.call(url, "POST", body={})
     if (status not in (200, 201) or not isinstance(result, dict) or result.get("id") != snapshot_id or
@@ -34,7 +34,7 @@ def rollback(endpoint, channel, snapshot_id):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.apt.to"))
+    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", default=os.environ.get("APTTO_ROLLBACK_CHANNEL"))
     parser.add_argument("--snapshot-id", default=os.environ.get("APTTO_ROLLBACK_SNAPSHOT_ID"))
     args = parser.parse_args()

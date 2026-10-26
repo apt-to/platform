@@ -162,7 +162,7 @@ def main():
                 continue
             if item["bytes"] > 128 * 1024 * 1024:
                 raise RuntimeError("Original archive exceeds pilot resource bound")
-            request = urllib.request.Request(item["url"], headers={"User-Agent": "apt.to-build/0.1"})
+            request = urllib.request.Request(item["url"], headers={"User-Agent": "getpatched.dev-build/0.1"})
             with urllib.request.urlopen(request, timeout=60) as response:
                 content = response.read(item["bytes"] + 1)
             if len(content) != item["bytes"] or hashlib.sha256(content).hexdigest() != item["sha256"]:
@@ -275,7 +275,7 @@ def main():
             osv_evidence = {}
             for phase, version in (("before", policy["baseVersion"]), ("after", policy["version"])):
                 request_body = {"package": {"name": package, "ecosystem": config["advisoryEcosystem"]}, "version": version}
-                request = urllib.request.Request("https://api.osv.dev/v1/query", data=json.dumps(request_body).encode(), headers={"Content-Type": "application/json", "User-Agent": "apt.to-advisory-audit/0.1"})
+                request = urllib.request.Request("https://api.osv.dev/v1/query", data=json.dumps(request_body).encode(), headers={"Content-Type": "application/json", "User-Agent": "getpatched.dev-advisory-audit/0.1"})
                 with urllib.request.urlopen(request, timeout=45) as response:
                     response_body = response.read(16 * 1024 * 1024 + 1)
                 if len(response_body) > 16 * 1024 * 1024:

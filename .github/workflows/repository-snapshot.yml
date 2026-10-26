@@ -50,7 +50,7 @@ jobs:
       (github.event_name != 'workflow_run' ||
        (github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.head_branch == 'main' &&
-        github.event.workflow_run.repository.full_name == 'apt-to/platform'))
+        github.event.workflow_run.repository.full_name == 'getpatched/platform'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: aptto-index-build
@@ -72,7 +72,7 @@ jobs:
       - name: Assemble and privately stage unsigned indexes
         id: build
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
           APTTO_FORCE_SNAPSHOT_REFRESH: ${{ inputs.force_refresh }}
         shell: bash
         run: |
@@ -116,7 +116,7 @@ jobs:
           sudo apt-get install --yes --no-install-recommends gnupg
       - name: Verify, sign and atomically publish snapshots
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
           APTTO_SIGNING_KEY_ARMORED: ${{ secrets.APTTO_SIGNING_KEY_ARMORED }}
           APTTO_SIGNING_FINGERPRINT: ${{ vars.APTTO_SIGNING_FINGERPRINT }}
           APTTO_SNAPSHOT_IDS: ${{ needs.build-indexes.outputs.snapshot_ids }}
@@ -146,7 +146,7 @@ jobs:
           persist-credentials: false
       - name: Prune old immutable snapshots and unsigned builds
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
         run: python3 scripts/retain-apt-snapshots.py --channel both
 
   rollback:
@@ -169,7 +169,7 @@ jobs:
           persist-credentials: false
       - name: Reactivate the exact retained snapshot
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
           APTTO_ROLLBACK_CHANNEL: ${{ inputs.rollback_channel }}
           APTTO_ROLLBACK_SNAPSHOT_ID: ${{ inputs.rollback_snapshot_id }}
         run: python3 scripts/rollback-apt-snapshot.py

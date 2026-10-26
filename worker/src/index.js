@@ -51,13 +51,13 @@ async function githubActionsIdentity(request, env) {
     if (!await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, base64urlBytes(encodedSignature), new TextEncoder().encode(`${encodedHeader}.${encodedClaims}`))) return null;
     const now = Math.floor(Date.now() / 1000);
     const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-    const stagingWorkflow = claims.workflow_ref === "apt-to/platform/.github/workflows/private-staging.yml@refs/heads/main" && claims.event_name === "workflow_run";
-    const snapshotWorkflow = claims.workflow_ref === "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" &&
+    const stagingWorkflow = claims.workflow_ref === "getpatched/platform/.github/workflows/private-staging.yml@refs/heads/main" && claims.event_name === "workflow_run";
+    const snapshotWorkflow = claims.workflow_ref === "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" &&
       ["workflow_run", "schedule", "workflow_dispatch"].includes(claims.event_name);
     const runAttempt = typeof claims.run_attempt === "string" && /^\d+$/.test(claims.run_attempt) ? Number(claims.run_attempt) : claims.run_attempt;
     if (claims.iss !== OIDC_ISSUER || audiences.length !== 1 || audiences[0] !== OIDC_AUDIENCE || !Number.isSafeInteger(claims.exp) || claims.exp <= now ||
-        !Number.isSafeInteger(claims.iat) || claims.iat > now + 60 || claims.repository !== "apt-to/platform" || claims.repository_id !== "1433070541" ||
-        claims.repository_owner !== "apt-to" || claims.repository_visibility !== "public" || !(stagingWorkflow || snapshotWorkflow) ||
+        !Number.isSafeInteger(claims.iat) || claims.iat > now + 60 || claims.repository !== "getpatched/platform" || claims.repository_id !== "1433070541" ||
+        claims.repository_owner !== "getpatched" || claims.repository_visibility !== "public" || !(stagingWorkflow || snapshotWorkflow) ||
         claims.ref !== "refs/heads/main" ||
         claims.runner_environment !== "github-hosted" ||
         (stagingWorkflow ? claims.environment !== "aptto-signing" : !["aptto-index-build", "aptto-signing"].includes(claims.environment)) ||
@@ -426,14 +426,14 @@ async function snapshotPublisherIdentity(request, env) {
   const identity = await githubActionsIdentity(request, env);
   if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-signing") return null;
   const claims = await githubActionsClaims(request, env);
-  return claims?.workflow_ref === "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
+  return claims?.workflow_ref === "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
 }
 
 async function snapshotBuilderIdentity(request, env) {
   const identity = await githubActionsIdentity(request, env);
   if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-index-build") return null;
   const claims = await githubActionsClaims(request, env);
-  return claims?.workflow_ref === "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
+  return claims?.workflow_ref === "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
 }
 
 async function githubActionsClaims(request, env) {
@@ -727,7 +727,7 @@ async function serveRepositoryFile(request, env, channel, path) {
   const keyring = path === "aptto-archive-keyring.gpg";
   if (channel === "early" && !keyring && !await deviceTokenUser(request, env)) return new Response("sponsor authentication required", {
     status: 401,
-    headers: { "www-authenticate": 'Basic realm="apt.to early repository"', "cache-control": "private, no-store", vary: "Authorization" },
+    headers: { "www-authenticate": 'Basic realm="getpatched.dev early repository"', "cache-control": "private, no-store", vary: "Authorization" },
   });
   const selectedChannel = keyring ? "public" : channel;
   const active = (await readRecord(env.RELEASES, `repository-current/${selectedChannel}.json`))?.record;
@@ -910,7 +910,7 @@ async function fetchSponsorSnapshot(env, now) {
       },
       body: JSON.stringify({
         query: `query AptToSponsorReconciliation($after: String) {
-          organization(login: "apt-to") {
+          organization(login: "getpatched") {
             login
             hasSponsorsListing
             sponsorshipsAsMaintainer(activeOnly: true, includePrivate: true, first: 100, after: $after) {
@@ -935,8 +935,8 @@ async function fetchSponsorSnapshot(env, now) {
     const result = await response.json();
     if (result.errors?.length) throw new Error("GitHub Sponsors GraphQL query failed");
     const organization = result.data?.organization;
-    if (organization?.login?.toLowerCase() !== "apt-to" || organization.hasSponsorsListing !== true) {
-      throw new Error("apt-to GitHub Sponsors listing is unavailable");
+    if (organization?.login?.toLowerCase() !== "getpatched" || organization.hasSponsorsListing !== true) {
+      throw new Error("getpatched GitHub Sponsors listing is unavailable");
     }
     const connection = organization.sponsorshipsAsMaintainer;
     if (!connection || !Array.isArray(connection.nodes) || !connection.pageInfo) throw new Error("GitHub Sponsors response is incomplete");
@@ -962,7 +962,7 @@ async function fetchSponsorSnapshot(env, now) {
     if (connection.pageInfo.hasNextPage && (typeof after !== "string" || !after)) throw new Error("GitHub Sponsors pagination cursor is missing");
   } while (after);
   return {
-    organization: "apt-to",
+    organization: "getpatched",
     tier_ids: [...allowedTiers].sort(),
     sponsors: [...sponsors.values()].sort((a, b) => a.github_user_id - b.github_user_id),
     reconciled_at: now.toISOString(),
@@ -1029,7 +1029,7 @@ async function readFreshSponsorSnapshot(bucket, now = new Date()) {
   const loaded = await readRecord(bucket, SPONSOR_ENTITLEMENTS_KEY);
   if (!loaded) return null;
   const snapshot = loaded.record;
-  if (snapshot.organization !== "apt-to" || snapshot.authority !== "github-sponsors-graphql-active-only" ||
+  if (snapshot.organization !== "getpatched" || snapshot.authority !== "github-sponsors-graphql-active-only" ||
       !Number.isFinite(Date.parse(snapshot.valid_until)) || now.getTime() >= Date.parse(snapshot.valid_until)) return null;
   return snapshot;
 }
@@ -1340,7 +1340,7 @@ async function serveEarlyAsset(request, env, id, name, now = new Date(), channel
   const user = await deviceTokenUser(request, env, now);
   if (!user) return new Response("sponsor authentication required", {
     status: 401,
-    headers: { "www-authenticate": 'Basic realm="apt.to early repository"', "cache-control": "private, no-store", vary: "Authorization" },
+    headers: { "www-authenticate": 'Basic realm="getpatched.dev early repository"', "cache-control": "private, no-store", vary: "Authorization" },
   });
   const metadata = await env.RELEASES.head(asset.r2_key);
   if (!metadata || !Number.isSafeInteger(metadata.size) || metadata.size <= 0 || checksumHex(metadata.checksums?.sha256) !== asset.sha256) {
@@ -1556,30 +1556,30 @@ function stateKey(id) {
 
 function assertRelease(record) {
   if (!record || !["prepared", "sponsor-period", "public"].includes(record.state)) throw new Error("invalid release state");
-  if (!["apt-to/packaging-libxml2", "apt-to/packaging-libarchive"].includes(record.repository)) throw new Error("repository is not an approved pilot package");
+  if (!["getpatched/packaging-libxml2", "getpatched/packaging-libarchive"].includes(record.repository)) throw new Error("repository is not an approved pilot package");
   if (typeof record.tag !== "string" || !/^aptto\/[A-Za-z0-9.+~-]+$/.test(record.tag)) throw new Error("invalid immutable release tag");
   if (!Number.isInteger(record.sponsor_delay_hours) || ![0, 168].includes(record.sponsor_delay_hours)) throw new Error("policy must be 0 or 168 hours");
-  const expectedDelay = record.repository === "apt-to/packaging-libxml2" ? 168 : 0;
+  const expectedDelay = record.repository === "getpatched/packaging-libxml2" ? 168 : 0;
   if (record.sponsor_delay_hours !== expectedDelay) throw new Error("release policy does not match the approved pilot package");
   if (!Array.isArray(record.required_assets) || record.required_assets.length === 0) throw new Error("required assets missing");
   canonicalAssets(record.required_assets);
 }
 
 function packageName(repository) {
-  return repository.slice("apt-to/packaging-".length);
+  return repository.slice("getpatched/packaging-".length);
 }
 
 async function verifyPackageRun(env, repository, sourceCommit, tag, runId) {
   if (!Number.isSafeInteger(runId) || runId <= 0) throw new Error("verification_run_id must be a positive integer");
   if (typeof sourceCommit !== "string" || !/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error("source_commit must be a full Git commit SHA");
-  const runResponse = await githubRequest(env, `/repos/apt-to/platform/actions/runs/${runId}`);
+  const runResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}`);
   const run = await runResponse.json();
   const expectedPath = ".github/workflows/package-verification.yml";
   const expectedTitle = `Verify ${packageName(repository)} at ${sourceCommit}`;
   if (run.event !== "workflow_dispatch" || run.conclusion !== "success" || run.head_branch !== "main" || run.path !== expectedPath || run.display_title !== expectedTitle) {
     throw new Error("verification run must be a successful package-verification dispatch from main");
   }
-  const jobsResponse = await githubRequest(env, `/repos/apt-to/platform/actions/runs/${runId}/jobs?per_page=100`);
+  const jobsResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}/jobs?per_page=100`);
   const jobs = await jobsResponse.json();
   const requiredJob = `package (${packageName(repository)})`;
   const job = jobs.jobs?.find((candidate) => candidate.name === requiredJob && candidate.run_attempt === run.run_attempt);
@@ -2154,7 +2154,7 @@ export default {
       let path;
       try { path = decodeURIComponent(poolRoute[1]); }
       catch { return json({ error: "invalid repository path encoding" }, 400); }
-      const channel = url.hostname === "early.apt.to" ? "early" : "public";
+      const channel = url.hostname === "early.getpatched.dev" ? "early" : "public";
       try { return await servePoolAsset(request, env, `pool/${path}`, channel); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
@@ -2163,7 +2163,7 @@ export default {
       let path;
       try { path = `dists/${decodeURIComponent(repositoryFileRoute[1])}`; }
       catch { return json({ error: "invalid repository metadata path encoding" }, 400); }
-      const channel = new URL(request.url).hostname === "early.apt.to" ? "early" : "public";
+      const channel = new URL(request.url).hostname === "early.getpatched.dev" ? "early" : "public";
       try { return await serveRepositoryFile(request, env, channel, path); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }

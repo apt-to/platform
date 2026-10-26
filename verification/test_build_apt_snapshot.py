@@ -15,7 +15,7 @@ SPEC.loader.exec_module(BUILD)
 def release_record(state="public"):
     return {
         "id": "libarchive-3-4-0-aptto1", "state": state,
-        "repository": "apt-to/packaging-libarchive", "tag": "aptto/3.4.0-2ubuntu1.5+aptto1",
+        "repository": "getpatched/packaging-libarchive", "tag": "aptto/3.4.0-2ubuntu1.5+aptto1",
         "source_commit": "a" * 40,
         "required_assets": [{"name": "libarchive13_amd64.deb", "sha256": "b" * 64}],
         "source_assets": [{"name": "libarchive_3.4.0.dsc", "sha256": "c" * 64}],
@@ -71,7 +71,7 @@ class SnapshotAssemblyContract(unittest.TestCase):
         active = {"id": "focal-20261025T120000-r123-public", "release_ids": [releases[0]["id"]], "healthy": True}
         with patch.object(BUILD, "fetch_inventory", return_value={"releases": releases, "active_snapshot": active}):
             with tempfile.TemporaryDirectory() as temporary:
-                result = BUILD.assemble_channel("https://repo.apt.to", "public", Path(temporary))
+                result = BUILD.assemble_channel("https://repo.getpatched.dev", "public", Path(temporary))
                 self.assertEqual(result["unchanged"], True)
                 self.assertIsNone(result["snapshot_build"])
                 self.assertFalse((Path(temporary) / "public").exists())
@@ -83,7 +83,7 @@ class SnapshotAssemblyContract(unittest.TestCase):
              patch.object(BUILD.GENERATOR, "generate", return_value={"indexes": ["Packages"]}), \
              patch.object(BUILD, "register_unsigned_build", return_value=7), \
              patch.dict(BUILD.os.environ, {"GITHUB_RUN_ID": "123"}), tempfile.TemporaryDirectory() as temporary:
-            result = BUILD.assemble_channel("https://repo.apt.to", "public", Path(temporary))
+            result = BUILD.assemble_channel("https://repo.getpatched.dev", "public", Path(temporary))
         self.assertIs(result["unchanged"], False)
         self.assertIsNotNone(result["snapshot_build"])
 
@@ -114,7 +114,7 @@ class SnapshotAssemblyContract(unittest.TestCase):
              patch.object(BUILD.GENERATOR, "generate", return_value={"indexes": ["Packages"]}), \
              patch.object(BUILD, "register_unsigned_build", return_value=7), \
              patch.dict(BUILD.os.environ, {"GITHUB_RUN_ID": "123"}), tempfile.TemporaryDirectory() as temporary:
-            result = BUILD.assemble_channel("https://repo.apt.to", "public", Path(temporary))
+            result = BUILD.assemble_channel("https://repo.getpatched.dev", "public", Path(temporary))
 
         self.assertFalse(result["unchanged"])
         self.assertEqual(source_downloads, ["libarchive_3.4.0.orig.tar.xz"])
@@ -131,16 +131,16 @@ class SnapshotAssemblyContract(unittest.TestCase):
         class Opener:
             def __init__(self, handler=None): self.handler = handler
             def open(self, _request, timeout): self.timeout = timeout; return Response()
-        release = {"id": "libarchive-aptto1", "repository": "apt-to/packaging-libarchive"}
+        release = {"id": "libarchive-aptto1", "repository": "getpatched/packaging-libarchive"}
         asset = {"name": "libarchive.dsc", "sha256": __import__("hashlib").sha256(b"asset123").hexdigest()}
-        with patch.object(BUILD, "public_asset_url", return_value="https://github.com/apt-to/packaging-libarchive/releases/download/tag/libarchive.dsc"), \
+        with patch.object(BUILD, "public_asset_url", return_value="https://github.com/getpatched/packaging-libarchive/releases/download/tag/libarchive.dsc"), \
              patch.object(BUILD.urllib.request, "build_opener", side_effect=lambda *handlers: Opener(handlers)), \
              patch.object(BUILD, "request_headers", return_value={"Authorization": "Bearer test"}), tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / "public.dsc"
-            BUILD.download_asset("https://repo.apt.to", "public", release, asset, target)
+            BUILD.download_asset("https://repo.getpatched.dev", "public", release, asset, target)
             self.assertEqual(target.read_bytes(), b"asset123")
             target = Path(temporary) / "private.deb"
-            BUILD.download_asset("https://repo.apt.to", "early", release, {**asset, "name": "pkg.deb"}, target, private_binary=True)
+            BUILD.download_asset("https://repo.getpatched.dev", "early", release, {**asset, "name": "pkg.deb"}, target, private_binary=True)
             self.assertEqual(target.read_bytes(), b"asset123")
 
 

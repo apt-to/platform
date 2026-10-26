@@ -18,7 +18,7 @@ ALLOWED_PACKAGES = ("libxml2", "libarchive")
 
 
 def read_bytes(url, limit=4 * 1024 * 1024):
-    request = urllib.request.Request(url, headers={"User-Agent": "apt.to-source-preflight/0.1"})
+    request = urllib.request.Request(url, headers={"User-Agent": "getpatched.dev-source-preflight/0.1"})
     with urllib.request.urlopen(request, timeout=40) as response:
         if response.status != 200:
             raise RuntimeError(f"Launchpad returned HTTP {response.status}")

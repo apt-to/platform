@@ -37,13 +37,13 @@ def validate_identity():
     event = os.environ.get("GITHUB_EVENT_NAME")
     if os.environ.get("GITHUB_ACTIONS") != "true" or event not in {"workflow_run", "schedule", "workflow_dispatch"} or any(not os.environ.get(name) for name in required):
         raise RuntimeError("GitHub Actions OIDC is not available to this job")
-    if os.environ.get("GITHUB_REPOSITORY") != "apt-to/platform" or os.environ.get("GITHUB_REF") != "refs/heads/main":
-        raise RuntimeError("snapshot publication is restricted to apt-to/platform on main")
+    if os.environ.get("GITHUB_REPOSITORY") != "getpatched/platform" or os.environ.get("GITHUB_REF") != "refs/heads/main":
+        raise RuntimeError("snapshot publication is restricted to getpatched/platform on main")
     workflow = os.environ.get("GITHUB_WORKFLOW_REF", "")
     allowed_workflows = {
-        "workflow_run": "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
-        "schedule": "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
-        "workflow_dispatch": "apt-to/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
+        "workflow_run": "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
+        "schedule": "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
+        "workflow_dispatch": "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
     }
     if workflow != allowed_workflows[event]:
         raise RuntimeError("snapshot publication is restricted to a protected AptTo workflow")
@@ -192,8 +192,8 @@ def publish(endpoint, channel, snapshot_id, release_ids, repository, expected_fi
     if channel not in {"public", "early"} or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{2,79}", snapshot_id):
         raise ValueError("invalid repository channel or snapshot id")
     endpoint_url = urllib.parse.urlsplit(endpoint)
-    if endpoint_url.scheme != "https" or endpoint_url.hostname != "repo.apt.to" or endpoint_url.path not in ("", "/") or endpoint_url.username or endpoint_url.password or endpoint_url.query or endpoint_url.fragment:
-        raise ValueError("snapshot publication endpoint must be the configured HTTPS repo.apt.to gateway")
+    if endpoint_url.scheme != "https" or endpoint_url.hostname != "repo.getpatched.dev" or endpoint_url.path not in ("", "/") or endpoint_url.username or endpoint_url.password or endpoint_url.query or endpoint_url.fragment:
+        raise ValueError("snapshot publication endpoint must be the configured HTTPS repo.getpatched.dev gateway")
     if not release_ids or len(set(release_ids)) != len(release_ids) or any(not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,100}", item) for item in release_ids):
         raise ValueError("at least one valid release id is required")
     repository, files = snapshot_files(repository)
@@ -216,7 +216,7 @@ def publish(endpoint, channel, snapshot_id, release_ids, repository, expected_fi
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.apt.to"))
+    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", required=True, choices=("public", "early"))
     parser.add_argument("--snapshot-id", required=True)
     parser.add_argument("--release-id", required=True, action="append")

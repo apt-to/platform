@@ -1,4 +1,6 @@
-# apt.to Cloudflare DNS migration plan
+# Historical: apt.to Cloudflare DNS migration plan
+
+> Superseded by the `getpatched.dev` domain choice. The observations below document the former `apt.to` setup only; do not use this plan to modify DNS or Cloudflare resources for the current project.
 
 Prepared 26 October 2026 from Cloudflare API, public DNS, and RDAP checks. This is a proposed change plan; no nameserver, DNS-record, or Worker mutation has been made. The dedicated private R2 bucket `aptto-release-staging` has been created; no AptTo objects have been uploaded.
 

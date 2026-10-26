@@ -55,7 +55,7 @@ def snapshot_inventory_matches(releases, active_snapshot):
 def validate_release(release):
     if (not isinstance(release, dict) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,100}", str(release.get("id", ""))) or
             release.get("state") not in {"public", "sponsor-period"} or
-            not re.fullmatch(r"apt-to/packaging-(?:libxml2|libarchive)", str(release.get("repository", ""))) or
+            not re.fullmatch(r"getpatched/packaging-(?:libxml2|libarchive)", str(release.get("repository", ""))) or
             not re.fullmatch(r"aptto/[A-Za-z0-9.+~-]+", str(release.get("tag", ""))) or
             not re.fullmatch(r"[a-f0-9]{40}", str(release.get("source_commit", "")))):
         raise ValueError("release inventory contains an invalid pilot package record")
@@ -199,15 +199,15 @@ def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.apt.to"))
+    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
     parser.add_argument("--force-refresh", action="store_true", help="rebuild even when the eligible release set matches the healthy active snapshot")
     args = parser.parse_args()
     PUBLISH.validate_identity()
     endpoint = args.endpoint.rstrip("/")
     parsed = urllib.parse.urlsplit(endpoint)
-    if parsed.scheme != "https" or parsed.hostname != "repo.apt.to" or parsed.path or parsed.query or parsed.fragment:
-        raise SystemExit("snapshot endpoint must be the configured HTTPS repo.apt.to gateway")
+    if parsed.scheme != "https" or parsed.hostname != "repo.getpatched.dev" or parsed.path or parsed.query or parsed.fragment:
+        raise SystemExit("snapshot endpoint must be the configured HTTPS repo.getpatched.dev gateway")
     with tempfile.TemporaryDirectory(prefix="aptto-repository-build-") as temporary:
         root = Path(temporary)
         channels = ("public", "early") if args.channel == "both" else (args.channel,)

@@ -17,7 +17,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'workflow_dispatch' &&
       github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.repository.full_name == 'apt-to/platform'
+      github.event.workflow_run.repository.full_name == 'getpatched/platform'
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     environment: aptto-signing
@@ -39,9 +39,9 @@ jobs:
           package="${BASH_REMATCH[1]}"
           source_commit="${BASH_REMATCH[2]}"
           mkdir -p "$RUNNER_TEMP/candidate"
-          gh run download "$RUN_ID" --repo apt-to/platform --name "verification-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate"
+          gh run download "$RUN_ID" --repo getpatched/platform --name "verification-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate"
           mkdir -p "$RUNNER_TEMP/candidate/source"
-          gh run download "$RUN_ID" --repo apt-to/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"
+          gh run download "$RUN_ID" --repo getpatched/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"
           test -s "$RUNNER_TEMP/candidate/release-candidates.json"
           find "$RUNNER_TEMP/candidate/source" -maxdepth 1 -type f -name '*.dsc' -print -quit | grep -q .
           printf '%s\n' "$package" > "$RUNNER_TEMP/candidate/package-name"
@@ -57,7 +57,7 @@ jobs:
         run: |
           package="$(cat "$RUNNER_TEMP/candidate/package-name")"
           source_commit="$(cat "$RUNNER_TEMP/candidate/source-commit")"
-          git clone --no-checkout "https://github.com/apt-to/packaging-${package}.git" packaging
+          git clone --no-checkout "https://github.com/getpatched/packaging-${package}.git" packaging
           git -C packaging fetch --no-tags origin "$source_commit"
           git -C packaging checkout --detach "$source_commit"
           git -C packaging fetch --no-tags origin refs/heads/aptto/focal
@@ -71,7 +71,7 @@ jobs:
             build/recheck/release-candidates.json
       - name: Register verified release and upload privately to R2
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.apt.to
+          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
           VERIFICATION_RUN_ID: ${{ github.event.workflow_run.id }}
           CANDIDATE_MANIFEST: ${{ runner.temp }}/candidate/release-candidates.json
           BINARY_DIRECTORY: ${{ github.workspace }}/build/recheck/binary

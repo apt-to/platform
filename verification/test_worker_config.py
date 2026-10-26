@@ -13,9 +13,9 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertEqual(
             routes,
             [
-                {"pattern": "apt.to", "custom_domain": True},
-                {"pattern": "repo.apt.to", "custom_domain": True},
-                {"pattern": "early.apt.to", "custom_domain": True},
+                {"pattern": "getpatched.dev", "custom_domain": True},
+                {"pattern": "repo.getpatched.dev", "custom_domain": True},
+                {"pattern": "early.getpatched.dev", "custom_domain": True},
             ],
         )
         self.assertFalse(config["workers_dev"])
@@ -59,7 +59,7 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertIn('wranglerVersion: "4.151.3"', workflow)
         self.assertIn("secrets.CLOUDFLARE_API_TOKEN", workflow)
         self.assertIn("secrets.CLOUDFLARE_ACCOUNT_ID", workflow)
-        self.assertIn('"https://apt.to${path}"', workflow)
+        self.assertIn('"https://getpatched.dev${path}"', workflow)
 
 
 if __name__ == "__main__":
