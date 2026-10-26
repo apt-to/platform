@@ -1,11 +1,11 @@
 # apt.to Cloudflare DNS migration plan
 
-Prepared 26 October 2026 from read-only Cloudflare API, public DNS, and RDAP checks. This is a proposed change plan; no nameserver, record, Worker, or R2 mutation has been made.
+Prepared 26 October 2026 from Cloudflare API, public DNS, and RDAP checks. This is a proposed change plan; no nameserver, DNS-record, or Worker mutation has been made. The dedicated private R2 bucket `aptto-release-staging` has been created; no AptTo objects have been uploaded.
 
 ## Verified current state
 
 - The Cloudflare API token used for read-only checks sees the `Diderichsen` account. Its `apt.to` full zone is `pending`, has zero DNS records, and is assigned `kia.ns.cloudflare.com` and `terin.ns.cloudflare.com`.
-- Account inventory is 12 Workers, four R2 buckets, and 10 Pages projects; none has an AptTo name. No AptTo bucket or Worker has been created.
+- Account inventory is 12 Workers, five R2 buckets, and 10 Pages projects. The `aptto-release-staging` bucket is the only AptTo-named resource and is private; no AptTo Worker exists. The four pre-existing R2 buckets and all existing Workers and Pages projects were left unchanged.
 - Public DNS delegates `apt.to` to `ns1.afternic.com` and `ns2.afternic.com`. The registrar identified in public RDAP is Tonic. Confirm the actual registrar account and any forwarding or domain-level services in Tonic before changing delegation; public RDAP does not prove account access or expose all registrar settings.
 - Current public answers for `apt.to`, `www.apt.to`, `repo.apt.to`, and `early.apt.to` are the Afternic parking A records `13.248.169.48` and `76.223.54.146`, TTL 3600 seconds. The root has Null MX (`0 .`) and TXT `v=spf1 -all`; no AAAA or CAA answer for the apex was returned. A query to the public resolver returned no DS answer, but verify DNSSEC/DS in Tonic immediately before cutover.
 - The Worker config declares custom domains for `apt.to`, `repo.apt.to`, and `early.apt.to`. Cloudflare requires an active zone for Worker custom domains and creates their DNS records and certificates. `www.apt.to` is not a configured Worker hostname and should remain parked unless a separate redirect is designed and approved.
