@@ -51,7 +51,7 @@
         "severity": "MEDIUM",
         "source_package": "libarchive",
         "ubuntu_pro_fixed_version": "3.4.0-2ubuntu1.5+esm1",
-        "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075"
+        "verified_by": "https://github.com/getpatched/platform/actions/runs/40202672075"
       },
       "details": "AptTo tracks the focal amd64 binary package identities below. The exact reviewed baseline is confirmed affected; the AptTo backport and Canonical Ubuntu Pro versions are fixed-version boundaries in database_specific. Versions at or above a listed fixed-version boundary are treated as fixed. Package versions below those boundaries that are not the exact reviewed baseline are unsupported and make the scanner fail closed instead of reporting a clean result. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
       "id": "CVE-2026-4111",
@@ -115,7 +115,7 @@
         "severity": "MEDIUM",
         "source_package": "libxml2",
         "ubuntu_pro_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
-        "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075"
+        "verified_by": "https://github.com/getpatched/platform/actions/runs/40202672075"
       },
       "details": "AptTo tracks the focal amd64 binary package identities below. The exact reviewed baseline is confirmed affected; the AptTo backport and Canonical Ubuntu Pro versions are fixed-version boundaries in database_specific. Versions at or above a listed fixed-version boundary are treated as fixed. Package versions below those boundaries that are not the exact reviewed baseline are unsupported and make the scanner fail closed instead of reporting a clean result. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
       "id": "CVE-2025-49794",
@@ -179,7 +179,7 @@
         "severity": "MEDIUM",
         "source_package": "libxml2",
         "ubuntu_pro_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
-        "verified_by": "https://github.com/apt-to/platform/actions/runs/40202672075"
+        "verified_by": "https://github.com/getpatched/platform/actions/runs/40202672075"
       },
       "details": "AptTo tracks the focal amd64 binary package identities below. The exact reviewed baseline is confirmed affected; the AptTo backport and Canonical Ubuntu Pro versions are fixed-version boundaries in database_specific. Versions at or above a listed fixed-version boundary are treated as fixed. Package versions below those boundaries that are not the exact reviewed baseline are unsupported and make the scanner fail closed instead of reporting a clean result. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
       "id": "CVE-2025-49796",
