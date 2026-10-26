@@ -30,9 +30,9 @@ def build_feed(config):
             advisories.append({
                 "schema_version": "1.6.0",
                 "id": cve,
-                "modified": "2026-10-25T00:00:00Z",
+                "modified": "2026-10-26T00:00:00Z",
                 "summary": SUMMARIES[cve],
-                "details": "AptTo tracks the exact focal amd64 binary package identities below. The exact baseline is listed as affected; the AptTo backport and Canonical Ubuntu Pro fixed version are recorded as fixed versions in database_specific. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
+                "details": "AptTo tracks the focal amd64 binary package identities below. The exact reviewed baseline is confirmed affected; the AptTo backport and Canonical Ubuntu Pro versions are fixed-version boundaries in database_specific. Versions at or above a listed fixed-version boundary are treated as fixed. Package versions below those boundaries that are not the exact reviewed baseline are unsupported and make the scanner fail closed instead of reporting a clean result. The AptTo fixed status is supported by installed-package regression evidence linked from the platform evidence index.",
                 "affected": [{
                     "package": {"ecosystem": "Ubuntu:Pro:20.04:LTS", "name": binary},
                     "versions": [baseline],

@@ -141,22 +141,21 @@ Architecture: i386
         self.assertEqual(report["findings"], [])
         self.assertEqual(report["summary"]["scannedPackages"], 4)
 
-    def test_only_the_reviewed_baseline_version_is_asserted_affected(self):
-        result = self.scan_packages({
-            "libarchive13": "3.4.0-2ubuntu1.5",
-            "libarchive-tools": "3.4.0-2ubuntu1.4",
-        })
+    def test_exact_reviewed_baseline_version_is_asserted_affected(self):
+        result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.5"})
         self.assertEqual(result.returncode, 1, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual([(item["package"], item["id"]) for item in report["findings"]], [("libarchive13", "CVE-2026-4111")])
 
-    def test_unreviewed_older_versions_are_not_inferred_vulnerable(self):
-        result = self.scan_packages({
-            "libarchive13": "3.4.0-2ubuntu1.4",
-            "libarchive-tools": "3.4.0-2ubuntu1.3",
-        })
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["findings"], [])
+    def test_unreviewed_older_versions_fail_closed(self):
+        result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.4"})
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("outside the reviewed affected/fixed version boundaries", result.stderr)
+
+    def test_unreviewed_versions_between_baseline_and_fixed_boundary_fail_closed(self):
+        result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.5+aptto0"})
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("outside the reviewed affected/fixed version boundaries", result.stderr)
 
     def test_feed_generation_is_reproducible_and_has_exact_binary_identities(self):
         with tempfile.TemporaryDirectory(prefix="aptto-feed-test-") as directory:

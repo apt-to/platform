@@ -137,6 +137,9 @@ def load_feed(path):
                 raise ValueError(f"{advisory_id} has an invalid AptTo package or fixed-version entry")
             for version in [*affected["versions"], *fixed]:
                 debian_version_parts(version)
+            if any(any(debian_version_compare(fixed_version, affected_version) <= 0 for fixed_version in fixed)
+                   for affected_version in affected["versions"]):
+                raise ValueError(f"{advisory_id} fixed versions must sort after every reviewed affected version")
     config = json.loads(PACKAGES.read_text())
     if feed != build_feed(config):
         raise ValueError("advisory feed does not match the reviewed AptTo package policy")
@@ -166,13 +169,19 @@ def scan(status_path, feed_path, release, architecture, image_id=None):
             scanned[package] = record["version"]
             fixed_versions = affected["database_specific"]["fixed_versions"]
             affected_versions = affected["versions"]
-            if any(debian_version_compare(record["version"], version) == 0 for version in affected_versions):
+            version = record["version"]
+            if any(debian_version_compare(version, candidate) == 0 for candidate in affected_versions):
                 findings.append({
-                    "id": advisory["id"], "package": package, "version": record["version"],
+                    "id": advisory["id"], "package": package, "version": version,
                     "affected_versions": affected_versions,
                     "fixed_versions": fixed_versions, "severity": advisory["database_specific"]["severity"],
                     "summary": advisory["summary"], "references": [ref["url"] for ref in advisory.get("references", [])],
                 })
+            elif not any(debian_version_compare(version, fixed_version) >= 0 for fixed_version in fixed_versions):
+                raise ValueError(
+                    f"installed package {package} version {version} is outside the reviewed affected/fixed "
+                    f"version boundaries for {advisory['id']}; update the advisory feed before treating it as clean"
+                )
     findings.sort(key=lambda item: (item["package"], item["id"]))
     return {
         "schemaVersion": 1, "scanner": "aptto-dpkg-osv/1", "release": release, "architecture": architecture,
