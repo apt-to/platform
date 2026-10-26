@@ -48,6 +48,19 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertIn("needs: [build-indexes, sign-and-publish]", workflow)
         self.assertIn("python3 scripts/retain-apt-snapshots.py --channel both", workflow)
 
+    def test_worker_deployment_is_manually_confirmed_gated_and_environment_protected(self):
+        workflow = (ROOT / ".github" / "workflows" / "worker-deploy.yml").read_text()
+        self.assertRegex(workflow, r"confirm_production:\n\s+description:.*\n\s+type: boolean\n\s+required: true\n\s+default: false")
+        self.assertEqual(workflow.count("vars.APTTO_WORKER_DEPLOY_ENABLED == 'true'"), 2)
+        self.assertEqual(workflow.count("github.ref == 'refs/heads/main'"), 2)
+        self.assertEqual(workflow.count("inputs.confirm_production == true"), 2)
+        self.assertRegex(workflow, r"deploy:\n\s+needs: verify\n(?:.*\n){0,10}\s+environment: aptto-worker-deploy")
+        self.assertIn("cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3", workflow)
+        self.assertIn('wranglerVersion: "4.151.3"', workflow)
+        self.assertIn("secrets.CLOUDFLARE_API_TOKEN", workflow)
+        self.assertIn("secrets.CLOUDFLARE_ACCOUNT_ID", workflow)
+        self.assertIn('"https://apt.to${path}"', workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

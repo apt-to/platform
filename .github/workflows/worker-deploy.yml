@@ -1,0 +1,70 @@
+name: Deploy AptTo Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: Confirm deployment of the current main branch to the apt.to Worker
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aptto-worker-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      vars.APTTO_WORKER_DEPLOY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_production == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check Worker syntax and tests
+        working-directory: worker
+        run: |
+          node --check src/index.js
+          node --test test/*.test.js
+      - name: Check Python verification suite
+        run: python3 -B -m unittest discover -s verification -p 'test_*.py' -v
+
+  deploy:
+    needs: verify
+    if: >-
+      vars.APTTO_WORKER_DEPLOY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_production == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: aptto-worker-deploy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Deploy production Worker and static site
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.151.3"
+          command: deploy --config wrangler.jsonc
+          workingDirectory: worker
+      - name: Smoke-check public website routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          for path in / /account; do
+            curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 \
+              --output "$response_file" "https://apt.to${path}"
+            grep -q 'AptTo' "$response_file"
+          done
