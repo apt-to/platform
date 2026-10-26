@@ -1,6 +1,6 @@
 # AptTo operations runbook
 
-This runbook describes the intended release path implemented in `platform/`. It is not evidence of a live deployment. As of 26 October 2026, read-only Cloudflare inventory confirms the correct account and zone, but no AptTo Worker, R2 bucket, or Pages project exists there; the zone is pending with no DNS records. Repository hostnames, GitHub signing environment, and Sponsors enrollment are not live.
+This runbook describes the intended release path implemented in `platform/`. It is not evidence of a live deployment. As of 26 October 2026, read-only Cloudflare inventory confirms the correct account and zone, but no AptTo Worker, R2 bucket, or Pages project exists there; the zone is pending with no DNS records. Repository hostnames, GitHub signing environment, and Sponsors enrollment are not live. The exact current DNS answers and proposed staged cutover sequence are recorded in the [Cloudflare DNS migration plan](cloudflare-dns-migration-plan.md).
 
 ## Deployment gates
 
