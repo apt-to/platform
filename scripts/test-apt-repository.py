@@ -111,6 +111,7 @@ done
 set -- $BINARY_PACKAGES
 core_package="$1"
 esm_pockets="${ESM_POCKETS//,/ }"
+release_date="$(date -u -R -d "$ARCHIVE_SNAPSHOT")"
 case "$core_package" in
   libxml2) preference_file=/etc/apt/preferences.d/90-getpatched-libxml2 ;;
   libarchive13) preference_file=/etc/apt/preferences.d/90-getpatched-libarchive ;;
@@ -159,6 +160,7 @@ Origin: Ubuntu
 Label: UbuntuESM
 Suite: $pocket
 Codename: $pocket
+Date: $release_date
 Architectures: amd64
 Components: main
 SHA256:
