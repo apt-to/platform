@@ -128,6 +128,8 @@ def validate_release_policy(policy, config):
     package = policy["source"]
     expected = config["packages"][package]
     if (policy["baseVersion"] != expected["baselineVersion"] or
+        policy.get("futureEsmVersion") != expected["futureEsmVersion"] or
+        policy.get("esmPockets") != expected["esmPockets"] or
         policy.get("futureEsmUpgradeCompatible", False) != expected["futureEsmUpgradeCompatible"] or
         policy["sponsorDelayHours"] != expected["sponsorDelayHours"]):
         raise RuntimeError("Packaging policy disagrees with project configuration")

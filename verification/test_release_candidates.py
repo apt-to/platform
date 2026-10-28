@@ -20,6 +20,8 @@ class ReleaseCandidateOutput(unittest.TestCase):
             source_policy = {
                 "source": source,
                 "baseVersion": package["baselineVersion"],
+                "futureEsmVersion": package["futureEsmVersion"],
+                "esmPockets": package["esmPockets"],
                 "version": package["baselineVersion"] + "+getpatched1",
                 "targetCves": package["targetCves"],
                 "sponsorDelayHours": package["sponsorDelayHours"],
@@ -34,6 +36,24 @@ class ReleaseCandidateOutput(unittest.TestCase):
             self.assertIn("ordering is unresolved", eligibility["reason"])
             with self.assertRaisesRegex(RuntimeError, "future Ubuntu Pro ESM upgrade ordering is unresolved"):
                 BUILD_PACKAGE.require_release_compatibility(source_policy)
+
+    def test_esm_version_and_pin_pattern_must_match_project_policy(self):
+        project = json.loads((SCRIPT.parents[1] / "packages.json").read_text())
+        for source, package in project["packages"].items():
+            source_policy = {
+                "source": source,
+                "baseVersion": package["baselineVersion"],
+                "futureEsmVersion": package["futureEsmVersion"],
+                "esmPockets": package["esmPockets"],
+                "version": package["baselineVersion"] + "+getpatched1",
+                "targetCves": package["targetCves"],
+                "sponsorDelayHours": package["sponsorDelayHours"],
+                "futureEsmUpgradeCompatible": package["futureEsmUpgradeCompatible"],
+            }
+            for field in ("futureEsmVersion", "esmPockets"):
+                mismatched = {**source_policy, field: "unexpected"}
+                with self.assertRaisesRegex(RuntimeError, "Packaging policy disagrees with project configuration"):
+                    BUILD_PACKAGE.validate_release_policy(mismatched, project)
 
     def test_compatibility_gate_runs_after_verification_and_before_candidate_persistence(self):
         source = (SCRIPT.parents[0] / "build-package.py").read_text()

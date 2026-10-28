@@ -1,5 +1,18 @@
 # GetPatched implementation status
 
+## Current continuation — 28 October 2026, 17:39 UTC
+
+- Both hosted runs [libxml2 40735136963](https://github.com/getpatched/platform/actions/runs/40735136963) and [libarchive 40735142869](https://github.com/getpatched/platform/actions/runs/40735142869) built, passed scanner/regression checks and the existing signed APT smoke, then stopped at the ESM release gate. No candidates were exported or published.
+- Working changes package pins for `focal-infra-security` and `focal-infra-updates`, limited to each package's runtime binaries. The updated hosted focal check creates valid `.deb` fixtures at the documented vendor versions; for each suite in isolation it checks the exact candidate, priority 1001 and simulated upgrade selection. This tests APT ordering, not live Canonical package contents or ABI compatibility. Release flags remain false.
+- Independent review found no actionable issues. Six focused release-candidate tests, Python compilation and diff checks pass. The full local suite had 67 passes and two GPG signing errors because this host's gpg-agent could not start. Docker is unavailable locally; the new integration test requires hosted focal CI.
+- **Next:** open PRs for both packaging repositories and platform, merge after checks, then rerun both hosted focal verifications before deciding whether release compatibility can be enabled. Sponsor, production signing and repository publication stay gated separately.
+
+## Previous continuation — 28 October 2026, 17:29 UTC
+
+- PR [#26](https://github.com/getpatched/platform/pull/26) merged to `main` at `31e643a`; its required quality check passed, and main quality plus the automatic Worker deployment/route smoke passed ([quality 40734994765](https://github.com/getpatched/platform/actions/runs/40734994765), [deploy 40734994735](https://github.com/getpatched/platform/actions/runs/40734994735)). The audit preserves Canonical OSV target absences as raw vendor evidence instead of failing when a downstream `+getpatched1` version query omits the CVE; the exact vulnerable baseline, custom installed-package scan, regressions, and original raw reports remain required and hash-bound.
+- Fresh package reruns are active: [libxml2 40735136963](https://github.com/getpatched/platform/actions/runs/40735136963), [libarchive 40735142869](https://github.com/getpatched/platform/actions/runs/40735142869). Both have checked out the exact merged packaging commits and are in their long build-and-verify step; no outcomes are claimed yet.
+- A disposable focal APT 2.0.10 amd64 experiment confirmed a package-specific `BASE+esm*` pin at priority 1001 selects a vendor `+esm3` candidate over installed `+getpatched1`; a leading-star pattern failed. No package policy changed. Next: add the narrowly scoped preference to both runtime binary packages, test the exact current focal ESM versions in the hosted client, keep release eligibility false until verified, and continue sponsor/signing/repository integration.
+
 Updated 28 October 2026. This is an evidence ledger; website deployment is separate from package publication, which remains gated.
 
 ## Current identity and deployment checkpoint
@@ -12,6 +25,11 @@ Updated 28 October 2026. This is an evidence ledger; website deployment is separ
 - PR [#19](https://github.com/getpatched/platform/pull/19) merged at `84970a37c7d43ca49b311f627b51e2b6e803abf1` on 28 October 2026. Automatic `main` deployments now run Worker and Python verification before deploying. The first deployment [run 40667963549](https://github.com/getpatched/platform/actions/runs/40667963549) created the Worker and passed public `/` and `/account` smoke checks. Follow-up run [40668314311](https://github.com/getpatched/platform/actions/runs/40668314311) passed after the bootstrap secret and token were removed, confirming the ongoing `CLOUDFLARE_API_TOKEN` supports routine deploys.
 - The temporary `GetPatched Worker bootstrap - 7 days` token was created with Workers `Admin` at the account scope and Workers Routes Write limited to `getpatched.dev`. It was stored as `CLOUDFLARE_BOOTSTRAP_TOKEN`, used for the first deployment, then removed from GitHub and revoked in Cloudflare after that deploy succeeded. The environment retains only `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` and is branch-limited to `main`.
 - Live website `/` and `/account` are available. GitHub sign-in remains unconfigured. The public Focal `InRelease` route returned HTTP 503 and the unauthenticated early `InRelease` route returned HTTP 401 during live checks on 28 October 2026; production repository metadata has not been published.
+
+## APT ESM downgrade preference experiment — 28 October 2026
+
+- In a disposable Ubuntu 20.04 amd64 client running APT 2.0.10, an installed synthetic `3.4.0-2ubuntu1.5+getpatched1` package did not downgrade to synthetic `+esm3` at default priorities. A package-specific exact `+esm3` pin at priority 1001 selected the ESM candidate for an upgrade simulation; prefix glob `3.4.0-2ubuntu1.5+esm*` also selected it. The leading-wildcard `*+esm*` pattern did not select it in this test, so do not use that pattern. This synthetic experiment made no package or release-policy changes. Ubuntu's [Focal APT preferences manual](https://manpages.ubuntu.com/manpages/focal/man5/apt_preferences.5.html) documents version-prefix globs and priority >=1000 as the downgrade threshold.
+- Next: ship a tightly scoped base-version ESM preference in each runtime package and prove that the installed package causes a simulated upgrade to the exact current Focal ESM candidate in the hosted focal client. Keep `futureEsmUpgradeCompatible=false` until the packaged-client check passes and is independently reviewed.
 
 ## Live deployment preflight — 28 October 2026, 06:18 UTC
 
