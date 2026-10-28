@@ -1,4 +1,4 @@
-name: Deploy AptTo Worker
+name: Deploy GetPatched Worker
 
 on:
   workflow_dispatch:
@@ -66,5 +66,5 @@ jobs:
           for path in / /account; do
             curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 2 --max-time 20 \
               --output "$response_file" "https://getpatched.dev${path}"
-            grep -q 'AptTo' "$response_file"
+            grep -q 'GetPatched' "$response_file"
           done
