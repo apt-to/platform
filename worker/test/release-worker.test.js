@@ -1447,14 +1447,20 @@ test("prepared releases are not reconciled until the immutable source release is
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("sponsor promotion boundary is closed immediately before and open exactly at 168 hours", async () => {
+test("sponsor promotion stays closed before 168 hours and catches up after a missed cron window", async () => {
   const bytes = Buffer.from("verified sponsor package bytes");
   const digest = createHash("sha256").update(bytes).digest("hex");
   const deadline = new Date("2026-10-01T12:00:00.000Z");
   const key = "release-state/pilot.json";
   const originalFetch = globalThis.fetch;
   try {
-    for (const [offsetMs, expectedState] of [[-1, "sponsor-period"], [0, "public"], [1, "public"]]) {
+    const missedCronOffsetMs = 8 * 24 * 60 * 60 * 1000;
+    for (const [offsetMs, expectedState] of [
+      [-1, "sponsor-period"],
+      [0, "public"],
+      [1, "public"],
+      [missedCronOffsetMs, "public"],
+    ]) {
       const bucket = new MemoryBucket({ [key]: {
         id: "pilot", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
         source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168, source_release_id: 902,
