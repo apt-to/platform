@@ -63,13 +63,17 @@ def rewrite_release_checksums(release_path, dist):
             rebuilt.append(line)
             continue
         if in_sha256 and line and not line[0].isspace():
+            for relative in sorted(entries):
+                content = (dist / relative).read_bytes()
+                rebuilt.append(f" {hashlib.sha256(content).hexdigest()} {len(content)} {relative}")
             in_sha256 = False
         if in_sha256 and line.strip():
             continue
         rebuilt.append(line)
-    for relative in sorted(entries):
-        content = (dist / relative).read_bytes()
-        rebuilt.append(f" {hashlib.sha256(content).hexdigest()} {len(content)} {relative}")
+    if in_sha256:
+        for relative in sorted(entries):
+            content = (dist / relative).read_bytes()
+            rebuilt.append(f" {hashlib.sha256(content).hexdigest()} {len(content)} {relative}")
     release_path.write_text("\n".join(rebuilt) + "\n")
     return release_sha256_entries(release_path.read_text())
 

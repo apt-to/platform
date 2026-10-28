@@ -40,6 +40,17 @@ class AptRepositoryIndex(unittest.TestCase):
         by_hash = original.parent / "by-hash/SHA256" / entries["main/binary-amd64/Packages.gz"][0]
         self.assertEqual(by_hash.read_bytes(), original.read_bytes())
 
+    def test_rebuilt_sha256_entries_stay_inside_the_sha256_section(self):
+        self.release.write_text(self.release.read_text() + "MD5Sum:\n  " + "0" * 32 + " 1 ignored\n")
+        entries = GENERATOR.rewrite_release_checksums(self.release, self.dist)
+        release_text = self.release.read_text()
+        self.assertIn("SHA256:\n " + entries["main/binary-amd64/Packages.gz"][0], release_text)
+        self.assertLess(release_text.index("SHA256:"), release_text.index("MD5Sum:"))
+        self.assertLess(
+            release_text.index(entries["main/binary-amd64/Packages.gz"][0]),
+            release_text.index("MD5Sum:"),
+        )
+
     def test_bad_index_digest_is_rejected_before_signing(self):
         self.release.write_text(self.release.read_text().replace(hashlib.sha256(b"fake compressed index bytes").hexdigest(), "0" * 64))
         with self.assertRaisesRegex(ValueError, "checksum mismatch"):
