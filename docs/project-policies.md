@@ -18,7 +18,7 @@ The maintainers will acknowledge reports as capacity permits, coordinate a fix a
 
 The APT archive signing key is separate from package build and publication credentials. Keep its private material only in the protected signing environment; never store it in GitHub source, build artifacts, R2, runner caches, or logs. Signing workflows must accept only bounded, hash-verified metadata and must not parse or build package sources while the private key is available.
 
-Publish the primary-key fingerprint and public key with installation instructions. Verify the fingerprint over an independent channel before trusting it. Record key creation, custody, rotation and revocation procedures in the operations runbook before the first production signature. If compromise is suspected, stop signing and publication, revoke or replace the key, publish the revocation/new key instructions, and document affected metadata. No production signing key or deployed key-rotation drill is currently claimed by this page.
+The two-year RSA-4096 archive key is held in the protected `getpatched-signing` environment. Its public key and primary fingerprint are published at [`/keys/getpatched-archive-key.asc`](https://getpatched.dev/keys/getpatched-archive-key.asc) and [`/keys/getpatched-archive-key-fingerprint.txt`](https://getpatched.dev/keys/getpatched-archive-key-fingerprint.txt); verify the fingerprint over an independent channel before trusting it. No production snapshot has been signed or published, and no key-rotation drill is claimed. If compromise is suspected, stop signing and publication, revoke or replace the key, publish the revocation/new key instructions, and document affected metadata.
 
 ## Support scope
 
