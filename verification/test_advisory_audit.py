@@ -118,6 +118,7 @@ class AdvisoryAuditContract(unittest.TestCase):
             self.assertEqual(report["aptToAdvisoryIntegration"]["unrelatedFindingIds"], ["CVE-UNRELATED"])
             self.assertEqual(report["aptToAdvisoryIntegration"]["rawTrivyBaselineTargetFindingIds"], [])
             self.assertEqual(report["aptToAdvisoryIntegration"]["findings"][0]["patched"], "resolved by GetPatched backport; exact installed version and target regression passed")
+            self.assertEqual(report["canonicalOsv"]["after"]["missingTargetIds"], [])
             self.assertEqual(hashlib.sha256(before.read_bytes()).hexdigest(), original_before)
             self.assertEqual(hashlib.sha256(after.read_bytes()).hexdigest(), original_after)
             contradictory = json.loads(getpatched_scan_paths["after"][0].read_text())
@@ -134,6 +135,27 @@ class AdvisoryAuditContract(unittest.TestCase):
             mismatch = self.invoke(fixture, root / "mismatch.json")
             self.assertNotEqual(mismatch.returncode, 0)
             self.assertIn("scan metadata", mismatch.stderr.lower())
+
+    def test_vendor_osv_absence_on_patched_version_is_preserved_but_not_treated_as_scan_evidence(self):
+        with tempfile.TemporaryDirectory(prefix="getpatched-audit-osv-absence-") as directory:
+            root = Path(directory)
+            # Reuse the complete audited fixture assembled above by keeping this
+            # case narrow: exercise the public helper against a genuine OSV query
+            # wrapper whose successful response has no target records.
+            from importlib.util import module_from_spec, spec_from_file_location
+            spec = spec_from_file_location("advisory_audit", AUDIT)
+            module = module_from_spec(spec)
+            spec.loader.exec_module(module)
+            response = root / "osv.json"
+            response.write_text(json.dumps({
+                "request": {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"},
+                "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": []},
+            }))
+            hits, records = module.osv_targets(response, "libarchive", "Ubuntu:Pro:20.04:LTS", "3.4.0-2ubuntu1.5+getpatched1", ["CVE-2026-4111"], required=False)
+            self.assertEqual(hits, {"CVE-2026-4111": []})
+            self.assertEqual(records, [])
+            with self.assertRaisesRegex(ValueError, "absent from Canonical OSV query"):
+                module.osv_targets(response, "libarchive", "Ubuntu:Pro:20.04:LTS", "3.4.0-2ubuntu1.5+getpatched1", ["CVE-2026-4111"], required=True)
 
 
 if __name__ == "__main__":

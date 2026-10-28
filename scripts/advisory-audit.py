@@ -16,7 +16,7 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def osv_targets(path, package, ecosystem, version, targets):
+def osv_targets(path, package, ecosystem, version, targets, *, required):
     wrapper = load(path)
     request = wrapper.get("request", {})
     wanted = {"package": {"name": package, "ecosystem": ecosystem}, "version": version}
@@ -28,7 +28,7 @@ def osv_targets(path, package, ecosystem, version, targets):
     hits = {}
     for target in targets:
         matches = [v for v in records if target in (v.get("upstream", []) + v.get("aliases", []) + [v.get("id", "")])]
-        if not matches:
+        if not matches and required:
             raise ValueError(f"{target} absent from Canonical OSV query for {version}")
         hits[target] = [v.get("id") for v in matches]
     return hits, sorted(v.get("id", "") for v in records)
@@ -87,8 +87,12 @@ def main():
                 raise ValueError("binary manifest lacks exact version and SHA-256 for " + binary)
         if not re.fullmatch(r"[0-9a-f]{64}", data["databaseSha256"]):
             raise ValueError("invalid pinned scanner database digest")
-        before_osv, baseline_records = osv_targets(data["beforeOsv"], data["source"], config["advisoryEcosystem"], data["baselineVersion"], targets)
-        after_osv, patched_records = osv_targets(data["afterOsv"], data["source"], config["advisoryEcosystem"], data["patchedVersion"], targets)
+        before_osv, baseline_records = osv_targets(data["beforeOsv"], data["source"], config["advisoryEcosystem"], data["baselineVersion"], targets, required=True)
+        # The vendor query is an unmodified comparison, not our scanner integration:
+        # OSV can stop returning a target when a downstream +getpatched suffix sorts
+        # above the vendor's affected range. The exact installed-version scan below
+        # is the configured recognition gate; never infer remediation from this query.
+        after_osv, patched_records = osv_targets(data["afterOsv"], data["source"], config["advisoryEcosystem"], data["patchedVersion"], targets, required=False)
         before_raw, before_vulns, before_pkgs = trivy_findings(data["beforeTrivy"])
         after_raw, after_vulns, after_pkgs = trivy_findings(data["afterTrivy"])
         scan_images = load(data["scanImages"])
@@ -161,7 +165,7 @@ def main():
             "schemaVersion": 1, "source": data["source"], "release": config["release"], "architecture": config["architecture"],
             "baselineVersion": data["baselineVersion"], "patchedVersion": data["patchedVersion"], "sourceCommit": data["sourceCommit"],
             "scanner": {"image": config["scannerImage"], "databaseReference": config["scannerDatabaseReference"], "databaseSha256": data["databaseSha256"], "before": scan_metadata["before"], "after": scan_metadata["after"]},
-            "canonicalOsv": {"ecosystem": config["advisoryEcosystem"], "before": {"responseSha256": sha256(data["beforeOsv"]), "targetRecords": before_osv, "allRecordIds": baseline_records}, "after": {"responseSha256": sha256(data["afterOsv"]), "targetRecords": after_osv, "allRecordIds": patched_records}},
+            "canonicalOsv": {"ecosystem": config["advisoryEcosystem"], "before": {"responseSha256": sha256(data["beforeOsv"]), "targetRecords": before_osv, "allRecordIds": baseline_records}, "after": {"responseSha256": sha256(data["afterOsv"]), "targetRecords": after_osv, "missingTargetIds": sorted(set(targets) - set(after_osv)), "allRecordIds": patched_records}},
             "trivy": {"before": {"sha256": sha256(data["beforeTrivy"]), "packageCount": len(before_pkgs), "findingCount": len(before_vulns), "targetFindings": [v for v in before_vulns if v.get("VulnerabilityID") in targets]}, "after": {"sha256": sha256(data["afterTrivy"]), "packageCount": len(after_pkgs), "findingCount": len(after_vulns), "targetFindings": [v for v in after_vulns if v.get("VulnerabilityID") in targets]}, "unrelatedFindings": unrelated},
             "aptToAdvisoryIntegration": {"source": "GetPatched OSV-format feed scan of installed dpkg status plus Canonical Ubuntu OSV exact-version queries and installed regression evidence", "scanner": "getpatched-dpkg-osv/1", "feedSha256": sha256(data["aptToFeed"]), "before": getpatched_scans["before"], "after": getpatched_scans["after"], "baselineTargetFindingIds": getpatched_scans["before"]["targetFindingIds"], "patchedTargetFindingIds": getpatched_scans["after"]["targetFindingIds"], "unrelatedFindingIds": sorted(set(getpatched_scans["before"]["unrelatedFindingIds"]) | set(getpatched_scans["after"]["unrelatedFindingIds"])), "rawTrivyBaselineTargetFindingIds": sorted(before_target_hits), "rawTrivyPatchedTargetFindingIds": sorted(after_target_hits), "findings": integrated_findings, "claim": "custom GetPatched advisory scan; raw vendor Trivy reports remain separately preserved"},
             "regression": {"baseline": str(data["baselineRegression"]), "patched": str(data["patchedRegression"]), "targetCves": targets},
