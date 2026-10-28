@@ -176,7 +176,11 @@ for pocket in $esm_pockets; do
   for binary in $BINARY_PACKAGES; do
     policy="$(apt-cache "${apt_options[@]}" policy "$binary")"
     candidate="$(printf '%s\n' "$policy" | sed -n 's/^[[:space:]]*Candidate: //p')"
-    test "$candidate" = "$ESM_VERSION" || { echo "wrong ESM candidate for $binary in $pocket: $candidate" >&2; exit 1; }
+    if [ "$candidate" != "$ESM_VERSION" ]; then
+      echo "wrong ESM candidate for $binary in $pocket: $candidate" >&2
+      echo "$policy" >&2
+      exit 1
+    fi
     printf '%s\n' "$policy" | grep -F "1001 file:/tmp/esm-test-repo $pocket/main amd64 Packages" >/dev/null || {
       echo "ESM pocket $pocket did not receive the expected APT pin priority for $binary" >&2
       printf '%s\n' "$policy"
