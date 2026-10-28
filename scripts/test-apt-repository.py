@@ -167,7 +167,7 @@ SHA256:
  $packages_digest $packages_size main/binary-amd64/Packages.gz
 EOF
 done
-for pocket in $ESM_POCKETS; do
+for pocket in $esm_pockets; do
   sources="/tmp/esm-sources-$pocket.list"
   lists="/tmp/esm-lists-$pocket"
   mkdir -p "$lists/partial"
