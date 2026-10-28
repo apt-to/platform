@@ -2,6 +2,10 @@
 
 This runbook describes the release path implemented in `platform/`; website deployment is live, while package publication is not. The intended public domain is `getpatched.dev`, with `repo.getpatched.dev` and `early.getpatched.dev` for package channels. The Worker and static site most recently deployed from `main` commit `5237ca8f0d5a3d907334701fe1508b282ef57116` in [run 40715152075](https://github.com/getpatched/platform/actions/runs/40715152075) on 28 October 2026; deployment output confirmed the `getpatched-release-staging` R2 binding and all three custom domains, and public smoke checks passed for `/` and `/account`. The bucket has no package objects yet. GitHub Sponsors enrollment and package-release configuration remain incomplete. Deployment evidence and live repository endpoint responses are recorded in the [GetPatched domain plan](getpatched-dns-cutover-plan.md).
 
+## Local verification
+
+On macOS, GPG-agent IPC can fail when Python's temporary directory is the long default path. Use a short temporary path for the Python verification suite; `TMPDIR=/tmp python3 -B -m unittest discover -s verification -p 'test_*.py' -v` passed all 79 tests on this host. This is a local test-environment workaround; CI and production signing still require their own verification.
+
 ## Deployment gates
 
 The public website deployment is active. The deployment workflow verifies the domain through live smoke checks and uses the protected `getpatched-worker-deploy` environment. Package publication has additional gates and must stay disabled until those checks pass:

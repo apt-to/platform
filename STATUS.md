@@ -1,5 +1,12 @@
 # GetPatched implementation status
 
+## Current continuation — 28 October 2026, 22:24 UTC
+
+- The local Python verification suite passes 79/79 tests on this macOS host when invoked with `TMPDIR=/tmp`; the default long macOS temporary path produced GPG-agent IPC failures. The reproduced, host-specific workaround is documented in [`docs/operations-runbook.md`](docs/operations-runbook.md). This result does not replace the successful Linux CI run or verify live production signing.
+- Latest main checks remain successful: platform quality [40775272603](https://github.com/getpatched/platform/actions/runs/40775272603) and Worker/site deployment [40775272578](https://github.com/getpatched/platform/actions/runs/40775272578), both at `5d3e1d494c17ad44f1cdb9a63830ace0135d1976`. The latest R2 binding test [40767240472](https://github.com/getpatched/platform/actions/runs/40767240472) failed in its deployed-binding verification step; the route-scoped Browser Integrity Check exception is still not configured because the Cloudflare session/token is unavailable. No R2 write/read/delete proof exists.
+- Live website smoke checks passed for `/` and `/account`; public Focal metadata still returns HTTP 503 and anonymous early metadata returns HTTP 401. No release was staged or published. Ubuntu Pro ESM compatibility and GitHub Sponsors enrollment/tier configuration remain unresolved.
+- **Next actions:** authenticate to the verified Cloudflare account, configure only the previously approved `POST /internal/r2-self-test` exception, and rerun the real R2 test. Then resolve authentic ESM package compatibility and Sponsors enrollment before attempting signing, client installation, or promotion acceptance.
+
 ## Current continuation — 28 October 2026, 21:48 UTC
 
 - Security-evidence PR [#46](https://github.com/getpatched/platform/pull/46) is merged to `main` at `3c1cc8e8e2ec5e73aaaab4b613d8e956024bbdc3`. Main quality [40773264606](https://github.com/getpatched/platform/actions/runs/40773264606) and automatic Worker/site deployment [40773264561](https://github.com/getpatched/platform/actions/runs/40773264561) passed.
