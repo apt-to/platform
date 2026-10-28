@@ -57,17 +57,20 @@ def verify_remote_binding():
             report = json.load(response)
     except urllib.error.HTTPError as error:
         message = f"R2 self-test endpoint returned HTTP {error.code}"
-        if error.code == 502:
-            try:
-                report = json.load(error)
+        try:
+            report = json.load(error)
+            if isinstance(report, dict) and isinstance(report.get("error"), str):
+                detail = " ".join(report["error"].split())[:160]
+                message += f": {detail}"
+            if error.code == 502 and isinstance(report, dict):
                 if report.get("cleaned") is False and isinstance(report.get("object_key"), str) and report["object_key"].startswith("diagnostics/r2-self-test/"):
                     message += f"; cleanup required for {report['object_key']}"
                 elif isinstance(report.get("stage"), str):
                     message += f" at stage {report['stage']}"
-            except (OSError, json.JSONDecodeError):
-                pass
-            finally:
-                error.close()
+        except (OSError, json.JSONDecodeError):
+            pass
+        finally:
+            error.close()
         raise RuntimeError(message) from None
     except (OSError, urllib.error.URLError, json.JSONDecodeError):
         raise RuntimeError("R2 self-test endpoint request failed") from None

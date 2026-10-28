@@ -113,6 +113,46 @@ class VerifyR2BindingClientTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, object_key):
                 VERIFY.verify_remote_binding()
 
+    def test_http_error_reports_bounded_json_error_message(self):
+        environment = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REPOSITORY": "getpatched/platform",
+            "GITHUB_REF": "refs/heads/main",
+            "GITHUB_WORKFLOW_REF": VERIFY.WORKFLOW_REF,
+            "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com/example",
+            "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "temporary-test-token",
+        }
+        body = b'{"error":"edge policy denied request","detail":"must not be logged"}'
+        def raise_http_error(*_args, **_kwargs):
+            raise urllib.error.HTTPError(VERIFY.ENDPOINT, 403, "Forbidden", {}, io.BytesIO(body))
+
+        with patch.dict(os.environ, environment, clear=True), patch.object(VERIFY, "request_token", return_value="signed-test-oidc"), \
+                patch.object(VERIFY.urllib.request, "build_opener") as build_opener:
+            build_opener.return_value.open.side_effect = raise_http_error
+            with self.assertRaisesRegex(RuntimeError, "HTTP 403: edge policy denied request") as raised:
+                VERIFY.verify_remote_binding()
+        self.assertNotIn("must not be logged", str(raised.exception))
+
+    def test_malformed_gateway_error_preserves_http_status(self):
+        environment = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REPOSITORY": "getpatched/platform",
+            "GITHUB_REF": "refs/heads/main",
+            "GITHUB_WORKFLOW_REF": VERIFY.WORKFLOW_REF,
+            "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com/example",
+            "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "temporary-test-token",
+        }
+        def raise_http_error(*_args, **_kwargs):
+            raise urllib.error.HTTPError(VERIFY.ENDPOINT, 502, "Bad Gateway", {}, io.BytesIO(b'["unexpected"]'))
+
+        with patch.dict(os.environ, environment, clear=True), patch.object(VERIFY, "request_token", return_value="signed-test-oidc"), \
+                patch.object(VERIFY.urllib.request, "build_opener") as build_opener:
+            build_opener.return_value.open.side_effect = raise_http_error
+            with self.assertRaisesRegex(RuntimeError, "HTTP 502$"):
+                VERIFY.verify_remote_binding()
+
 
 if __name__ == "__main__":
     unittest.main()
