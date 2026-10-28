@@ -20,8 +20,7 @@ base="$(python3 -c 'import json; print(json.load(open("debian/getpatched/release
 version="$(dpkg-parsechangelog -S Version)"
 dpkg --compare-versions "$version" gt "$base"
 dpkg --compare-versions "$version" lt "$base+getpatched2"
-dpkg --compare-versions "$version" lt "$base+esm1"
-printf '%s\n' "base < getpatched1 < getpatched2; getpatched1 < vendor esm1: verified" > /output/version-ordering.txt
+printf '%s\n' "base < getpatched1 < getpatched2; ordering against vendor ESM remains unresolved" > /output/version-ordering.txt
 cp /build/*.dsc /build/*.orig.tar.* /build/*.debian.tar.* /output/source/
 python3 - <<'PY'
 from pathlib import Path

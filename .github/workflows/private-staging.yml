@@ -43,6 +43,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/candidate/source"
           gh run download "$RUN_ID" --repo getpatched/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"
           test -s "$RUNNER_TEMP/candidate/release-candidates.json"
+          test -s "$RUNNER_TEMP/candidate/release-eligibility.json"
+          python3 - "$RUNNER_TEMP/candidate/release-eligibility.json" <<'PY'
+          import json, sys
+          eligibility = json.load(open(sys.argv[1]))
+          if eligibility.get("releaseEligible") is not True or eligibility.get("futureEsmUpgradeCompatible") is not True:
+              raise SystemExit("release staging blocked: future Ubuntu Pro ESM upgrade compatibility is unresolved")
+          PY
           find "$RUNNER_TEMP/candidate/source" -maxdepth 1 -type f -name '*.dsc' -print -quit | grep -q .
           printf '%s\n' "$package" > "$RUNNER_TEMP/candidate/package-name"
           printf '%s\n' "$source_commit" > "$RUNNER_TEMP/candidate/source-commit"
