@@ -1,5 +1,12 @@
 # GetPatched implementation status
 
+## Verification update — 28 October 2026, 23:01 UTC
+
+- Status PR [#51](https://github.com/getpatched/platform/pull/51) merged at `adfbc9147ec521a4486db507175a41e516d8d698`; the main quality and automatic Worker/site deployments passed. The `getpatched-esm` Actions environment is configured for only `main`; an independent read-only review confirmed the branch policy. Its secret list is empty, and no Ubuntu Pro token was found in the approved authstore or current environment names.
+- Rebranded verify-only builds ran against the current public package commits: libxml2 [40783214901](https://github.com/getpatched/platform/actions/runs/40783214901), libarchive [40783211530](https://github.com/getpatched/platform/actions/runs/40783211530). Both baseline regressions reproduced the targeted issue, patched regressions passed, and signed isolated Focal APT client tests verified Release signatures, by-hash SHA-256 indexes, exact binary installation, and source retrieval. The package-aware scan changed libxml2 from both target CVEs to none, and libarchive from CVE-2026-4111 plus two unrelated libxml2 findings to only those unrelated findings. Raw Trivy zero findings are not treated as target remediation evidence.
+- Both hosted runs ended with the intentional release gate `future Ubuntu Pro ESM upgrade ordering is unresolved`; their reports state `releaseEligible: false`. They published no binaries or repository metadata. Report artifacts remain retained by GitHub; temporary local report copies were removed.
+- **Next actions:** add `UBUNTU_PRO_TOKEN` through GitHub's secret UI to the main-only `getpatched-esm` environment, run the authentic ESM source audit, then prove real Focal ESM upgrade ordering/ABI compatibility before changing release eligibility. Complete Sponsors enrollment and live sponsor entitlement testing before production publication.
+
 ## Verification update — 28 October 2026, 22:50 UTC
 
 - Platform PR [#49](https://github.com/getpatched/platform/pull/49) merged to `main` at `7a2647260e38565b3913e1b27bea0f1a852274c1`. Main quality [40782488495](https://github.com/getpatched/platform/actions/runs/40782488495), Worker verification/deploy/site smoke [40782488480](https://github.com/getpatched/platform/actions/runs/40782488480), and the post-rule R2 self-test [40782312431](https://github.com/getpatched/platform/actions/runs/40782312431) passed. The Python acceptance suite passes 84/84 with host GPG-agent IPC; its sandboxed run still cannot access GPG-agent IPC for two temporary signing tests.
