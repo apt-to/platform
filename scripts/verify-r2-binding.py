@@ -70,6 +70,18 @@ def verify_remote_binding():
         except (OSError, json.JSONDecodeError):
             pass
         finally:
+            content_type = error.headers.get("Content-Type", "") if error.headers else ""
+            ray_id = error.headers.get("CF-Ray") if error.headers else None
+            mitigated = error.headers.get("CF-Mitigated") if error.headers else None
+            diagnostics = []
+            if content_type:
+                diagnostics.append(f"content-type: {content_type[:80]}")
+            if ray_id:
+                diagnostics.append(f"cf-ray: {ray_id[:80]}")
+            if mitigated:
+                diagnostics.append(f"cf-mitigated: {mitigated[:40]}")
+            if diagnostics:
+                message += f" ({', '.join(diagnostics)})"
             error.close()
         raise RuntimeError(message) from None
     except (OSError, urllib.error.URLError, json.JSONDecodeError):
