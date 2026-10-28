@@ -1,5 +1,11 @@
 # GetPatched implementation status
 
+## Current continuation — 28 October 2026, 21:12 UTC
+
+- Enabled GitHub secret scanning and push protection on the three public repositories (`platform`, `packaging-libxml2`, and `packaging-libarchive`); private vulnerability reporting is enabled on all three. The API returned zero open and resolved scanning alerts at the time checked.
+- Local Trivy 0.70.0 secret scans of the three current working trees completed with zero findings. They do not cover `.git` history, GitHub-only Actions logs/artifacts, or raster screenshots. The historical scan completion state and review of those hosted/image surfaces remain unverified. Details and source links are in [`EVIDENCE.md`](EVIDENCE.md).
+- **Next actions:** inspect retained Actions artifacts/logs and screenshots for secret exposure, then continue the blocked live R2 self-test only after the exact Cloudflare BIC exception is approved. Authentic Ubuntu Pro ESM and Sponsors setup remain separate release gates.
+
 ## Current continuation — 28 October 2026, 21:05 UTC
 
 - The protected production R2 self-test workflow is deployed but has not yet verified a create/read/delete round trip. Latest run [40767240472](https://github.com/getpatched/platform/actions/runs/40767240472) received HTTP 403 before reaching the Worker. Cloudflare Security Events for the verified `getpatched.dev` zone attribute the matching request (`a51cd476f8c9a807-ARN`, 28 Oct 2026 21:53:26 CET) to Browser Integrity Check. No R2 diagnostic object was created; unauthenticated direct POST to the Worker route returns its expected 401, confirming the route is live.
