@@ -1,12 +1,13 @@
 # GetPatched implementation status
 
-## Current continuation — 28 October 2026, 21:00 UTC
+## Current continuation — 28 October 2026, 21:05 UTC
 
 - The protected production R2 self-test workflow is deployed but has not yet verified a create/read/delete round trip. Latest run [40767240472](https://github.com/getpatched/platform/actions/runs/40767240472) received HTTP 403 before reaching the Worker. Cloudflare Security Events for the verified `getpatched.dev` zone attribute the matching request (`a51cd476f8c9a807-ARN`, 28 Oct 2026 21:53:26 CET) to Browser Integrity Check. No R2 diagnostic object was created; unauthenticated direct POST to the Worker route returns its expected 401, confirming the route is live.
 - No Cloudflare security setting was changed. A narrowly scoped exception limited to `repo.getpatched.dev`, `POST`, and `/internal/r2-self-test` could let this GitHub-hosted check pass, but that is a production WAF change and is awaiting explicit approval. Until then the R2 binding is deployed, while live R2 operation remains unverified.
 - Other release blockers remain: authentic Ubuntu Pro Focal ESM data/entitlement, GitHub Sponsors enrollment and tier configuration, and subsequent signed live APT install/promotion acceptance. No packages or repository metadata have been published.
 - Fresh read-only HTTP checks at 21:00 UTC return 200 for `https://getpatched.dev/` and `/account`, 503 for `https://repo.getpatched.dev/dists/focal/InRelease`, and 401 for anonymous `https://early.getpatched.dev/dists/focal/InRelease`. The website is reachable; the public archive remains unpublished and the early archive remains protected.
 - Added root-level [`EVIDENCE.md`](EVIDENCE.md) to index source preflight, candidate builds/scans, signing/deployment, live endpoints, screenshots, and the remaining acceptance gates. README now links to the index and current status.
+- Evidence index PR [#41](https://github.com/getpatched/platform/pull/41) merged to `main` at `c63cd61463ee8306c5ad9c3478304dc8c36a7b39`. Quality run [40768702711](https://github.com/getpatched/platform/actions/runs/40768702711) and automatic Worker/site deployment plus smoke checks [40768844058](https://github.com/getpatched/platform/actions/runs/40768844058) passed.
 - **Next actions:** approve or decline the exact route-scoped Browser Integrity Check exception; provide the Ubuntu Pro entitlement and complete Sponsors enrollment to continue the independent release gates.
 
 ## Current continuation — 28 October 2026, 20:36 UTC
