@@ -1,5 +1,10 @@
 # GetPatched implementation status
 
+## Verification update — 28 October 2026, 23:16 UTC
+
+- Hosted signing-key verification workflow [40786134419](https://github.com/getpatched/platform/actions/runs/40786134419) passed from `main`: it imported the protected APT signing key, checked its configured fingerprint, then signed and verified a disposable Focal repository. This confirms key usability and fingerprint consistency; it does not publish production indexes or verify the live repository endpoint.
+- **Next actions:** complete GitHub sudo-mode reauthentication before configuring OAuth, complete GitHub Sponsors enrollment and tier setup, and add `UBUNTU_PRO_TOKEN` to the main-only `getpatched-esm` environment before the authentic ESM ordering/ABI checks. Keep publication disabled until all release acceptance gates pass.
+
 ## Live configuration check — 29 October 2026, 00:06 UTC
 
 - Platform PR [#52](https://github.com/getpatched/platform/pull/52) is merged at `037e5c492bea4d8cd8c8a4f4b0d60c484aee8017`; catalogue quality, main quality, and automatic Worker/site deployment all passed. The site and `/account` return HTTP 200. Public Focal `InRelease` returns 503 and anonymous early `InRelease` returns 401; signed production indexes are not published.
