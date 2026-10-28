@@ -9,8 +9,12 @@
       "access": "sponsor",
       "delayHours": 168,
       "status": "development-checks-passed",
-      "verification": "https://github.com/getpatched/platform/actions/runs/40285154915",
-      "sourceUrl": "https://github.com/getpatched/packaging-libxml2/tree/aptto/focal"
+      "verification": "https://github.com/getpatched/platform/actions/runs/40640693660",
+      "sourceUrl": "https://github.com/getpatched/packaging-libxml2/tree/aptto/focal",
+      "patchUrl": "https://github.com/getpatched/packaging-libxml2/blob/aptto/focal/debian/patches/CVE-2025-49794-49796-aptto.patch",
+      "testsUrl": "https://github.com/getpatched/packaging-libxml2/tree/aptto/focal/debian/tests",
+      "releasesUrl": "https://github.com/getpatched/packaging-libxml2/releases",
+      "releaseStatus": "No production release"
     },
     {
       "source": "libarchive",
@@ -19,8 +23,12 @@
       "access": "public",
       "delayHours": 0,
       "status": "development-checks-passed",
-      "verification": "https://github.com/getpatched/platform/actions/runs/40285159539",
-      "sourceUrl": "https://github.com/getpatched/packaging-libarchive/tree/aptto/focal"
+      "verification": "https://github.com/getpatched/platform/actions/runs/40640691922",
+      "sourceUrl": "https://github.com/getpatched/packaging-libarchive/tree/aptto/focal",
+      "patchUrl": "https://github.com/getpatched/packaging-libarchive/blob/aptto/focal/debian/patches/CVE-2026-4111-aptto.patch",
+      "testsUrl": "https://github.com/getpatched/packaging-libarchive/tree/aptto/focal/debian/tests",
+      "releasesUrl": "https://github.com/getpatched/packaging-libarchive/releases",
+      "releaseStatus": "No production release"
     }
   ]
 }

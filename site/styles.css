@@ -103,8 +103,10 @@ tbody tr:hover { background: rgba(255,255,255,.43); }
 .verification-link { color: var(--green); white-space: nowrap; font-size: 11px; font-weight: 600; text-decoration: none; }
 .verification-link small { white-space: nowrap; }
 .verified-check { margin-right: 4px; font-weight: 700; }
-.row-action { text-align: right; white-space: nowrap; font-size: 11px; }
-.row-action a { color: var(--green); }
+.row-action { font-size: 10px; }
+.evidence-links { display: grid; grid-template-columns: repeat(2, max-content); justify-content: end; gap: 6px 12px; }
+.evidence-links a { color: var(--green); }
+.release-status { grid-column: 1 / -1; color: var(--muted); font: 9px var(--mono); text-align: right; }
 .loading-cell { padding: 28px 12px; color: var(--muted); font: 11px var(--mono); }
 .loading-mark { width: 7px; height: 7px; margin-right: 10px; display: inline-block; background: #c36e30; animation: blink 1s steps(2, start) infinite; }
 @keyframes blink { to { visibility: hidden; } }
@@ -181,6 +183,8 @@ tbody tr:hover { background: rgba(255,255,255,.43); }
   .cve-cell { font-size: 11px; }
   .cve-cell small, .verification-link small { margin-top: 3px; }
   .row-action { padding-bottom: 0; }
+  .evidence-links { justify-content: start; grid-template-columns: repeat(2, max-content); }
+  .release-status { text-align: left; }
   .table-caption { padding-right: 18px; }
   .how-it-works { margin-top: 56px; padding-top: 25px; }
   .process-steps { grid-template-columns: 1fr; gap: 19px; }

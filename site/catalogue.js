@@ -13,7 +13,7 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 function packageRow(item) {
   const cves = item.cves.map((cve) => `<a href="https://ubuntu.com/security/${encodeURIComponent(cve)}">${escapeHtml(cve)}</a>`).join("<span class=\"cve-separator\"> / </span>");
   const policy = item.access === "sponsor"
-    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Public after 168 hours</span>`
+    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Public ${escapeHtml(item.delayHours)} hours after sponsor release</span>`
     : `<span class="policy-dot policy-public"></span><span class="policy-main">Public immediately</span><span class="policy-detail">After release checks pass</span>`;
   return `<tr data-source="${escapeHtml(item.source)}">
     <th scope="row" class="package-name"><span>${escapeHtml(item.source)}</span><small>source package</small></th>
@@ -21,7 +21,13 @@ function packageRow(item) {
     <td class="cve-cell" data-label="PATCH FOCUS">${cves}<small>Patch and regression details</small></td>
     <td class="policy-cell" data-label="BINARY ACCESS">${policy}</td>
     <td data-label="DEVELOPMENT CHECKS"><a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Development checks passed<small>Hosted build and regressions ↗</small></a></td>
-    <td class="row-action" data-label="PUBLIC SOURCE"><a href="${escapeHtml(item.sourceUrl)}" aria-label="View ${escapeHtml(item.source)} source on GitHub">Source ↗</a></td>
+    <td class="row-action" data-label="PACKAGE EVIDENCE"><nav class="evidence-links" aria-label="${escapeHtml(item.source)} package evidence">
+      <a href="${escapeHtml(item.sourceUrl)}">Source ↗</a>
+      <a href="${escapeHtml(item.patchUrl)}">Patch ↗</a>
+      <a href="${escapeHtml(item.testsUrl)}">Tests ↗</a>
+      <a href="${escapeHtml(item.releasesUrl)}">Releases ↗</a>
+      <span class="release-status">${escapeHtml(item.releaseStatus)}</span>
+    </nav></td>
   </tr>`;
 }
 
