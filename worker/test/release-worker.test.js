@@ -28,6 +28,49 @@ class MemoryBucket {
   }
 }
 
+class MemoryR2SelfTestBucket {
+  constructor({ tamperRead = false, collide = false } = {}) {
+    this.objects = new Map();
+    this.tamperRead = tamperRead;
+    this.collide = collide;
+  }
+  async put(key, body, options) {
+    if (this.collide) {
+      this.objects.set(key, {
+        size: 8,
+        checksums: { sha256: new Uint8Array(32).buffer },
+        customMetadata: { purpose: "unrelated-object", nonce: "another-writer" },
+        bytes: new TextEncoder().encode("occupied"),
+      });
+      return null;
+    }
+    if (options.onlyIf.etagDoesNotMatch === "*" && this.objects.has(key)) return null;
+    const bytes = Uint8Array.from(body);
+    const metadata = {
+      size: bytes.byteLength,
+      checksums: { sha256: options.sha256 },
+      customMetadata: options.customMetadata,
+      httpMetadata: options.httpMetadata,
+    };
+    this.objects.set(key, { ...metadata, bytes });
+    return metadata;
+  }
+  async head(key) {
+    const object = this.objects.get(key);
+    if (!object) return null;
+    const { bytes, ...metadata } = object;
+    return metadata;
+  }
+  async get(key) {
+    const object = this.objects.get(key);
+    if (!object) return null;
+    let bytes = object.bytes;
+    if (this.tamperRead) bytes = Uint8Array.from([...bytes].map((byte, index) => index === 0 ? byte ^ 1 : byte));
+    return { ...object, arrayBuffer: async () => bytes.slice().buffer };
+  }
+  async delete(key) { this.objects.delete(key); }
+}
+
 function signedOidcToken(privateKey, overrides = {}, signatureKey = privateKey, keyId = "test-key") {
   const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: keyId })).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
@@ -54,6 +97,23 @@ test("GitHub Actions OIDC accepts only signed tokens from the protected staging 
       headers: { authorization: `Bearer ${signedOidcToken(privateKey, { run_attempt: "1" })}` },
     }), {});
     assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1, environment: "getpatched-signing", workflow: "private-staging" });
+    const r2Identity = await githubActionsIdentity(new Request("https://worker.test", {
+      headers: { authorization: `Bearer ${signedOidcToken(privateKey, {
+        workflow_ref: "getpatched/platform/.github/workflows/r2-storage-self-test.yml@refs/heads/main",
+        event_name: "workflow_dispatch", environment: "getpatched-index-build",
+      })}` },
+    }), {});
+    assert.deepEqual(r2Identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1, environment: "getpatched-index-build", workflow: "r2-storage-self-test" });
+    const r2WrongEnvironment = signedOidcToken(privateKey, {
+      workflow_ref: "getpatched/platform/.github/workflows/r2-storage-self-test.yml@refs/heads/main",
+      event_name: "workflow_dispatch", environment: "getpatched-signing",
+    });
+    assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${r2WrongEnvironment}` } }), {}), null);
+    const r2WrongEvent = signedOidcToken(privateKey, {
+      workflow_ref: "getpatched/platform/.github/workflows/r2-storage-self-test.yml@refs/heads/main",
+      event_name: "schedule", environment: "getpatched-index-build",
+    });
+    assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${r2WrongEvent}` } }), {}), null);
     const wrongEnvironment = signedOidcToken(privateKey, { environment: "unprotected" });
     assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${wrongEnvironment}` } }), {}), null);
     const missingEnvironment = signedOidcToken(privateKey, { environment: undefined });
@@ -65,6 +125,66 @@ test("GitHub Actions OIDC accepts only signed tokens from the protected staging 
     const { privateKey: attackerKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     const forged = signedOidcToken(privateKey, {}, attackerKey);
     assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${forged}` } }), {}), null);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("protected R2 self-test writes, verifies and removes its uniquely scoped diagnostic object", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const keyId = "r2-self-test-oidc";
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  const workflowClaims = {
+    workflow_ref: "getpatched/platform/.github/workflows/r2-storage-self-test.yml@refs/heads/main",
+    event_name: "workflow_dispatch", environment: "getpatched-index-build",
+  };
+  const authorization = `Bearer ${signedOidcToken(privateKey, workflowClaims, privateKey, keyId)}`;
+  try {
+    const bucket = new MemoryR2SelfTestBucket();
+    const result = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/r2-self-test", {
+      method: "POST", headers: { authorization },
+    }), { RELEASES: bucket });
+    assert.equal(result.status, 200);
+    const report = await result.json();
+    assert.equal(report.ok, true);
+    assert.equal(report.operation, "write-read-delete");
+    assert.equal(report.run_id, 40210000000);
+    assert.equal(report.cleaned, true);
+    assert.match(report.sha256, /^[a-f0-9]{64}$/);
+    assert.equal(bucket.objects.size, 0, "the temporary diagnostic object is deleted after readback");
+
+    const tamperedBucket = new MemoryR2SelfTestBucket({ tamperRead: true });
+    const tampered = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/r2-self-test", {
+      method: "POST", headers: { authorization },
+    }), { RELEASES: tamperedBucket });
+    assert.equal(tampered.status, 502);
+    assert.equal((await tampered.json()).cleaned, true);
+    assert.equal(tamperedBucket.objects.size, 0, "failed readback is still cleaned up");
+
+    const collisionBucket = new MemoryR2SelfTestBucket({ collide: true });
+    const collision = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/r2-self-test", {
+      method: "POST", headers: { authorization },
+    }), { RELEASES: collisionBucket });
+    assert.equal(collision.status, 502);
+    const collisionReport = await collision.json();
+    assert.equal(collisionReport.stage, "unique-write");
+    assert.equal(collisionReport.cleaned, true, "a create-only collision means this self-test wrote nothing");
+    assert.equal(collisionReport.object_key, null);
+    assert.equal(collisionBucket.objects.size, 1, "the test never deletes an object it did not create");
+
+    const wrongWorkflow = `Bearer ${signedOidcToken(privateKey, {
+      ...workflowClaims,
+      workflow_ref: "getpatched/platform/.github/workflows/package-verification.yml@refs/heads/main",
+    }, privateKey, keyId)}`;
+    const denied = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/r2-self-test", {
+      method: "POST", headers: { authorization: wrongWorkflow },
+    }), { RELEASES: bucket });
+    assert.equal(denied.status, 401);
+    assert.equal(bucket.objects.size, 0);
+    const unavailable = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/r2-self-test", {
+      method: "POST", headers: { authorization },
+    }), {});
+    assert.equal(unavailable.status, 503);
   } finally { globalThis.fetch = originalFetch; }
 });
 

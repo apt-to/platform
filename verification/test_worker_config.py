@@ -64,6 +64,16 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertIn("secrets.CLOUDFLARE_ACCOUNT_ID", workflow)
         self.assertIn('"https://getpatched.dev${path}"', workflow)
 
+    def test_r2_self_test_is_manual_main_only_and_does_not_enable_publication(self):
+        workflow = (ROOT / ".github" / "workflows" / "r2-storage-self-test.yml").read_text()
+        self.assertRegex(workflow, r"on:\n\s+workflow_dispatch:")
+        self.assertIn("if: github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("environment: getpatched-index-build", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("python3 scripts/verify-r2-binding.py", workflow)
+        self.assertNotIn("GETPATCHED_REPOSITORY_ENABLED", workflow)
+        self.assertNotIn("secrets.", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

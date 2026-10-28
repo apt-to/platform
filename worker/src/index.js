@@ -54,13 +54,17 @@ async function githubActionsIdentity(request, env) {
     const stagingWorkflow = claims.workflow_ref === "getpatched/platform/.github/workflows/private-staging.yml@refs/heads/main" && claims.event_name === "workflow_run";
     const snapshotWorkflow = claims.workflow_ref === "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" &&
       ["workflow_run", "schedule", "workflow_dispatch"].includes(claims.event_name);
+    const r2SelfTestWorkflow = claims.workflow_ref === "getpatched/platform/.github/workflows/r2-storage-self-test.yml@refs/heads/main" &&
+      claims.event_name === "workflow_dispatch";
     const runAttempt = typeof claims.run_attempt === "string" && /^\d+$/.test(claims.run_attempt) ? Number(claims.run_attempt) : claims.run_attempt;
     if (claims.iss !== OIDC_ISSUER || audiences.length !== 1 || audiences[0] !== OIDC_AUDIENCE || !Number.isSafeInteger(claims.exp) || claims.exp <= now ||
         !Number.isSafeInteger(claims.iat) || claims.iat > now + 60 || claims.repository !== "getpatched/platform" || claims.repository_id !== "1433070541" ||
-        claims.repository_owner !== "getpatched" || claims.repository_visibility !== "public" || !(stagingWorkflow || snapshotWorkflow) ||
+        claims.repository_owner !== "getpatched" || claims.repository_visibility !== "public" || !(stagingWorkflow || snapshotWorkflow || r2SelfTestWorkflow) ||
         claims.ref !== "refs/heads/main" ||
         claims.runner_environment !== "github-hosted" ||
-        (stagingWorkflow ? claims.environment !== "getpatched-signing" : !["getpatched-index-build", "getpatched-signing"].includes(claims.environment)) ||
+        (stagingWorkflow ? claims.environment !== "getpatched-signing" :
+          r2SelfTestWorkflow ? claims.environment !== "getpatched-index-build" :
+            !["getpatched-index-build", "getpatched-signing"].includes(claims.environment)) ||
         !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(runAttempt) || runAttempt < 1 ||
         (claims.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || claims.nbf > now + 60)) || typeof claims.jti !== "string" || !claims.jti) return null;
     return {
@@ -68,9 +72,84 @@ async function githubActionsIdentity(request, env) {
       run_id: Number(claims.run_id),
       run_attempt: runAttempt,
       environment: claims.environment,
-      workflow: stagingWorkflow ? "private-staging" : "repository-snapshot",
+      workflow: stagingWorkflow ? "private-staging" : r2SelfTestWorkflow ? "r2-storage-self-test" : "repository-snapshot",
     };
   } catch { return null; }
+}
+
+async function verifyR2Binding(request, env) {
+  const identity = await githubActionsIdentity(request, env);
+  if (!identity || identity.type !== "github-actions" || identity.workflow !== "r2-storage-self-test" ||
+      identity.environment !== "getpatched-index-build") {
+    return json({ error: "protected R2 self-test workflow identity required" }, 401);
+  }
+  if (!env.RELEASES) return json({ error: "release storage is unavailable" }, 503);
+
+  const nonce = crypto.randomUUID();
+  const key = `diagnostics/r2-self-test/${identity.run_id}-${identity.run_attempt}-${nonce}.bin`;
+  const bytes = new TextEncoder().encode(`GetPatched R2 self-test\nrun=${identity.run_id}\nattempt=${identity.run_attempt}\nnonce=${nonce}\n`);
+  const digest = await sha256Hex(bytes);
+  let writeAttempted = false;
+  let writeRejected = false;
+  let failureStage = null;
+  let readBackOk = false;
+  let cleanupOk = false;
+  let cleanupObjectKey = null;
+
+  try {
+    writeAttempted = true;
+    const stored = await env.RELEASES.put(key, bytes, {
+      onlyIf: { etagDoesNotMatch: "*" },
+      sha256: checksumBuffer(digest),
+      httpMetadata: { contentType: "application/octet-stream" },
+      customMetadata: { purpose: "r2-storage-self-test", nonce, runId: String(identity.run_id) },
+    });
+    if (!stored) {
+      writeRejected = true;
+      failureStage = "unique-write";
+    }
+    else {
+      const metadata = await env.RELEASES.head(key);
+      const object = await env.RELEASES.get(key);
+      const responseBytes = object ? await object.arrayBuffer() : null;
+      if (!metadata || !object || metadata.size !== bytes.byteLength || checksumHex(metadata.checksums?.sha256) !== digest ||
+          metadata.customMetadata?.nonce !== nonce || !responseBytes || responseBytes.byteLength !== bytes.byteLength ||
+          await sha256Hex(responseBytes) !== digest) {
+        failureStage = "readback";
+      } else readBackOk = true;
+    }
+  } catch {
+    failureStage ||= "write-readback";
+  } finally {
+    if (writeAttempted) {
+      try {
+        const metadata = await env.RELEASES.head(key);
+        if (!metadata) cleanupOk = true;
+        else if (metadata.customMetadata?.nonce === nonce) {
+          await env.RELEASES.delete(key);
+          const remaining = await env.RELEASES.head(key);
+          cleanupOk = !remaining;
+          if (remaining?.customMetadata?.nonce === nonce) cleanupObjectKey = key;
+        } else if (writeRejected) cleanupOk = true;
+        else failureStage ||= "cleanup";
+      } catch {
+        failureStage ||= "cleanup";
+        try {
+          const remaining = await env.RELEASES.head(key);
+          cleanupOk = !remaining;
+          if (remaining?.customMetadata?.nonce === nonce) cleanupObjectKey = key;
+        } catch { /* Keep cleanup failed when R2 cannot confirm object state. */ }
+      }
+    }
+  }
+
+  if (!readBackOk || !cleanupOk) return json({
+    error: "R2 storage self-test failed",
+    stage: failureStage || (!cleanupOk ? "cleanup" : "readback"),
+    cleaned: cleanupOk,
+    object_key: cleanupObjectKey,
+  }, 502);
+  return json({ ok: true, operation: "write-read-delete", bytes: bytes.byteLength, sha256: digest, run_id: identity.run_id, cleaned: true });
 }
 
 function requestError(message, status) {
@@ -2034,6 +2113,10 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/me") {
       try { return await accountStatus(request, env); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
+    }
+    if (request.method === "POST" && url.pathname === "/internal/r2-self-test") {
+      try { return await verifyR2Binding(request, env); }
+      catch { return json({ error: "R2 storage self-test failed", stage: "unexpected" }, 502); }
     }
     if (request.method === "GET" && url.pathname === "/auth/github") return beginGithubLogin(request, env);
     if (request.method === "GET" && url.pathname === "/auth/github/callback") {
