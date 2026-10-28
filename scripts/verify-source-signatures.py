@@ -37,7 +37,7 @@ def fetch(url: str, destination: pathlib.Path) -> None:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname not in ALLOWED_HOSTS:
         raise ValueError(f"refusing unapproved source URL: {url}")
-    request = urllib.request.Request(url, headers={"User-Agent": "aptto-evidence-verifier/1"})
+    request = urllib.request.Request(url, headers={"User-Agent": "getpatched-evidence-verifier/1"})
     opener = urllib.request.build_opener(SameHostHTTPSRedirectHandler())
     with opener.open(request, timeout=60) as response, destination.open("wb") as output:
         final = urlparse(response.geturl())
@@ -101,7 +101,7 @@ def main() -> int:
     if shutil.which("gpg") is None:
         raise RuntimeError("gpg is required; install GnuPG and retry")
     evidence = json.loads(EVIDENCE.read_text())
-    with tempfile.TemporaryDirectory(prefix="aptto-source-verify-") as temp:
+    with tempfile.TemporaryDirectory(prefix="getpatched-source-verify-") as temp:
         temp_path = pathlib.Path(temp)
         home = temp_path / "gnupg"
         home.mkdir(mode=0o700)

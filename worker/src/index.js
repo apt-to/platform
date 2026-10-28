@@ -14,7 +14,7 @@ const MAX_SPONSOR_WEBHOOK_BYTES = 256 * 1024;
 const SPONSOR_ENTITLEMENTS_KEY = "sponsor-entitlements/current.json";
 const SPONSOR_SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000;
 const OIDC_ISSUER = "https://token.actions.githubusercontent.com";
-const OIDC_AUDIENCE = "aptto-release-gateway";
+const OIDC_AUDIENCE = "getpatched-release-gateway";
 let oidcKeys;
 
 function base64urlBytes(text) {
@@ -60,7 +60,7 @@ async function githubActionsIdentity(request, env) {
         claims.repository_owner !== "getpatched" || claims.repository_visibility !== "public" || !(stagingWorkflow || snapshotWorkflow) ||
         claims.ref !== "refs/heads/main" ||
         claims.runner_environment !== "github-hosted" ||
-        (stagingWorkflow ? claims.environment !== "aptto-signing" : !["aptto-index-build", "aptto-signing"].includes(claims.environment)) ||
+        (stagingWorkflow ? claims.environment !== "getpatched-signing" : !["getpatched-index-build", "getpatched-signing"].includes(claims.environment)) ||
         !/^\d+$/.test(String(claims.run_id || "")) || !Number.isSafeInteger(runAttempt) || runAttempt < 1 ||
         (claims.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || claims.nbf > now + 60)) || typeof claims.jti !== "string" || !claims.jti) return null;
     return {
@@ -121,7 +121,7 @@ function releaseAssets(assets, id) {
 }
 
 function sourceReleaseTag(record) {
-  return `aptto-source/${record.tag.slice("aptto/".length)}`;
+  return `getpatched-source/${record.tag.slice("aptto/".length)}`;
 }
 
 function checksumBuffer(hex) {
@@ -178,13 +178,13 @@ function canonicalSnapshotBuildFiles(files) {
 
 function snapshotFilePath(value) {
   if (typeof value !== "string" || value.length > 512) return false;
-  if (value === "aptto-archive-keyring.gpg") return true;
+  if (value === "getpatched-archive-keyring.gpg") return true;
   return /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(value) ||
     /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*\/by-hash\/SHA256\/[a-f0-9]{64}$/.test(value);
 }
 
 function snapshotContentType(path) {
-  if (path === "aptto-archive-keyring.gpg") return "application/pgp-keys";
+  if (path === "getpatched-archive-keyring.gpg") return "application/pgp-keys";
   if (path.endsWith(".gz")) return "application/gzip";
   if (path.endsWith(".xz")) return "application/x-xz";
   if (path.endsWith(".gpg")) return "application/pgp-signature";
@@ -213,7 +213,7 @@ function canonicalSnapshotFiles(files) {
     "dists/focal/Release", "dists/focal/InRelease", "dists/focal/Release.gpg",
     "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
     "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
-    "aptto-archive-keyring.gpg",
+    "getpatched-archive-keyring.gpg",
   ];
   if (required.some((path) => !seen.has(path))) throw requestError("snapshot is missing signed focal indexes or the public archive key", 400);
   return normalized;
@@ -424,14 +424,14 @@ async function pruneRepositorySnapshots(request, env) {
 
 async function snapshotPublisherIdentity(request, env) {
   const identity = await githubActionsIdentity(request, env);
-  if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-signing") return null;
+  if (!identity || identity.type !== "github-actions" || identity.environment !== "getpatched-signing") return null;
   const claims = await githubActionsClaims(request, env);
   return claims?.workflow_ref === "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
 }
 
 async function snapshotBuilderIdentity(request, env) {
   const identity = await githubActionsIdentity(request, env);
-  if (!identity || identity.type !== "github-actions" || identity.environment !== "aptto-index-build") return null;
+  if (!identity || identity.type !== "github-actions" || identity.environment !== "getpatched-index-build") return null;
   const claims = await githubActionsClaims(request, env);
   return claims?.workflow_ref === "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main" ? identity : null;
 }
@@ -724,7 +724,7 @@ async function activateRepositorySnapshot(request, env, channel, id) {
 
 async function serveRepositoryFile(request, env, channel, path) {
   if (!snapshotFilePath(path)) return json({ error: "invalid repository metadata path" }, 400);
-  const keyring = path === "aptto-archive-keyring.gpg";
+  const keyring = path === "getpatched-archive-keyring.gpg";
   if (channel === "early" && !keyring && !await deviceTokenUser(request, env)) return new Response("sponsor authentication required", {
     status: 401,
     headers: { "www-authenticate": 'Basic realm="getpatched.dev early repository"', "cache-control": "private, no-store", vary: "Authorization" },
@@ -2170,8 +2170,8 @@ export default {
       try { return await serveRepositoryFile(request, env, channel, path); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
-    if (["GET", "HEAD"].includes(request.method) && url.pathname === "/aptto-archive-keyring.gpg") {
-      try { return await serveRepositoryFile(request, env, "public", "aptto-archive-keyring.gpg"); }
+    if (["GET", "HEAD"].includes(request.method) && url.pathname === "/getpatched-archive-keyring.gpg") {
+      try { return await serveRepositoryFile(request, env, "public", "getpatched-archive-keyring.gpg"); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
     if (request.method === "POST" && url.pathname === "/webhooks/github/sponsorship") {

@@ -112,7 +112,7 @@ def sign_release(dist, key_home, fingerprint):
                               capture_output=True, env=env).stdout
     if not exported:
         raise ValueError("public signing key export is empty")
-    with tempfile.TemporaryDirectory(prefix="aptto-gpg-verify-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="getpatched-gpg-verify-") as temporary:
         verify_home = Path(temporary) / "gnupg"
         verify_home.mkdir(mode=0o700)
         verify_env = {**env, "GNUPGHOME": str(verify_home)}
@@ -122,7 +122,7 @@ def sign_release(dist, key_home, fingerprint):
                        env=verify_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["gpg", "--batch", "--verify", str(dist / "Release.gpg"), str(release)],
                        cwd=dist, check=True, env=verify_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    public_key = dist.parent.parent / "aptto-archive-keyring.gpg"
+    public_key = dist.parent.parent / "getpatched-archive-keyring.gpg"
     public_key.write_bytes(exported)
     return public_key
 

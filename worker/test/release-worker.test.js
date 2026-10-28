@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash, createHmac, generateKeyPairSync, sign as signJwt } from "node:crypto";
 import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
 
-const TEST_RELEASE_TAG_SIGNER = "aptto-release-maintainer";
+const TEST_RELEASE_TAG_SIGNER = "getpatched-release-maintainer";
 
 class MemoryBucket {
   constructor(entries = {}) {
@@ -32,12 +32,12 @@ function signedOidcToken(privateKey, overrides = {}, signatureKey = privateKey, 
   const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: keyId })).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
   const claims = Buffer.from(JSON.stringify({
-    iss: "https://token.actions.githubusercontent.com", aud: "aptto-release-gateway",
+    iss: "https://token.actions.githubusercontent.com", aud: "getpatched-release-gateway",
     exp: now + 120, iat: now, nbf: now - 1, jti: "test-jti-12345678",
     repository: "getpatched/platform", repository_id: "1433070541", repository_owner: "getpatched",
     repository_visibility: "public", event_name: "workflow_run", ref: "refs/heads/main",
     workflow_ref: "getpatched/platform/.github/workflows/private-staging.yml@refs/heads/main",
-    runner_environment: "github-hosted", environment: "aptto-signing", run_id: "40210000000", run_attempt: 1,
+    runner_environment: "github-hosted", environment: "getpatched-signing", run_id: "40210000000", run_attempt: 1,
     ...overrides,
   })).toString("base64url");
   const input = `${header}.${claims}`;
@@ -53,7 +53,7 @@ test("GitHub Actions OIDC accepts only signed tokens from the protected staging 
     const identity = await githubActionsIdentity(new Request("https://worker.test", {
       headers: { authorization: `Bearer ${signedOidcToken(privateKey, { run_attempt: "1" })}` },
     }), {});
-    assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1, environment: "aptto-signing", workflow: "private-staging" });
+    assert.deepEqual(identity, { type: "github-actions", run_id: 40210000000, run_attempt: 1, environment: "getpatched-signing", workflow: "private-staging" });
     const wrongEnvironment = signedOidcToken(privateKey, { environment: "unprotected" });
     assert.equal(await githubActionsIdentity(new Request("https://worker.test", { headers: { authorization: `Bearer ${wrongEnvironment}` } }), {}), null);
     const missingEnvironment = signedOidcToken(privateKey, { environment: undefined });
@@ -96,10 +96,10 @@ test("APT snapshot inventory and gated package export require the dedicated sign
   const workflowClaims = {
     workflow_ref: "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
     event_name: "workflow_dispatch",
-    environment: "aptto-index-build",
+    environment: "getpatched-index-build",
   };
   const authorization = `Bearer ${signedOidcToken(privateKey, workflowClaims, privateKey, keyId)}`;
-  const signerToken = `Bearer ${signedOidcToken(privateKey, { ...workflowClaims, environment: "aptto-signing" }, privateKey, keyId)}`;
+  const signerToken = `Bearer ${signedOidcToken(privateKey, { ...workflowClaims, environment: "getpatched-signing" }, privateKey, keyId)}`;
   try {
     const inventory = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/repository-snapshots/early/releases", { headers: { authorization } }), env);
     assert.equal(inventory.status, 200);
@@ -134,8 +134,8 @@ test("unsigned snapshot build storage separates index-builder writes from signer
   const bucket = new MemorySnapshotBucket({ "release-state/pilot.json": release });
   const env = { RELEASES: bucket };
   const workflowRef = "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main";
-  const builderToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "aptto-index-build" }, privateKey, keyId)}`;
-  const signerToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "aptto-signing" }, privateKey, keyId)}`;
+  const builderToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-index-build" }, privateKey, keyId)}`;
+  const signerToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-signing" }, privateKey, keyId)}`;
   const contents = new Map([
     ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
     ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\n"],
@@ -680,7 +680,7 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
       return Response.json([{ name: binaryName, browser_download_url: `https://github.com/getpatched/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}` }]);
     }
     if (value.endsWith("/releases/902/assets")) {
-      return Response.json([{ name: sourceName, browser_download_url: `https://github.com/getpatched/packaging-libxml2/releases/download/aptto-source/1.2.3/${sourceName}` }]);
+      return Response.json([{ name: sourceName, browser_download_url: `https://github.com/getpatched/packaging-libxml2/releases/download/getpatched-source/1.2.3/${sourceName}` }]);
     }
     throw new Error(`unexpected GitHub URL ${value}`);
   };
@@ -691,7 +691,7 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
     assert.equal(binary.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}`);
     const source = await gateway.fetch(new Request(`https://repo.getpatched.dev/pool/main/l/libxml2/${sourceName}`), env);
     assert.equal(source.status, 302);
-    assert.equal(source.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/aptto-source/1.2.3/${sourceName}`);
+    assert.equal(source.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/getpatched-source/1.2.3/${sourceName}`);
     const traversal = await gateway.fetch(new Request(`https://repo.getpatched.dev/pool/main/l/libxml2/%2e%2e%2F${binaryName}`), env);
     assert.equal(traversal.status, 400);
 
@@ -820,9 +820,9 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     event_name: "workflow_dispatch",
   };
   const authorization = `Bearer ${signedOidcToken(privateKey, snapshotClaims, privateKey, keyId)}`;
-  const builderAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "aptto-index-build" }, privateKey, keyId)}`;
+  const builderAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "getpatched-index-build" }, privateKey, keyId)}`;
   const stagingAuthorization = `Bearer ${signedOidcToken(privateKey, {}, privateKey, keyId)}`;
-    const builderReleaseAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "aptto-index-build" }, privateKey, keyId)}`;
+    const builderReleaseAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "getpatched-index-build" }, privateKey, keyId)}`;
   const firstId = "focal-20261025T120000-r101-public";
   const contents = new Map([
     ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
@@ -834,7 +834,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     ["dists/focal/main/source/Sources", "Package: libarchive\n"],
     ["dists/focal/main/source/Sources.gz", "gzip source fixture"],
     ["dists/focal/main/source/Sources.xz", "xz source fixture"],
-    ["aptto-archive-keyring.gpg", "public key fixture"],
+    ["getpatched-archive-keyring.gpg", "public key fixture"],
   ]);
   const files = [...contents].map(([path, content]) => ({ path, size: Buffer.byteLength(content), sha256: createHash("sha256").update(content).digest("hex") }));
   try {
@@ -905,7 +905,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     const restored = await gateway.fetch(new Request("https://repo.getpatched.dev/dists/focal/InRelease"), env);
     assert.equal(await restored.text(), contents.get("dists/focal/InRelease"));
 
-    const keyring = await gateway.fetch(new Request("https://early.getpatched.dev/aptto-archive-keyring.gpg"), env);
+    const keyring = await gateway.fetch(new Request("https://early.getpatched.dev/getpatched-archive-keyring.gpg"), env);
     assert.equal(keyring.status, 200, "the public trust anchor remains anonymously available");
     const privateIndex = await gateway.fetch(new Request("https://early.getpatched.dev/dists/focal/InRelease"), env);
     assert.equal(privateIndex.status, 401);
@@ -935,7 +935,7 @@ test("protected retention keeps the active snapshot and five rollback snapshots 
   globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
   const claims = {
     workflow_ref: "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
-    event_name: "schedule", environment: "aptto-signing",
+    event_name: "schedule", environment: "getpatched-signing",
   };
   const signerAuthorization = `Bearer ${signedOidcToken(privateKey, claims, privateKey, keyId)}`;
   const bucket = new MemorySnapshotBucket({ "release-state/pilot.json": {
@@ -948,7 +948,7 @@ test("protected retention keeps the active snapshot and five rollback snapshots 
     "dists/focal/Release", "dists/focal/InRelease", "dists/focal/Release.gpg",
     "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
     "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
-    "aptto-archive-keyring.gpg",
+    "getpatched-archive-keyring.gpg",
   ];
   const files = paths.map((path) => ({ path, size: 1, sha256: createHash("sha256").update("x").digest("hex") }));
   const ids = Array.from({ length: 8 }, (_, index) => `focal-202610${String(17 + index).padStart(2, "0")}T000000-r${100 + index}-public`);
@@ -1393,7 +1393,7 @@ test("public release staging copies remain for 30 days and are deleted after an 
   const record = {
     id: "pilot", state: "public", repository: "getpatched/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
     source_commit: "b".repeat(40), public_release_id: 901, source_release_id: 902,
-    source_release_tag: "aptto-source/2.9.10-aptto1", sponsor_delay_hours: 168,
+    source_release_tag: "getpatched-source/2.9.10-aptto1", sponsor_delay_hours: 168,
     public_published_at: "2026-01-01T00:00:00.000Z", staging_cleanup_after: "2026-01-31T00:00:00.000Z",
     required_assets: [{ name: "libxml2.deb", sha256: binaryHash, r2_key: `staging/pilot/${binaryHash}` }],
     source_assets: [{ name: "libxml2.dsc", sha256: sourceHash, r2_key: `staging/pilot/source/${sourceHash}` }],
@@ -1567,7 +1567,7 @@ test("zero-hour package publication is authenticated and completes synchronously
     }
     if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
     if (target.pathname.endsWith("/releases/tags/aptto%2F1.2.3")) return new Response("not found", { status: 404 });
-    if (target.pathname.endsWith("/releases/tags/aptto-source%2F1.2.3")) return new Response("not found", { status: 404 });
+    if (target.pathname.endsWith("/releases/tags/getpatched-source%2F1.2.3")) return new Response("not found", { status: 404 });
     if (target.pathname.includes("/releases/tags/")) return new Response("not found", { status: 404 });
     if (target.hostname === "uploads.github.com") {
       const name = target.searchParams.get("name");
@@ -1577,7 +1577,7 @@ test("zero-hour package publication is authenticated and completes synchronously
     if (target.pathname.endsWith("/releases/901/assets")) {
       return Response.json([...publishedAssets].map(([name]) => ({ name, url: `https://api.github.com/assets/${name}` })));
     }
-    if (target.pathname.endsWith("/releases/901")) return Response.json({ id: 901, tag_name: "aptto-source/1.2.3", draft: false, immutable: true, assets: [...publishedAssets.keys()].map((name) => ({ name })) });
+    if (target.pathname.endsWith("/releases/901")) return Response.json({ id: 901, tag_name: "getpatched-source/1.2.3", draft: false, immutable: true, assets: [...publishedAssets.keys()].map((name) => ({ name })) });
     if (target.pathname.startsWith("/assets/")) {
       const asset = publishedAssets.get(decodeURIComponent(target.pathname.slice("/assets/".length)));
       return asset ? new Response(asset) : new Response("missing", { status: 404 });
@@ -1607,7 +1607,7 @@ test("zero-hour package publication is authenticated and completes synchronously
     }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER });
     assert.equal(response.status, 200, await response.clone().text());
     const saved = await (await bucket.get("release-state/pilot.json")).json();
-    assert.deepEqual(await response.json(), { id: "pilot", state: "public", source_release_tag: "aptto-source/1.2.3", public_published_at: saved.public_published_at });
+    assert.deepEqual(await response.json(), { id: "pilot", state: "public", source_release_tag: "getpatched-source/1.2.3", public_published_at: saved.public_published_at });
     assert.deepEqual(publishedAssets.get("libarchive.deb"), bytes);
     assert.equal(saved.state, "public");
 

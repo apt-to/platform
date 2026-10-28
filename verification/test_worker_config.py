@@ -32,7 +32,7 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertRegex(workflow, r"operation:\n\s+description:.*\n\s+type: choice\n\s+required: true\n\s+default: publish\n\s+options: \[publish, rollback, prune\]")
         self.assertRegex(workflow, r"vars\.APTTO_REPOSITORY_ENABLED == 'true' &&\n\s+\(github\.event_name != 'workflow_dispatch' \|\| github\.event\.inputs\.operation != 'rollback'\) &&")
         self.assertRegex(workflow, r"rollback:\n\s+if: >-\n(?:\s+.*\n){3}\s+github\.event\.inputs\.operation == 'rollback'")
-        self.assertRegex(workflow, r"rollback:\n(?:.*\n){0,12}\s+environment: aptto-signing")
+        self.assertRegex(workflow, r"rollback:\n(?:.*\n){0,12}\s+environment: getpatched-signing")
         self.assertIn("python3 scripts/rollback-apt-snapshot.py", workflow)
 
     def test_snapshot_workflow_skips_signing_when_both_channels_are_unchanged(self):
@@ -44,7 +44,7 @@ class WorkerRouteConfig(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
         self.assertIn('- cron: "25 3 * * 0"', workflow)
         self.assertIn("options: [publish, rollback, prune]", workflow)
-        self.assertRegex(workflow, r"snapshot-retention:\n(?:.*\n){0,16}\s+environment: aptto-signing")
+        self.assertRegex(workflow, r"snapshot-retention:\n(?:.*\n){0,16}\s+environment: getpatched-signing")
         self.assertIn("needs: [build-indexes, sign-and-publish]", workflow)
         self.assertIn("python3 scripts/retain-apt-snapshots.py --channel both", workflow)
 
@@ -56,7 +56,7 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertEqual(workflow.count("github.ref == 'refs/heads/main'"), 2)
         self.assertEqual(workflow.count("github.event_name == 'push'"), 2)
         self.assertEqual(workflow.count("inputs.confirm_production == true"), 2)
-        self.assertRegex(workflow, r"deploy:\n\s+needs: verify\n(?:.*\n){0,10}\s+environment: aptto-worker-deploy")
+        self.assertRegex(workflow, r"deploy:\n\s+needs: verify\n(?:.*\n){0,10}\s+environment: getpatched-worker-deploy")
         self.assertIn("cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3", workflow)
         self.assertIn('wranglerVersion: "4.151.3"', workflow)
         self.assertIn("secrets.CLOUDFLARE_API_TOKEN", workflow)

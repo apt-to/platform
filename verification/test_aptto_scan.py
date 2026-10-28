@@ -7,8 +7,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCANNER = ROOT / "scripts" / "aptto-scan.py"
-FEED = ROOT / "advisories" / "aptto-osv.json"
+SCANNER = ROOT / "scripts" / "getpatched-scan.py"
+FEED = ROOT / "advisories" / "getpatched-osv.json"
 
 
 class AptToScannerContract(unittest.TestCase):
@@ -20,7 +20,7 @@ class AptToScannerContract(unittest.TestCase):
         return self.scan(status)
 
     def scan(self, status_text, feed=FEED, architecture="amd64"):
-        with tempfile.TemporaryDirectory(prefix="aptto-scan-test-") as directory:
+        with tempfile.TemporaryDirectory(prefix="getpatched-scan-test-") as directory:
             status = Path(directory) / "status"
             status.write_text(status_text)
             return subprocess.run(
@@ -86,7 +86,7 @@ Architecture: amd64
         self.assertEqual(after["findings"], [])
         self.assertEqual(after["summary"]["scannedPackages"], 4)
         self.assertEqual(after["summary"]["vulnerablePackages"], 0)
-        self.assertEqual(after["scanner"], "aptto-dpkg-osv/1")
+        self.assertEqual(after["scanner"], "getpatched-dpkg-osv/1")
 
     def test_uninstalled_and_wrong_architecture_packages_are_not_reported(self):
         result = self.scan("""Package: libarchive13
@@ -158,7 +158,7 @@ Architecture: i386
         self.assertIn("outside the reviewed affected/fixed version boundaries", result.stderr)
 
     def test_feed_generation_is_reproducible_and_has_exact_binary_identities(self):
-        with tempfile.TemporaryDirectory(prefix="aptto-feed-test-") as directory:
+        with tempfile.TemporaryDirectory(prefix="getpatched-feed-test-") as directory:
             output = Path(directory) / "feed.json"
             subprocess.run([sys.executable, str(ROOT / "scripts" / "build_aptto_advisory_feed.py"), "--output", str(output)], check=True, capture_output=True, text=True)
             generated = json.loads(output.read_text())
@@ -170,7 +170,7 @@ Architecture: i386
         self.assertTrue(all("ranges" not in affected for item in committed["vulns"] for affected in item["affected"]))
 
     def test_scanner_rejects_feed_that_disagrees_with_reviewed_package_policy(self):
-        with tempfile.TemporaryDirectory(prefix="aptto-feed-tamper-") as directory:
+        with tempfile.TemporaryDirectory(prefix="getpatched-feed-tamper-") as directory:
             tampered = Path(directory) / "tampered.json"
             document = json.loads(FEED.read_text())
             document["vulns"][0]["affected"][0]["database_specific"]["fixed_versions"][0] += "0"

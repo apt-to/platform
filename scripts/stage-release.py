@@ -24,7 +24,7 @@ def validate_endpoint(value):
 def token():
     request_url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
     separator = "&" if "?" in request_url else "?"
-    url = request_url + separator + urllib.parse.urlencode({"audience": "aptto-release-gateway"})
+    url = request_url + separator + urllib.parse.urlencode({"audience": "getpatched-release-gateway"})
     request = urllib.request.Request(url, headers={"Authorization": "Bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
     with urllib.request.urlopen(request, timeout=20) as response:
         value = json.load(response)["value"]

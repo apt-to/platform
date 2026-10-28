@@ -10,7 +10,7 @@ import sys
 from build_aptto_advisory_feed import PACKAGES, build_feed
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FEED = ROOT / "advisories" / "aptto-osv.json"
+DEFAULT_FEED = ROOT / "advisories" / "getpatched-osv.json"
 MAX_STATUS_BYTES = 16 * 1024 * 1024
 MAX_FEED_BYTES = 4 * 1024 * 1024
 
@@ -184,7 +184,7 @@ def scan(status_path, feed_path, release, architecture, image_id=None):
                 )
     findings.sort(key=lambda item: (item["package"], item["id"]))
     return {
-        "schemaVersion": 1, "scanner": "aptto-dpkg-osv/1", "release": release, "architecture": architecture,
+        "schemaVersion": 1, "scanner": "getpatched-dpkg-osv/1", "release": release, "architecture": architecture,
         "imageId": image_id,
         "advisoryFeed": str(feed_path), "advisoryFeedSha256": hashlib.sha256(Path(feed_path).read_bytes()).hexdigest(),
         "packagePolicySha256": hashlib.sha256(PACKAGES.read_bytes()).hexdigest(),

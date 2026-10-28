@@ -20,7 +20,7 @@ jobs:
       github.event.workflow_run.repository.full_name == 'getpatched/platform'
     runs-on: ubuntu-24.04
     timeout-minutes: 75
-    environment: aptto-signing
+    environment: getpatched-signing
     permissions:
       actions: read
       contents: read

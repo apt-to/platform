@@ -19,7 +19,7 @@ REQUIRED = {
     "dists/focal/Release", "dists/focal/InRelease", "dists/focal/Release.gpg",
     "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
     "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
-    "aptto-archive-keyring.gpg",
+    "getpatched-archive-keyring.gpg",
 }
 
 
@@ -60,7 +60,7 @@ def snapshot_files(repository):
             raise ValueError(f"snapshot contains a symbolic link: {candidate}")
         if candidate.is_file():
             paths.append((candidate.relative_to(repository).as_posix(), candidate))
-    keyring = repository / "aptto-archive-keyring.gpg"
+    keyring = repository / "getpatched-archive-keyring.gpg"
     if keyring.is_symlink() or not keyring.is_file():
         raise ValueError("snapshot is missing a regular public archive key")
     paths.append((keyring.relative_to(repository).as_posix(), keyring))
@@ -69,7 +69,7 @@ def snapshot_files(repository):
     total = 0
     manifest = []
     for relative, path in sorted(paths):
-        if not re.fullmatch(r"dists/focal/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*|aptto-archive-keyring\.gpg", relative):
+        if not re.fullmatch(r"dists/focal/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*|getpatched-archive-keyring\.gpg", relative):
             raise ValueError(f"snapshot contains an unsafe path: {relative}")
         size = path.stat().st_size
         if size <= 0 or size > MAX_FILE_BYTES:
@@ -120,11 +120,11 @@ def verify_release(repository, expected_fingerprint):
     dist = repository / "dists/focal"
     release = verify_release_indexes(repository)
 
-    with tempfile.TemporaryDirectory(prefix="aptto-snapshot-verify-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="getpatched-snapshot-verify-") as temporary:
         home = Path(temporary) / "gnupg"
         home.mkdir(mode=0o700)
         env = {**os.environ, "GNUPGHOME": str(home)}
-        keyring = repository / "aptto-archive-keyring.gpg"
+        keyring = repository / "getpatched-archive-keyring.gpg"
         imported = subprocess.run(["gpg", "--batch", "--no-autostart", "--import", str(keyring)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         if imported.returncode != 0:
             detail = imported.stderr.decode("utf-8", errors="replace")[:1000]
@@ -163,7 +163,7 @@ def verify_release(repository, expected_fingerprint):
 def request_token():
     url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
     separator = "&" if "?" in url else "?"
-    url += separator + urllib.parse.urlencode({"audience": "aptto-release-gateway"})
+    url += separator + urllib.parse.urlencode({"audience": "getpatched-release-gateway"})
     request = urllib.request.Request(url, headers={"Authorization": "Bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
     with open_without_redirect(request, timeout=20) as response:
         token = json.load(response).get("value")

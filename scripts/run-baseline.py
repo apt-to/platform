@@ -45,11 +45,11 @@ def main():
         parser.error("Output already contains scanner-db; use a fresh evidence directory")
     if args.database_snapshot and not (args.database_snapshot / "trivy.db").is_file():
         parser.error("Database snapshot must contain trivy.db")
-    name = "aptto-baseline-" + args.package + "-" + uuid.uuid4().hex[:12]
+    name = "getpatched-baseline-" + args.package + "-" + uuid.uuid4().hex[:12]
     scanner_name = name + "-scanner"
     built = False
     scan_started = False
-    with tempfile.TemporaryDirectory(prefix="aptto-baseline-") as directory:
+    with tempfile.TemporaryDirectory(prefix="getpatched-baseline-") as directory:
         temp = Path(directory)
         try:
             database_flags = []

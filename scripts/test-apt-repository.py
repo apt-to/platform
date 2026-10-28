@@ -81,24 +81,24 @@ python3 /generate-apt-index.py --repo /repo --suite focal --architecture amd64 -
     generator = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(generator)
     exported_key = generator.sign_release(dist, key_home, fingerprint)
-    public_key = args.work / "aptto-test-archive.gpg"
+    public_key = args.work / "getpatched-test-archive.gpg"
     shutil.copyfile(exported_key, public_key)
 
     client_context = args.work / "apt-client-context"
     shutil.copytree(repo, client_context / "repo")
-    shutil.copyfile(public_key, client_context / "aptto-test-archive.gpg")
+    shutil.copyfile(public_key, client_context / "getpatched-test-archive.gpg")
     client_script = client_context / "apt-client.sh"
     client_script.write_text("""#!/bin/bash
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-mkdir -p /tmp/aptto-source-test
-cd /tmp/aptto-source-test
+mkdir -p /tmp/getpatched-source-test
+cd /tmp/getpatched-source-test
 : > /etc/apt/sources.list
 for suite in focal focal-updates focal-security; do
   printf 'deb https://snapshot.ubuntu.com/ubuntu/%s/ %s main universe restricted multiverse\\n' "$ARCHIVE_SNAPSHOT" "$suite" >> /etc/apt/sources.list
 done
-printf 'deb [arch=amd64 signed-by=/usr/share/keyrings/aptto-test-archive.gpg] file:/repo focal main\\n' >> /etc/apt/sources.list
-printf 'deb-src [arch=amd64 signed-by=/usr/share/keyrings/aptto-test-archive.gpg] file:/repo focal main\\n' >> /etc/apt/sources.list
+printf 'deb [arch=amd64 signed-by=/usr/share/keyrings/getpatched-test-archive.gpg] file:/repo focal main\\n' >> /etc/apt/sources.list
+printf 'deb-src [arch=amd64 signed-by=/usr/share/keyrings/getpatched-test-archive.gpg] file:/repo focal main\\n' >> /etc/apt/sources.list
 apt-get update
 apt-get install -y --no-install-recommends dpkg-dev
 apt-get install -y --no-install-recommends $BINARY_PACKAGES
@@ -115,7 +115,7 @@ FROM ${TRUST_IMAGE} AS trust
 FROM ${BASE_IMAGE}
 COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY repo /repo
-COPY aptto-test-archive.gpg /usr/share/keyrings/aptto-test-archive.gpg
+COPY getpatched-test-archive.gpg /usr/share/keyrings/getpatched-test-archive.gpg
 COPY apt-client.sh /apt-client.sh
 ARG ARCHIVE_SNAPSHOT
 ARG BINARY_PACKAGES
@@ -124,7 +124,7 @@ ARG SOURCE_PACKAGE
 ENV ARCHIVE_SNAPSHOT=${ARCHIVE_SNAPSHOT} BINARY_PACKAGES=${BINARY_PACKAGES} EXPECTED_VERSION=${EXPECTED_VERSION} SOURCE_PACKAGE=${SOURCE_PACKAGE}
 RUN bash /apt-client.sh
 """)
-    client_image = "aptto-apt-client-test-" + uuid.uuid4().hex[:12]
+    client_image = "getpatched-apt-client-test-" + uuid.uuid4().hex[:12]
     client_built = False
     try:
         run(["docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", client_image,
