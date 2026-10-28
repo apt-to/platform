@@ -117,11 +117,9 @@ case "$core_package" in
   *) echo "No APT preference path configured for runtime package $core_package" >&2; exit 1 ;;
 esac
 owned_preferences="$(dpkg-query -L "$core_package" | grep ^/etc/apt/preferences.d/ || true)"
-if [ ! -f "$preference_file" ] || ! printf %s
- "$owned_preferences" | grep -Fxq "$preference_file"; then
+if [ ! -f "$preference_file" ] || ! grep -Fxq "$preference_file" <<< "$owned_preferences"; then
   echo "Runtime package $core_package did not install its APT preference file at $preference_file" >&2
-  printf %s
- "$owned_preferences" >&2
+  echo "$owned_preferences" >&2
   exit 1
 fi
 for pocket in $esm_pockets; do
