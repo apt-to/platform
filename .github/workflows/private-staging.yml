@@ -47,8 +47,13 @@ jobs:
           python3 - "$RUNNER_TEMP/candidate/release-eligibility.json" <<'PY'
           import json, sys
           eligibility = json.load(open(sys.argv[1]))
-          if eligibility.get("releaseEligible") is not True or eligibility.get("futureEsmUpgradeCompatible") is not True:
-              raise SystemExit("release staging blocked: future Ubuntu Pro ESM upgrade compatibility is unresolved")
+          if (eligibility.get("schemaVersion") != 1 or
+              eligibility.get("supportScope") != "latest-public-focal" or
+              eligibility.get("verificationChecksPassed") is not True or
+              eligibility.get("releaseEligible") is not True):
+              raise SystemExit("release staging blocked: public Focal package verification is incomplete")
+          if eligibility.get("ubuntuProEsmCompatibility") != "not-tested-out-of-scope":
+              raise SystemExit("release staging blocked: Ubuntu Pro ESM scope declaration is invalid")
           PY
           find "$RUNNER_TEMP/candidate/source" -maxdepth 1 -type f -name '*.dsc' -print -quit | grep -q .
           printf '%s\n' "$package" > "$RUNNER_TEMP/candidate/package-name"

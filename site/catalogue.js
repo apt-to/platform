@@ -15,11 +15,9 @@ function packageRow(item) {
   const policy = item.access === "sponsor"
     ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Public ${escapeHtml(item.delayHours)} hours after sponsor release</span>`
     : `<span class="policy-dot policy-public"></span><span class="policy-main">Public immediately</span><span class="policy-detail">After release checks pass</span>`;
-  const checks = item.status === "esm-compatibility-pending"
-    ? `<span class="verification-pending">Release eligibility pending<small>Hosted builds, regressions and signed-client checks passed; authentic ESM compatibility remains unresolved</small><a href="${escapeHtml(item.verificationUrl)}">Latest hosted verification ↗</a></span>`
-    : item.verification
+  const checks = item.verification
     ? `<a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Development checks passed<small>Hosted build and regressions ↗</small></a>`
-    : `<span class="verification-pending">Verification pending<small>Fresh hosted build and installed regressions required</small></span>`;
+    : `<span class="verification-pending">Verification pending<small>Fresh public Focal build, installed regressions and signed-client checks required</small></span>`;
   return `<tr data-source="${escapeHtml(item.source)}">
     <th scope="row" class="package-name"><span>${escapeHtml(item.source)}</span><small>source package</small></th>
     <td class="version-cell" data-label="PACKAGE VERSION"><code>${escapeHtml(item.version)}</code><span class="unpublished-mark">NOT PUBLISHED</span></td>

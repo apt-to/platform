@@ -12,64 +12,61 @@ SPEC.loader.exec_module(BUILD_PACKAGE)
 
 
 class ReleaseCandidateOutput(unittest.TestCase):
-    def test_unresolved_esm_ordering_marks_both_packages_ineligible(self):
+    def test_latest_public_focal_candidates_are_eligible_after_verification(self):
         policy = json.loads((SCRIPT.parents[1] / "packages.json").read_text())
         self.assertEqual(set(policy["packages"]), {"libxml2", "libarchive"})
         for source, package in policy["packages"].items():
-            self.assertFalse(package["futureEsmUpgradeCompatible"])
+            self.assertEqual(package["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
             source_policy = {
                 "source": source,
                 "baseVersion": package["baselineVersion"],
-                "futureEsmVersion": package["futureEsmVersion"],
-                "esmPockets": package["esmPockets"],
                 "version": package["baselineVersion"] + "+getpatched1",
                 "targetCves": package["targetCves"],
                 "sponsorDelayHours": package["sponsorDelayHours"],
-                "futureEsmUpgradeCompatible": False,
             }
             validated_source, expected = BUILD_PACKAGE.validate_release_policy(source_policy, policy)
             self.assertEqual(validated_source, source)
             self.assertEqual(expected, package)
-            eligibility = BUILD_PACKAGE.release_eligibility(source_policy)
-            self.assertFalse(eligibility["releaseEligible"])
-            self.assertFalse(eligibility["futureEsmUpgradeCompatible"])
-            self.assertIn("ordering is unresolved", eligibility["reason"])
-            with self.assertRaisesRegex(RuntimeError, "future Ubuntu Pro ESM upgrade ordering is unresolved"):
-                BUILD_PACKAGE.require_release_compatibility(source_policy)
+            with self.assertRaisesRegex(RuntimeError, "all public Focal verification checks pass"):
+                BUILD_PACKAGE.release_eligibility(source_policy)
+            eligibility = BUILD_PACKAGE.release_eligibility(source_policy, verification_checks_passed=True)
+            self.assertTrue(eligibility["releaseEligible"])
+            self.assertTrue(eligibility["verificationChecksPassed"])
+            self.assertEqual(eligibility["supportScope"], "latest-public-focal")
+            self.assertEqual(eligibility["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
+            self.assertIsNone(eligibility["reason"])
 
-    def test_esm_version_and_pin_pattern_must_match_project_policy(self):
+    def test_package_identity_and_sponsor_policy_must_match_project_policy(self):
         project = json.loads((SCRIPT.parents[1] / "packages.json").read_text())
         for source, package in project["packages"].items():
             source_policy = {
                 "source": source,
                 "baseVersion": package["baselineVersion"],
-                "futureEsmVersion": package["futureEsmVersion"],
-                "esmPockets": package["esmPockets"],
                 "version": package["baselineVersion"] + "+getpatched1",
                 "targetCves": package["targetCves"],
                 "sponsorDelayHours": package["sponsorDelayHours"],
-                "futureEsmUpgradeCompatible": package["futureEsmUpgradeCompatible"],
             }
-            for field in ("futureEsmVersion", "esmPockets"):
-                mismatched = {**source_policy, field: "unexpected"}
-                with self.assertRaisesRegex(RuntimeError, "Packaging policy disagrees with project configuration"):
-                    BUILD_PACKAGE.validate_release_policy(mismatched, project)
+            mismatched = {**source_policy, "baseVersion": "unexpected"}
+            with self.assertRaisesRegex(RuntimeError, "Packaging policy disagrees with project configuration"):
+                BUILD_PACKAGE.validate_release_policy(mismatched, project)
 
-    def test_compatibility_gate_runs_after_verification_and_before_candidate_persistence(self):
+    def test_candidate_export_follows_signed_client_verification_without_esm_gate(self):
         source = (SCRIPT.parents[0] / "build-package.py").read_text()
         verify_at = source.index('"--trust-image", config["scannerImage"], "--archive-snapshot", config["archiveSnapshot"]])')
         eligibility_at = source.index('"release-eligibility.json"')
-        gate_at = source.rindex("require_release_compatibility(policy)")
         persist_at = source.rindex("persist_release_candidates(selected, binary_manifest")
         self.assertLess(verify_at, eligibility_at)
-        self.assertLess(eligibility_at, gate_at)
-        self.assertLess(gate_at, persist_at)
+        self.assertLess(eligibility_at, persist_at)
+        self.assertNotIn("require_release_compatibility", source)
+        self.assertIn('release_eligibility(policy, verification_checks_passed=True)', source)
 
     def test_private_staging_requires_explicit_release_eligibility(self):
         workflow = (SCRIPT.parents[1] / ".github/workflows/private-staging.yml").read_text()
         self.assertIn('test -s "$RUNNER_TEMP/candidate/release-eligibility.json"', workflow)
         self.assertIn('eligibility.get("releaseEligible") is not True', workflow)
-        self.assertIn('eligibility.get("futureEsmUpgradeCompatible") is not True', workflow)
+        self.assertIn('eligibility.get("supportScope") != "latest-public-focal"', workflow)
+        self.assertIn('eligibility.get("verificationChecksPassed") is not True', workflow)
+        self.assertIn('eligibility.get("ubuntuProEsmCompatibility") != "not-tested-out-of-scope"', workflow)
 
     def test_only_verified_selected_binaries_are_persisted_with_identity(self):
         with tempfile.TemporaryDirectory() as directory:

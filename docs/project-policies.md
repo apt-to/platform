@@ -22,7 +22,7 @@ The two-year RSA-4096 archive key is held in the protected `getpatched-signing` 
 
 ## Support scope
 
-The initial compatibility target is Ubuntu 20.04 LTS (focal), amd64, for the specific packages and versions listed in the public catalogue. Ubuntu 20.04 is outside standard support; Ubuntu Pro/ESM may provide additional coverage. GetPatched maintains selected package backports, not Ubuntu itself, a complete operating system, every library vulnerability, other architectures, or other Ubuntu releases unless the catalogue explicitly adds them.
+The initial compatibility target is Ubuntu 20.04 LTS (focal), amd64, using the latest publicly available (non-ESM) Focal source versions pinned in the catalogue. Ubuntu 20.04 is outside standard support. Ubuntu Pro/ESM and upgrades from GetPatched packages to Canonical ESM packages are outside this pilot and are not tested or supported. GetPatched maintains selected package backports, not Ubuntu itself, a complete operating system, every library vulnerability, other architectures, or other Ubuntu releases unless the catalogue explicitly adds them.
 
 Each release is supported only to the extent documented by its package metadata, source, regression evidence, and publication status. Sponsor access changes the timing of selected binary availability; it does not change the package licence or grant exclusive redistribution rights. Source and corresponding-source materials remain public. A package shown as a candidate or development build is not a production security fix or support commitment.
 

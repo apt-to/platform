@@ -32,8 +32,6 @@ def main():
     binary_packages = candidate["binaryPackages"]
     if (policy["version"] != policy["baseVersion"] + "+getpatched1"
             or policy["baseVersion"] != candidate["baselineVersion"]
-            or policy["futureEsmVersion"] != candidate["futureEsmVersion"]
-            or policy["esmPockets"] != candidate["esmPockets"]
             or policy["architecture"] != platform["architecture"]
             or policy["release"] != platform["release"]):
         raise RuntimeError("source package policy does not match the reviewed focal candidate")
@@ -108,104 +106,6 @@ for binary in $BINARY_PACKAGES; do
   version="$(dpkg-query -W -f='${Version}' "$binary")"
   test "$version" = "$EXPECTED_VERSION" || { echo "wrong installed version for $binary: $version" >&2; exit 1; }
 done
-set -- $BINARY_PACKAGES
-core_package="$1"
-esm_pockets="${ESM_POCKETS//,/ }"
-release_date="$(date -u -R -d "${ARCHIVE_SNAPSHOT:0:4}-${ARCHIVE_SNAPSHOT:4:2}-${ARCHIVE_SNAPSHOT:6:2}T${ARCHIVE_SNAPSHOT:9:2}:${ARCHIVE_SNAPSHOT:11:2}:${ARCHIVE_SNAPSHOT:13:2}Z")"
-case "$core_package" in
-  libxml2) preference_file=/etc/apt/preferences.d/90-getpatched-libxml2 ;;
-  libarchive13) preference_file=/etc/apt/preferences.d/90-getpatched-libarchive ;;
-  *) echo "No APT preference path configured for runtime package $core_package" >&2; exit 1 ;;
-esac
-owned_preferences="$(dpkg-query -L "$core_package" | grep ^/etc/apt/preferences.d/ || true)"
-if [ ! -f "$preference_file" ] || ! grep -Fxq "$preference_file" <<< "$owned_preferences"; then
-  echo "Runtime package $core_package did not install its APT preference file at $preference_file" >&2
-  echo "$owned_preferences" >&2
-  exit 1
-fi
-for pocket in $esm_pockets; do
-  grep -F "Pin: release a=$pocket" "$preference_file"
-done
-mkdir -p /tmp/esm-test-repo/pool /tmp/esm-package-build
-for binary in $BINARY_PACKAGES; do
-  package_root="/tmp/esm-package-build/$binary"
-  mkdir -p "$package_root/DEBIAN"
-  dependency=""
-  if [ "$binary" != "$core_package" ]; then
-    dependency="Depends: $core_package (= $ESM_VERSION)"
-  fi
-  cat > "$package_root/DEBIAN/control" <<EOF
-Package: $binary
-Version: $ESM_VERSION
-Architecture: amd64
-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-EOF
-  if [ -n "$dependency" ]; then
-    printf '%s\n' "$dependency" >> "$package_root/DEBIAN/control"
-  fi
-  printf '%s\n' 'Description: isolated fixture for ESM upgrade ordering test' >> "$package_root/DEBIAN/control"
-  dpkg-deb --build "$package_root" "/tmp/esm-test-repo/pool/$binary.deb"
-done
-(cd /tmp/esm-test-repo && dpkg-scanpackages --multiversion pool /dev/null > /tmp/esm-packages)
-for pocket in $esm_pockets; do
-  suite_dir="/tmp/esm-test-repo/dists/$pocket"
-  mkdir -p "$suite_dir/main/binary-amd64"
-  cp /tmp/esm-packages "$suite_dir/main/binary-amd64/Packages"
-  gzip -k "$suite_dir/main/binary-amd64/Packages"
-  packages_gz="$suite_dir/main/binary-amd64/Packages.gz"
-  packages_plain="$suite_dir/main/binary-amd64/Packages"
-  packages_digest="$(sha256sum "$packages_gz" | cut -d ' ' -f 1)"
-  packages_size="$(stat -c '%s' "$packages_gz")"
-  packages_plain_digest="$(sha256sum "$packages_plain" | cut -d ' ' -f 1)"
-  packages_plain_size="$(stat -c '%s' "$packages_plain")"
-  cat > "$suite_dir/Release" <<EOF
-Origin: Ubuntu
-Label: UbuntuESM
-Suite: $pocket
-Codename: $pocket
-Date: $release_date
-Architectures: amd64
-Components: main
-SHA256:
- $packages_digest $packages_size main/binary-amd64/Packages.gz
- $packages_plain_digest $packages_plain_size main/binary-amd64/Packages
-EOF
-done
-for pocket in $esm_pockets; do
-  sources="/tmp/esm-sources-$pocket.list"
-  lists="/tmp/esm-lists-$pocket"
-  mkdir -p "$lists/partial"
-  printf 'deb [arch=amd64 signed-by=/usr/share/keyrings/getpatched-test-archive.gpg] file:/repo focal main\n' > "$sources"
-  printf 'deb [trusted=yes arch=amd64] file:/tmp/esm-test-repo %s main\n' "$pocket" >> "$sources"
-  apt_options=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$lists")
-  apt-get "${apt_options[@]}" update
-  for binary in $BINARY_PACKAGES; do
-    policy="$(apt-cache "${apt_options[@]}" policy "$binary")"
-    candidate="$(printf '%s\n' "$policy" | sed -n 's/^[[:space:]]*Candidate: //p')"
-    if [ "$candidate" != "$ESM_VERSION" ]; then
-      echo "wrong ESM candidate for $binary in $pocket: $candidate" >&2
-      echo "$policy" >&2
-      exit 1
-    fi
-    printf '%s\n' "$policy" | awk -v version="$ESM_VERSION" -v source="file:/tmp/esm-test-repo $pocket/main amd64 Packages" '
-      $1 == version { in_candidate = ($2 == "1001"); next }
-      in_candidate && index($0, source) { found = 1 }
-      END { exit !found }
-    ' || {
-      echo "ESM pocket $pocket did not receive the expected APT pin priority for $binary" >&2
-      printf '%s\n' "$policy"
-      exit 1
-    }
-  done
-  apt-get "${apt_options[@]}" -s install --only-upgrade $BINARY_PACKAGES > /tmp/getpatched-esm-upgrade.txt
-  for binary in $BINARY_PACKAGES; do
-    grep -F "Inst $binary " /tmp/getpatched-esm-upgrade.txt | grep -F "($ESM_VERSION" >/dev/null || {
-      echo "simulated upgrade did not select vendor ESM version for $binary from $pocket" >&2
-      cat /tmp/getpatched-esm-upgrade.txt
-      exit 1
-    }
-  done
-done
 apt-get source "$SOURCE_PACKAGE"
 test -f "$SOURCE_PACKAGE"*/debian/getpatched/release-policy.json
 """)
@@ -220,10 +120,8 @@ COPY apt-client.sh /apt-client.sh
 ARG ARCHIVE_SNAPSHOT
 ARG BINARY_PACKAGES
 ARG EXPECTED_VERSION
-ARG ESM_VERSION
-ARG ESM_POCKETS
 ARG SOURCE_PACKAGE
-ENV ARCHIVE_SNAPSHOT=${ARCHIVE_SNAPSHOT} BINARY_PACKAGES=${BINARY_PACKAGES} EXPECTED_VERSION=${EXPECTED_VERSION} ESM_VERSION=${ESM_VERSION} ESM_POCKETS=${ESM_POCKETS} SOURCE_PACKAGE=${SOURCE_PACKAGE}
+ENV ARCHIVE_SNAPSHOT=${ARCHIVE_SNAPSHOT} BINARY_PACKAGES=${BINARY_PACKAGES} EXPECTED_VERSION=${EXPECTED_VERSION} SOURCE_PACKAGE=${SOURCE_PACKAGE}
 RUN bash /apt-client.sh
 """)
     client_image = "getpatched-apt-client-test-" + uuid.uuid4().hex[:12]
@@ -234,8 +132,6 @@ RUN bash /apt-client.sh
              "--build-arg", "ARCHIVE_SNAPSHOT=" + args.archive_snapshot,
          "--build-arg", "BINARY_PACKAGES=" + " ".join(binary_packages),
              "--build-arg", "EXPECTED_VERSION=" + policy["version"],
-             "--build-arg", "ESM_VERSION=" + policy["futureEsmVersion"],
-             "--build-arg", "ESM_POCKETS=" + ",".join(policy["esmPockets"]),
              "--build-arg", "SOURCE_PACKAGE=" + policy["source"],
              str(client_context)])
         client_built = True
@@ -251,7 +147,8 @@ RUN bash /apt-client.sh
         "binaryPackages": binary_packages, "version": policy["version"],
         "sourcePackageFetched": True, "inReleaseVerified": True, "releaseGpgVerified": True,
         "byHashSha256": True, "temporaryTestKeyFingerprint": fingerprint,
-        "esmDowngradeSimulation": {"candidateVersion": policy["futureEsmVersion"], "pockets": policy["esmPockets"], "passed": True},
+        "supportScope": "latest-public-focal",
+        "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
         "releaseSha256": digest(release), "inReleaseSha256": digest(dist / "InRelease"),
         "clientBaseImage": args.base_image, "publication": "none; repository and temporary signing key were discarded after the isolated focal client test"
     }, indent=2) + "\n")

@@ -33,16 +33,16 @@ class AdvisoryAuditContract(unittest.TestCase):
             before = root / "before.json"
             after = root / "after.json"
             before_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive13@3.4.0-2ubuntu1.5"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive-tools@3.4.0-2ubuntu1.5"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
-            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5+getpatched1", "ID": "libarchive13@3.4.0-2ubuntu1.5+getpatched1"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5+getpatched1", "ID": "libarchive-tools@3.4.0-2ubuntu1.5+getpatched1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
+            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5+getpatched1", "ID": "libarchive13@3.4.0-2ubuntu1.5+getpatched1"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5+getpatched1", "ID": "libarchive-tools@3.4.0-2ubuntu1.5+getpatched1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}, {"VulnerabilityID": "CVE-2026-4111", "PkgName": "libarchive13"}]}]}
             before.write_text(json.dumps(before_data))
             after.write_text(json.dumps(after_data))
             osv_before = root / "osv-before.json"
             osv_after = root / "osv-after.json"
-            request_before = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5"}
-            request_after = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"}
+            request_before = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5"}
+            request_after = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"}
             record = {"id": "UBUNTU-CVE-2026-4111", "upstream": ["CVE-2026-4111"]}
-            for path, request_body in ((osv_before, request_before), (osv_after, request_after)):
-                path.write_text(json.dumps({"request": request_body, "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": [record]}}))
+            osv_before.write_text(json.dumps({"request": request_before, "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": []}}))
+            osv_after.write_text(json.dumps({"request": request_after, "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": [record]}}))
             image_ids = {"baselineImageId": "sha256:baseline", "patchedImageId": "sha256:patched"}
             image_path = root / "images.json"
             image_path.write_text(json.dumps(image_ids))
@@ -117,8 +117,13 @@ class AdvisoryAuditContract(unittest.TestCase):
             self.assertEqual(report["aptToAdvisoryIntegration"]["patchedTargetFindingIds"], [])
             self.assertEqual(report["aptToAdvisoryIntegration"]["unrelatedFindingIds"], ["CVE-UNRELATED"])
             self.assertEqual(report["aptToAdvisoryIntegration"]["rawTrivyBaselineTargetFindingIds"], [])
+            self.assertEqual(report["aptToAdvisoryIntegration"]["rawTrivyPatchedTargetFindingIds"], ["CVE-2026-4111"])
+            self.assertEqual(report["assessment"]["rawTrivyTargetFindingsAfter"], ["CVE-2026-4111"])
             self.assertEqual(report["aptToAdvisoryIntegration"]["findings"][0]["patched"], "resolved by GetPatched backport; exact installed version and target regression passed")
             self.assertEqual(report["canonicalOsv"]["after"]["missingTargetIds"], [])
+            self.assertEqual(report["canonicalOsv"]["before"]["missingTargetIds"], ["CVE-2026-4111"])
+            self.assertIn("absence is not interpreted", report["assessment"]["ubuntuPublishedVersionStatus"]["interpretation"])
+            self.assertEqual(report["assessment"]["ubuntuPublishedVersionStatus"]["missingTargetIds"], ["CVE-2026-4111"])
             self.assertEqual(hashlib.sha256(before.read_bytes()).hexdigest(), original_before)
             self.assertEqual(hashlib.sha256(after.read_bytes()).hexdigest(), original_after)
             contradictory = json.loads(getpatched_scan_paths["after"][0].read_text())
@@ -148,14 +153,29 @@ class AdvisoryAuditContract(unittest.TestCase):
             spec.loader.exec_module(module)
             response = root / "osv.json"
             response.write_text(json.dumps({
-                "request": {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"},
+                "request": {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"},
                 "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": []},
             }))
-            hits, records = module.osv_targets(response, "libarchive", "Ubuntu:Pro:20.04:LTS", "3.4.0-2ubuntu1.5+getpatched1", ["CVE-2026-4111"], required=False)
+            hits, records = module.osv_targets(response, "libarchive", "Ubuntu:20.04:LTS", "3.4.0-2ubuntu1.5+getpatched1", ["CVE-2026-4111"], required=False)
             self.assertEqual(hits, {"CVE-2026-4111": []})
             self.assertEqual(records, [])
-            with self.assertRaisesRegex(ValueError, "absent from Canonical OSV query"):
-                module.osv_targets(response, "libarchive", "Ubuntu:Pro:20.04:LTS", "3.4.0-2ubuntu1.5+getpatched1", ["CVE-2026-4111"], required=True)
+            self.assertEqual(module.osv_targets(response, "libarchive", "Ubuntu:20.04:LTS", "3.4.0-2ubuntu1.5+getpatched1", ["CVE-2026-4111"], required=False), ({"CVE-2026-4111": []}, []))
+
+    def test_absent_public_baseline_record_is_preserved_as_optional_vendor_evidence(self):
+        with tempfile.TemporaryDirectory(prefix="getpatched-audit-public-baseline-") as directory:
+            root = Path(directory)
+            response = root / "osv.json"
+            response.write_text(json.dumps({
+                "request": {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5"},
+                "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": []},
+            }))
+            module = __import__("importlib.util", fromlist=["spec_from_file_location"])
+            spec = module.spec_from_file_location("advisory_audit", AUDIT)
+            audit = module.module_from_spec(spec)
+            spec.loader.exec_module(audit)
+            hits, records = audit.osv_targets(response, "libarchive", "Ubuntu:20.04:LTS", "3.4.0-2ubuntu1.5", ["CVE-2026-4111"], required=False)
+            self.assertEqual(hits, {"CVE-2026-4111": []})
+            self.assertEqual(records, [])
 
 
 if __name__ == "__main__":
