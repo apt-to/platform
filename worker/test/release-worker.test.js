@@ -1166,21 +1166,27 @@ test("account status requires a valid session and fails closed when sponsor data
   assert.equal((await stale.json()).sponsorship, "unavailable");
 });
 
-test("Worker serves the account shell through its static assets binding and keeps unknown APIs private", async () => {
+test("Worker serves the account shell through the clean asset URL and keeps unknown APIs private", async () => {
   const requested = [];
   const env = { ASSETS: { fetch: async (request) => {
-    requested.push(new URL(request.url).pathname);
-    return new Response("static", { status: 200 });
+    const pathname = new URL(request.url).pathname;
+    requested.push(pathname);
+    if (pathname.endsWith(".html")) {
+      return new Response(null, { status: 307, headers: { location: pathname.slice(0, -5) } });
+    }
+    const assetPath = pathname === "/account" ? "/account.html" : pathname;
+    return new Response(assetPath, { status: 200 });
   } } };
   const account = await gateway.fetch(new Request("https://getpatched.dev/account"), env);
   assert.equal(account.status, 200);
-  assert.deepEqual(requested, ["/account.html"]);
+  assert.equal(await account.text(), "/account.html");
+  assert.deepEqual(requested, ["/account"]);
   const home = await gateway.fetch(new Request("https://getpatched.dev/"), env);
   assert.equal(home.status, 200);
-  assert.deepEqual(requested, ["/account.html", "/"]);
+  assert.deepEqual(requested, ["/account", "/"]);
   const missingApi = await gateway.fetch(new Request("https://getpatched.dev/api/private"), env);
   assert.equal(missingApi.status, 404);
-  assert.deepEqual(requested, ["/account.html", "/"]);
+  assert.deepEqual(requested, ["/account", "/"]);
 });
 
 test("sponsorship cancellation webhook verifies signature and records delivery idempotently without granting or revoking access", async () => {

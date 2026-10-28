@@ -2025,7 +2025,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/account") {
       if (!env.ASSETS) return new Response("account page is not configured", { status: 503 });
-      return env.ASSETS.fetch(new Request(new URL("/account.html", request.url), request));
+      return env.ASSETS.fetch(request);
     }
     if (request.method === "GET" && url.pathname === "/api/me") {
       try { return await accountStatus(request, env); }
