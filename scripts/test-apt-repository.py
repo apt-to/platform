@@ -111,7 +111,7 @@ done
 set -- $BINARY_PACKAGES
 core_package="$1"
 esm_pockets="${ESM_POCKETS//,/ }"
-release_date="$(date -u -R -d "$ARCHIVE_SNAPSHOT")"
+release_date="$(date -u -R -d "${ARCHIVE_SNAPSHOT:0:4}-${ARCHIVE_SNAPSHOT:4:2}-${ARCHIVE_SNAPSHOT:6:2}T${ARCHIVE_SNAPSHOT:9:2}:${ARCHIVE_SNAPSHOT:11:2}:${ARCHIVE_SNAPSHOT:13:2}Z")"
 case "$core_package" in
   libxml2) preference_file=/etc/apt/preferences.d/90-getpatched-libxml2 ;;
   libarchive13) preference_file=/etc/apt/preferences.d/90-getpatched-libarchive ;;
