@@ -27,13 +27,13 @@ RUN set -eu; \
       test "$candidate" = "$BASELINE_VERSION" || { echo "Baseline candidate changed for $binary: $candidate" >&2; exit 1; }; \
     done; \
     for binary in $binaries; do apt-get install -y --no-install-recommends "$binary=$BASELINE_VERSION"; done
-COPY aptto/ /tmp/aptto/
+COPY getpatched/ /tmp/getpatched/
 RUN set -eu; \
     test -n "$BINARY_PACKAGES"; \
     for binary in $BINARY_PACKAGES; do \
-      package="$(find /tmp/aptto -maxdepth 1 -name "${binary}_*.deb" -print -quit)"; \
+      package="$(find /tmp/getpatched -maxdepth 1 -name "${binary}_*.deb" -print -quit)"; \
       test -n "$package"; \
       apt-get install -y --no-install-recommends "$package"; \
       test "$(dpkg-query -W -f='${Version}' "$binary")" = "$EXPECTED_VERSION"; \
     done; \
-    rm -rf /tmp/aptto /var/lib/apt/lists/*
+    rm -rf /tmp/getpatched /var/lib/apt/lists/*

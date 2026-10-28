@@ -84,7 +84,7 @@ def main():
         if digest != item["sha256"] or source_file.stat().st_size != item["bytes"]:
             raise RuntimeError(f"candidate source file failed local manifest verification: {item['name']}")
 
-    endpoint = validate_endpoint(os.environ["APTTO_RELEASE_ENDPOINT"])
+    endpoint = validate_endpoint(os.environ["GETPATCHED_RELEASE_ENDPOINT"])
     source_repo = f"getpatched/packaging-{package}"
     release_id = f"{package}-{manifest['sourceVersion'].lower()}"
     release_id = "-".join(filter(None, re.split(r"[^a-z0-9]+", release_id)))
@@ -92,7 +92,7 @@ def main():
     registration = {
         "id": release_id,
         "repository": source_repo,
-        "tag": f"aptto/{manifest['sourceVersion']}",
+        "tag": f"getpatched/{manifest['sourceVersion']}",
         "source_commit": manifest["sourceCommit"],
         "sponsor_delay_hours": policy["sponsorDelayHours"],
         "verification_run_id": int(os.environ["VERIFICATION_RUN_ID"]),

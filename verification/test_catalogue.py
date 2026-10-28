@@ -1,9 +1,17 @@
 import json
+import sys
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+import importlib.util
+
+sys.path.insert(0, str(ROOT / "scripts"))
+_SCAN_SPEC = importlib.util.spec_from_file_location("getpatched_scan", ROOT / "scripts/getpatched-scan.py")
+_SCAN = importlib.util.module_from_spec(_SCAN_SPEC)
+_SCAN_SPEC.loader.exec_module(_SCAN)
+debian_version_compare = _SCAN.debian_version_compare
 
 
 class PublicCatalogueContract(unittest.TestCase):
@@ -11,24 +19,22 @@ class PublicCatalogueContract(unittest.TestCase):
         platform = json.loads((ROOT / "packages.json").read_text())
         catalogue = json.loads((ROOT / "site/catalogue.json").read_text())
         entries = {item["source"]: item for item in catalogue["packages"]}
-        verification_runs = {
-            "libxml2": "https://github.com/getpatched/platform/actions/runs/40640693660",
-            "libarchive": "https://github.com/getpatched/platform/actions/runs/40640691922",
-        }
         self.assertEqual(set(entries), set(platform["packages"]))
         self.assertEqual(catalogue["target"]["suite"], platform["release"])
         self.assertEqual(catalogue["target"]["architecture"], platform["architecture"])
         for source, policy in platform["packages"].items():
             entry = entries[source]
-            self.assertEqual(entry["version"], policy["baselineVersion"] + "+aptto1")
+            self.assertEqual(entry["version"], policy["baselineVersion"] + "+aptto1+getpatched1")
+            old_version = policy["baselineVersion"] + "+aptto1"
+            self.assertLess(debian_version_compare(old_version, entry["version"]), 0)
             self.assertEqual(entry["cves"], policy["targetCves"])
             self.assertEqual(entry["delayHours"], policy["sponsorDelayHours"])
             self.assertEqual(entry["access"], "sponsor" if policy["sponsorDelayHours"] else "public")
-            self.assertEqual(entry["status"], "development-checks-passed")
-            self.assertEqual(entry["verification"], verification_runs[source])
+            self.assertEqual(entry["status"], "package-build-pending")
+            self.assertIsNone(entry["verification"])
             self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/tree/"))
             self.assertTrue(entry["patchUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/blob/"))
-            self.assertEqual(entry["testsUrl"], f"https://github.com/getpatched/packaging-{source}/tree/aptto/focal/debian/tests")
+            self.assertEqual(entry["testsUrl"], f"https://github.com/getpatched/packaging-{source}/tree/getpatched/focal/debian/tests")
             self.assertEqual(entry["releasesUrl"], f"https://github.com/getpatched/packaging-{source}/releases")
             self.assertEqual(entry["releaseStatus"], "No production release")
 

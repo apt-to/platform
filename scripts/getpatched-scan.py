@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scan installed dpkg package records against the AptTo OSV-compatible feed."""
+"""Scan installed dpkg package records against the GetPatched OSV-compatible feed."""
 import argparse
 import hashlib
 import json
@@ -7,7 +7,7 @@ from email.parser import Parser
 from pathlib import Path
 import re
 import sys
-from build_aptto_advisory_feed import PACKAGES, build_feed
+from build_getpatched_advisory_feed import PACKAGES, build_feed
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "advisories" / "getpatched-osv.json"
@@ -134,15 +134,19 @@ def load_feed(path):
                     not isinstance(scope.get("architecture"), str) or
                     not isinstance(fixed, list) or not fixed or not isinstance(affected.get("versions"), list) or
                     not affected["versions"] or affected.get("ranges")):
-                raise ValueError(f"{advisory_id} has an invalid AptTo package or fixed-version entry")
+                raise ValueError(f"{advisory_id} has an invalid GetPatched package or fixed-version entry")
             for version in [*affected["versions"], *fixed]:
                 debian_version_parts(version)
+            policy = advisory.get("database_specific", {})
+            if (policy.get("getpatched_fixed_version") not in fixed or
+                    policy.get("ubuntu_pro_fixed_version") not in fixed):
+                raise ValueError("advisory feed does not match the reviewed GetPatched package policy")
             if any(any(debian_version_compare(fixed_version, affected_version) <= 0 for fixed_version in fixed)
                    for affected_version in affected["versions"]):
                 raise ValueError(f"{advisory_id} fixed versions must sort after every reviewed affected version")
     config = json.loads(PACKAGES.read_text())
     if feed != build_feed(config):
-        raise ValueError("advisory feed does not match the reviewed AptTo package policy")
+        raise ValueError("advisory feed does not match the reviewed GetPatched package policy")
     return feed
 
 
@@ -170,6 +174,7 @@ def scan(status_path, feed_path, release, architecture, image_id=None):
             fixed_versions = affected["database_specific"]["fixed_versions"]
             affected_versions = affected["versions"]
             version = record["version"]
+            advisory_policy = advisory["database_specific"]
             if any(debian_version_compare(version, candidate) == 0 for candidate in affected_versions):
                 findings.append({
                     "id": advisory["id"], "package": package, "version": version,
@@ -177,10 +182,13 @@ def scan(status_path, feed_path, release, architecture, image_id=None):
                     "fixed_versions": fixed_versions, "severity": advisory["database_specific"]["severity"],
                     "summary": advisory["summary"], "references": [ref["url"] for ref in advisory.get("references", [])],
                 })
-            elif not any(debian_version_compare(version, fixed_version) >= 0 for fixed_version in fixed_versions):
+            elif (debian_version_compare(version, advisory_policy["getpatched_fixed_version"]) != 0 and
+                  ("+getpatched" in version or
+                   debian_version_compare(version, advisory_policy["ubuntu_pro_fixed_version"]) < 0)):
                 raise ValueError(
-                    f"installed package {package} version {version} is outside the reviewed affected/fixed "
-                    f"version boundaries for {advisory['id']}; update the advisory feed before treating it as clean"
+                    f"installed package {package} version {version} is not an exact reviewed affected or GetPatched fixed "
+                    f"version, or an Ubuntu Pro fixed version or later, for {advisory['id']}; update the advisory feed "
+                    "before treating it as clean"
                 )
     findings.sort(key=lambda item: (item["package"], item["id"]))
     return {
@@ -206,7 +214,7 @@ def main():
     try:
         report = scan(args.status_file, args.feed, args.release, args.architecture, args.image_id)
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-        print("AptTo scan failed: " + str(error), file=sys.stderr)
+        print("GetPatched scan failed: " + str(error), file=sys.stderr)
         return 2
     print(json.dumps(report, indent=2))
     return 1 if report["findings"] else 0

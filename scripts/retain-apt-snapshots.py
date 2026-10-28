@@ -7,7 +7,7 @@ from pathlib import Path
 import urllib.parse
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("aptto_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
+SPEC = importlib.util.spec_from_file_location("getpatched_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
 PUBLISH = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PUBLISH)
 
@@ -37,7 +37,7 @@ def retain(endpoint, channels):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
+    parser.add_argument("--endpoint", default=os.environ.get("GETPATCHED_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
     args = parser.parse_args()
     PUBLISH.validate_identity()

@@ -33,68 +33,74 @@ class AdvisoryAuditContract(unittest.TestCase):
             before = root / "before.json"
             after = root / "after.json"
             before_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive13@3.4.0-2ubuntu1.5"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive-tools@3.4.0-2ubuntu1.5"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
-            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1", "ID": "libarchive13@3.4.0-2ubuntu1.5+aptto1"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1", "ID": "libarchive-tools@3.4.0-2ubuntu1.5+aptto1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
+            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1+getpatched1", "ID": "libarchive13@3.4.0-2ubuntu1.5+aptto1+getpatched1"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1+getpatched1", "ID": "libarchive-tools@3.4.0-2ubuntu1.5+aptto1+getpatched1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
             before.write_text(json.dumps(before_data))
             after.write_text(json.dumps(after_data))
             osv_before = root / "osv-before.json"
             osv_after = root / "osv-after.json"
             request_before = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5"}
-            request_after = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+aptto1"}
+            request_after = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+aptto1+getpatched1"}
             record = {"id": "UBUNTU-CVE-2026-4111", "upstream": ["CVE-2026-4111"]}
             for path, request_body in ((osv_before, request_before), (osv_after, request_after)):
                 path.write_text(json.dumps({"request": request_body, "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": [record]}}))
             image_ids = {"baselineImageId": "sha256:baseline", "patchedImageId": "sha256:patched"}
             image_path = root / "images.json"
             image_path.write_text(json.dumps(image_ids))
-            aptto_feed = ROOT / "advisories" / "getpatched-osv.json"
-            aptto_scan_paths = {}
+            getpatched_feed = ROOT / "advisories" / "getpatched-osv.json"
+            getpatched_scan_paths = {}
             for phase, version, image_id, ids in (
                 ("before", "3.4.0-2ubuntu1.5", image_ids["baselineImageId"], ["CVE-2026-4111"]),
-                ("after", "3.4.0-2ubuntu1.5+aptto1", image_ids["patchedImageId"], []),
+                ("after", "3.4.0-2ubuntu1.5+aptto1+getpatched1", image_ids["patchedImageId"], []),
             ):
                 status_path = root / (phase + "-getpatched-status")
                 status_path.write_text("verified status inventory " + phase)
                 scan_path = root / (phase + "-getpatched-scan.json")
                 scan_path.write_text(json.dumps({
                     "scanner": "getpatched-dpkg-osv/1", "release": "focal", "architecture": "amd64", "imageId": image_id,
-                    "advisoryFeedSha256": hashlib.sha256(aptto_feed.read_bytes()).hexdigest(),
+                    "advisoryFeedSha256": hashlib.sha256(getpatched_feed.read_bytes()).hexdigest(),
                     "packagePolicySha256": hashlib.sha256((ROOT / "packages.json").read_bytes()).hexdigest(),
                     "statusFileSha256": hashlib.sha256(status_path.read_bytes()).hexdigest(),
                     "scannedPackageVersions": {"libarchive13": version, "libarchive-tools": version},
                     "findingsById": ids + (["CVE-UNRELATED"] if phase == "before" else []),
                     "findings": [{"id": cve, "package": name} for cve in ids + (["CVE-UNRELATED"] if phase == "before" else []) for name in ("libarchive13", "libarchive-tools")],
                 }))
-                aptto_scan_paths[phase] = (scan_path, status_path)
+                getpatched_scan_paths[phase] = (scan_path, status_path)
             package_policy = root / "release-policy.json"
             package_policy.write_text(json.dumps({
                 "source": "libarchive",
                 "targetCves": ["CVE-2026-4111"],
                 "baseVersion": "3.4.0-2ubuntu1.5",
-                "version": "3.4.0-2ubuntu1.5+aptto1",
+                "version": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
             }))
             sidecars = {}
             for phase, report_path in (("before", before), ("after", after)):
                 sidecar_path = root / (phase + "-scan.json")
                 sidecar_path.write_text(json.dumps({"phase": phase, "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c", "imageId": image_ids["baselineImageId" if phase == "before" else "patchedImageId"], "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31", "reportSha256": hashlib.sha256(report_path.read_bytes()).hexdigest()}))
                 sidecars[phase] = str(sidecar_path)
+            historical_evidence = ROOT / "evidence/build-401896-libarchive"
+            evidence_paths = {}
+            for name in ("baseline-regression.json", "patched-regression.json", "build-provenance.json", "binary-manifest.json"):
+                evidence_path = root / name
+                evidence_path.write_text((historical_evidence / name).read_text().replace("+aptto1", "+aptto1+getpatched1"))
+                evidence_paths[name] = str(evidence_path)
             input_data = {
                 "source": "libarchive",
                 "baselineVersion": "3.4.0-2ubuntu1.5",
-                "patchedVersion": "3.4.0-2ubuntu1.5+aptto1",
+                "patchedVersion": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
                 "targetCves": ["CVE-2026-4111"],
                 "beforeTrivy": str(before), "afterTrivy": str(after),
                 "beforeOsv": str(osv_before), "afterOsv": str(osv_after),
-                "baselineRegression": str(ROOT / "evidence/build-401896-libarchive/baseline-regression.json"),
-                "patchedRegression": str(ROOT / "evidence/build-401896-libarchive/patched-regression.json"),
-                "buildProvenance": str(ROOT / "evidence/build-401896-libarchive/build-provenance.json"),
-                "binaryManifest": str(ROOT / "evidence/build-401896-libarchive/binary-manifest.json"),
+                "baselineRegression": evidence_paths["baseline-regression.json"],
+                "patchedRegression": evidence_paths["patched-regression.json"],
+                "buildProvenance": evidence_paths["build-provenance.json"],
+                "binaryManifest": evidence_paths["binary-manifest.json"],
                 "packagePolicy": str(package_policy),
                 "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
                 "sourceCommit": "cad024301c68bb6cf2e4261d350095aaf050703f",
                 "beforeScanMetadata": sidecars["before"], "afterScanMetadata": sidecars["after"], "scanImages": str(image_path),
-                "aptToFeed": str(aptto_feed),
-                "beforeAptToScan": str(aptto_scan_paths["before"][0]), "afterAptToScan": str(aptto_scan_paths["after"][0]),
-                "beforeAptToStatus": str(aptto_scan_paths["before"][1]), "afterAptToStatus": str(aptto_scan_paths["after"][1]),
+                "aptToFeed": str(getpatched_feed),
+                "beforeAptToScan": str(getpatched_scan_paths["before"][0]), "afterAptToScan": str(getpatched_scan_paths["after"][0]),
+                "beforeAptToStatus": str(getpatched_scan_paths["before"][1]), "afterAptToStatus": str(getpatched_scan_paths["after"][1]),
             }
             fixture = root / "input.json"
             fixture.write_text(json.dumps(input_data))
@@ -111,13 +117,13 @@ class AdvisoryAuditContract(unittest.TestCase):
             self.assertEqual(report["aptToAdvisoryIntegration"]["patchedTargetFindingIds"], [])
             self.assertEqual(report["aptToAdvisoryIntegration"]["unrelatedFindingIds"], ["CVE-UNRELATED"])
             self.assertEqual(report["aptToAdvisoryIntegration"]["rawTrivyBaselineTargetFindingIds"], [])
-            self.assertEqual(report["aptToAdvisoryIntegration"]["findings"][0]["patched"], "resolved by AptTo backport; exact installed version and target regression passed")
+            self.assertEqual(report["aptToAdvisoryIntegration"]["findings"][0]["patched"], "resolved by GetPatched backport; exact installed version and target regression passed")
             self.assertEqual(hashlib.sha256(before.read_bytes()).hexdigest(), original_before)
             self.assertEqual(hashlib.sha256(after.read_bytes()).hexdigest(), original_after)
-            contradictory = json.loads(aptto_scan_paths["after"][0].read_text())
+            contradictory = json.loads(getpatched_scan_paths["after"][0].read_text())
             contradictory["findings"] = [{"id": "CVE-2026-4111", "package": "libarchive13"}]
             contradictory["findingsById"] = []
-            aptto_scan_paths["after"][0].write_text(json.dumps(contradictory))
+            getpatched_scan_paths["after"][0].write_text(json.dumps(contradictory))
             inconsistent = self.invoke(fixture, root / "inconsistent.json")
             self.assertNotEqual(inconsistent.returncode, 0)
             self.assertIn("summary disagrees", inconsistent.stderr)

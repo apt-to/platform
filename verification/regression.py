@@ -34,7 +34,7 @@ def main():
     parser.add_argument("--phase", choices=("baseline", "patched"), required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    policy = json.loads((args.source / "debian/aptto/release-policy.json").read_text())
+    policy = json.loads((args.source / "debian/getpatched/release-policy.json").read_text())
     package = policy["source"]
     fixtures = args.source / "debian/tests/fixtures"
     expected = policy["baseVersion"] if args.phase == "baseline" else policy["version"]

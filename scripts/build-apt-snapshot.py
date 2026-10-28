@@ -15,10 +15,10 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_ASSET_BYTES = 64 * 1024 * 1024
-PUBLISH_SPEC = importlib.util.spec_from_file_location("aptto_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
+PUBLISH_SPEC = importlib.util.spec_from_file_location("getpatched_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
 PUBLISH = importlib.util.module_from_spec(PUBLISH_SPEC)
 PUBLISH_SPEC.loader.exec_module(PUBLISH)
-GENERATOR_SPEC = importlib.util.spec_from_file_location("aptto_index_generator", ROOT / "scripts" / "generate-apt-index.py")
+GENERATOR_SPEC = importlib.util.spec_from_file_location("getpatched_index_generator", ROOT / "scripts" / "generate-apt-index.py")
 GENERATOR = importlib.util.module_from_spec(GENERATOR_SPEC)
 GENERATOR_SPEC.loader.exec_module(GENERATOR)
 
@@ -56,7 +56,7 @@ def validate_release(release):
     if (not isinstance(release, dict) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,100}", str(release.get("id", ""))) or
             release.get("state") not in {"public", "sponsor-period"} or
             not re.fullmatch(r"getpatched/packaging-(?:libxml2|libarchive)", str(release.get("repository", ""))) or
-            not re.fullmatch(r"aptto/[A-Za-z0-9.+~-]+", str(release.get("tag", ""))) or
+            not re.fullmatch(r"getpatched/[A-Za-z0-9.+~-]+", str(release.get("tag", ""))) or
             not re.fullmatch(r"[a-f0-9]{40}", str(release.get("source_commit", "")))):
         raise ValueError("release inventory contains an invalid pilot package record")
     for field in ("required_assets", "source_assets"):
@@ -188,7 +188,7 @@ def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
                 continue
             download_asset(endpoint, channel, release, asset, target)
         release_ids.append(release["id"])
-    result = GENERATOR.generate(repository, "focal", "amd64", "main", "AptTo maintained packages")
+    result = GENERATOR.generate(repository, "focal", "amd64", "main", "GetPatched maintained packages")
     run_id = os.environ.get("GITHUB_RUN_ID", "")
     if not re.fullmatch(r"[0-9]{1,20}", run_id):
         raise RuntimeError("GitHub Actions run identity is required for immutable snapshot ids")
@@ -199,7 +199,7 @@ def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
+    parser.add_argument("--endpoint", default=os.environ.get("GETPATCHED_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
     parser.add_argument("--force-refresh", action="store_true", help="rebuild even when the eligible release set matches the healthy active snapshot")
     args = parser.parse_args()

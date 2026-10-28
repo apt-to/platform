@@ -46,7 +46,7 @@ def validate_identity():
         "workflow_dispatch": "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main",
     }
     if workflow != allowed_workflows[event]:
-        raise RuntimeError("snapshot publication is restricted to a protected AptTo workflow")
+        raise RuntimeError("snapshot publication is restricted to a protected GetPatched workflow")
     token_host = urllib.parse.urlsplit(os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"])
     if token_host.scheme != "https" or not token_host.hostname or not token_host.hostname.endswith(".actions.githubusercontent.com"):
         raise RuntimeError("GitHub OIDC request URL is not on the GitHub Actions token service")
@@ -216,7 +216,7 @@ def publish(endpoint, channel, snapshot_id, release_ids, repository, expected_fi
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
+    parser.add_argument("--endpoint", default=os.environ.get("GETPATCHED_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", required=True, choices=("public", "early"))
     parser.add_argument("--snapshot-id", required=True)
     parser.add_argument("--release-id", required=True, action="append")
