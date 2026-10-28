@@ -33,7 +33,7 @@ class PublicCatalogueContract(unittest.TestCase):
             self.assertEqual(entry["releaseStatus"], "No production release")
 
         page = (ROOT / "site/index.html").read_text()
-        self.assertIn("Production signing, package downloads and getpatched.dev repository endpoints are not live yet", page)
+        self.assertIn("Production signing and package downloads are not available yet; repository metadata will appear after a signed release passes the publication gates", page)
         self.assertIn("No download action is shown until the signed repository is live", page)
         self.assertIn("Each row links to its source, patch, regression tests and release history", page)
         self.assertIn("Any sponsor delay starts at sponsor publication", page)
