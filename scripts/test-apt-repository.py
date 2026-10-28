@@ -111,6 +111,7 @@ done
 set -- $BINARY_PACKAGES
 core_package="$1"
 esm_pockets="${ESM_POCKETS//,/ }"
+release_date="$(date -u -R -d "${ARCHIVE_SNAPSHOT:0:4}-${ARCHIVE_SNAPSHOT:4:2}-${ARCHIVE_SNAPSHOT:6:2}T${ARCHIVE_SNAPSHOT:9:2}:${ARCHIVE_SNAPSHOT:11:2}:${ARCHIVE_SNAPSHOT:13:2}Z")"
 case "$core_package" in
   libxml2) preference_file=/etc/apt/preferences.d/90-getpatched-libxml2 ;;
   libarchive13) preference_file=/etc/apt/preferences.d/90-getpatched-libarchive ;;
@@ -152,17 +153,22 @@ for pocket in $esm_pockets; do
   cp /tmp/esm-packages "$suite_dir/main/binary-amd64/Packages"
   gzip -k "$suite_dir/main/binary-amd64/Packages"
   packages_gz="$suite_dir/main/binary-amd64/Packages.gz"
+  packages_plain="$suite_dir/main/binary-amd64/Packages"
   packages_digest="$(sha256sum "$packages_gz" | cut -d ' ' -f 1)"
   packages_size="$(stat -c '%s' "$packages_gz")"
+  packages_plain_digest="$(sha256sum "$packages_plain" | cut -d ' ' -f 1)"
+  packages_plain_size="$(stat -c '%s' "$packages_plain")"
   cat > "$suite_dir/Release" <<EOF
 Origin: Ubuntu
 Label: UbuntuESM
 Suite: $pocket
 Codename: $pocket
+Date: $release_date
 Architectures: amd64
 Components: main
 SHA256:
  $packages_digest $packages_size main/binary-amd64/Packages.gz
+ $packages_plain_digest $packages_plain_size main/binary-amd64/Packages
 EOF
 done
 for pocket in $esm_pockets; do
@@ -176,8 +182,16 @@ for pocket in $esm_pockets; do
   for binary in $BINARY_PACKAGES; do
     policy="$(apt-cache "${apt_options[@]}" policy "$binary")"
     candidate="$(printf '%s\n' "$policy" | sed -n 's/^[[:space:]]*Candidate: //p')"
-    test "$candidate" = "$ESM_VERSION" || { echo "wrong ESM candidate for $binary in $pocket: $candidate" >&2; exit 1; }
-    printf '%s\n' "$policy" | grep -F "1001 file:/tmp/esm-test-repo $pocket/main amd64 Packages" >/dev/null || {
+    if [ "$candidate" != "$ESM_VERSION" ]; then
+      echo "wrong ESM candidate for $binary in $pocket: $candidate" >&2
+      echo "$policy" >&2
+      exit 1
+    fi
+    printf '%s\n' "$policy" | awk -v version="$ESM_VERSION" -v source="file:/tmp/esm-test-repo $pocket/main amd64 Packages" '
+      $1 == version { in_candidate = ($2 == "1001"); next }
+      in_candidate && index($0, source) { found = 1 }
+      END { exit !found }
+    ' || {
       echo "ESM pocket $pocket did not receive the expected APT pin priority for $binary" >&2
       printf '%s\n' "$policy"
       exit 1
