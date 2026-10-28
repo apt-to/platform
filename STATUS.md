@@ -1,11 +1,13 @@
 # GetPatched implementation status
 
-## Current continuation — 28 October 2026, 21:32 UTC
+## Current continuation — 28 October 2026, 21:48 UTC
 
-- Security-evidence PR [#45](https://github.com/getpatched/platform/pull/45) merged to `main` at `ad43e4431cff007dc72cb19d451a880133c00701`. Required catalogue check [40771757706](https://github.com/getpatched/platform/actions/runs/40771757706), main quality [40771842796](https://github.com/getpatched/platform/actions/runs/40771842796), and automatic Worker/site deployment with smoke checks [40771843118](https://github.com/getpatched/platform/actions/runs/40771843118) passed.
-- The sanitized secret audit now records all 32 unexpired source/verification artifacts from 16 package runs in the latest-100 run inventory (19,210 scanned files), 21 selected workflow logs (18,074,010 bytes), and OCR pattern checks for four screenshots. All returned zero findings/matches. Other run artifacts outside this set, GitHub-history scan completion, and unrecognized image-secret patterns remain unverified.
-- Filename-only authstore and environment-name checks found no Ubuntu Pro/ESM credential candidate. GitHub Sponsors enrollment is still absent. No Cloudflare WAF setting has changed; the production R2 self-test still needs approval for the exact route-scoped Browser Integrity Check exception.
-- **Next actions:** provide an Ubuntu Pro entitlement and complete Sponsors enrollment; approve or decline the exact Cloudflare exception so the R2 binding can be verified. Continue reviewing new hosted artifacts as they appear.
+- Security-evidence PR [#46](https://github.com/getpatched/platform/pull/46) is merged to `main` at `3c1cc8e8e2ec5e73aaaab4b613d8e956024bbdc3`. Main quality [40773264606](https://github.com/getpatched/platform/actions/runs/40773264606) and automatic Worker/site deployment [40773264561](https://github.com/getpatched/platform/actions/runs/40773264561) passed.
+- The sanitized secret audit covers 32 unexpired source/verification artifacts from 16 package runs (19,210 files), 23 selected workflow logs (18,268,589 bytes), and OCR pattern checks for four screenshots. All recorded zero findings/matches. Other run artifacts outside this set, GitHub-history scan completion, and unrecognized image-secret patterns remain unverified. The two post-#46 workflow logs were scanned with Trivy 0.70.0 at 21:44 UTC, and the current platform tree was rescanned after this update at 21:46 UTC; all returned zero findings.
+- The user approved the narrow Browser Integrity Check exception for `POST /internal/r2-self-test` on `repo.getpatched.dev`, but it remains unconfigured: Cloudflare login is waiting for account authentication, and the stored GetPatched Cloudflare API token failed verification. No Cloudflare setting was changed.
+- The hosting cost model in [`docs/operations-cost.md`](docs/operations-cost.md) was checked against current GitHub billing docs: GitHub Free for Organizations includes $12/month of eligible compute, while standard runners on public repositories remain free; shared Actions/Packages storage is 500 MB.
+- Other release blockers remain: authentic Ubuntu Pro Focal ESM data/entitlement and GitHub Sponsors enrollment/tier configuration. No package or signed repository metadata has been published.
+- **Next actions:** complete Cloudflare sign-in in the handed-off browser, then add the exact exception and rerun the R2 write/read/delete test. Continue resolving ESM and Sponsors access and the remaining release acceptance gates.
 
 ## Current continuation — 28 October 2026, 21:15 UTC
 
