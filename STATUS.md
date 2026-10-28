@@ -1,5 +1,13 @@
 # GetPatched implementation status
 
+## Live configuration check — 29 October 2026, 00:06 UTC
+
+- Platform PR [#52](https://github.com/getpatched/platform/pull/52) is merged at `037e5c492bea4d8cd8c8a4f4b0d60c484aee8017`; catalogue quality, main quality, and automatic Worker/site deployment all passed. The site and `/account` return HTTP 200. Public Focal `InRelease` returns 503 and anonymous early `InRelease` returns 401; signed production indexes are not published.
+- Verified the current organization is `getpatched` with the three expected public repositories (`platform`, `packaging-libxml2`, `packaging-libarchive`); its only member is `marktopper`. The public `github.com/sponsors/getpatched` URL redirects to the organization page, so a Sponsors profile is not live. The sponsorships API endpoint returned 404; no production sponsor entitlement has been verified.
+- The existing GetPatched GitHub OAuth App is already registered with homepage `https://getpatched.dev/` and callback `https://getpatched.dev/auth/github/callback`, but GitHub requires sudo-mode reauthentication to generate its client secret. Cloudflare's production Worker settings show the public `GITHUB_API` variable and R2 binding; `/auth/github` currently returns 503, confirming production OAuth is not configured. A password/passkey/authenticator confirmation is required before secret setup can continue.
+- Signing environment metadata confirms it is restricted by a custom branch policy and has a signing-key secret plus fingerprint configured. Repository publication remains disabled, and the authenticated ESM source audit remains blocked by the absent `UBUNTU_PRO_TOKEN`. No release has been staged or published.
+- **Next actions:** complete GitHub sudo-mode reauthentication, then wire the existing OAuth app into Worker runtime secrets/config and live-test sign-in. Complete actual GitHub Sponsors enrollment and tier setup; add `UBUNTU_PRO_TOKEN` through the environment secret UI, then run the real ESM ordering/ABI checks. Keep publication disabled until all release acceptance gates pass.
+
 ## Verification update — 28 October 2026, 23:01 UTC
 
 - Status PR [#51](https://github.com/getpatched/platform/pull/51) merged at `adfbc9147ec521a4486db507175a41e516d8d698`; the main quality and automatic Worker/site deployments passed. The `getpatched-esm` Actions environment is configured for only `main`; an independent read-only review confirmed the branch policy. Its secret list is empty, and no Ubuntu Pro token was found in the approved authstore or current environment names.
