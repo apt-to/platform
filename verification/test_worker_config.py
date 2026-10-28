@@ -24,13 +24,13 @@ class WorkerRouteConfig(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
         self.assertRegex(
             workflow,
-            r"build-indexes:\n\s+if: >-\n\s+vars\.APTTO_REPOSITORY_ENABLED == 'true' &&",
+            r"build-indexes:\n\s+if: >-\n\s+vars\.GETPATCHED_REPOSITORY_ENABLED == 'true' &&",
         )
 
     def test_snapshot_rollback_is_manual_and_requires_the_protected_signing_environment(self):
         workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
         self.assertRegex(workflow, r"operation:\n\s+description:.*\n\s+type: choice\n\s+required: true\n\s+default: publish\n\s+options: \[publish, rollback, prune\]")
-        self.assertRegex(workflow, r"vars\.APTTO_REPOSITORY_ENABLED == 'true' &&\n\s+\(github\.event_name != 'workflow_dispatch' \|\| github\.event\.inputs\.operation != 'rollback'\) &&")
+        self.assertRegex(workflow, r"vars\.GETPATCHED_REPOSITORY_ENABLED == 'true' &&\n\s+\(github\.event_name != 'workflow_dispatch' \|\| github\.event\.inputs\.operation != 'rollback'\) &&")
         self.assertRegex(workflow, r"rollback:\n\s+if: >-\n(?:\s+.*\n){3}\s+github\.event\.inputs\.operation == 'rollback'")
         self.assertRegex(workflow, r"rollback:\n(?:.*\n){0,12}\s+environment: getpatched-signing")
         self.assertIn("python3 scripts/rollback-apt-snapshot.py", workflow)
@@ -52,7 +52,7 @@ class WorkerRouteConfig(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "worker-deploy.yml").read_text()
         self.assertRegex(workflow, r"push:\n\s+branches:\n\s+- main")
         self.assertRegex(workflow, r"confirm_production:\n\s+description:.*\n\s+type: boolean\n\s+required: true\n\s+default: false")
-        self.assertNotIn("APTTO_WORKER_DEPLOY_ENABLED", workflow)
+        self.assertNotIn("GETPATCHED_WORKER_DEPLOY_ENABLED", workflow)
         self.assertEqual(workflow.count("github.ref == 'refs/heads/main'"), 2)
         self.assertEqual(workflow.count("github.event_name == 'push'"), 2)
         self.assertEqual(workflow.count("inputs.confirm_production == true"), 2)

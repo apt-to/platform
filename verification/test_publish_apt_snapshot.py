@@ -112,14 +112,14 @@ class AptSnapshotPublisher(unittest.TestCase):
         packages.write_bytes(content)
         digest = hashlib.sha256(content).hexdigest()
         (self.dist / "Release").write_text(
-            "Origin: AptTo\nSuite: focal\nArchitectures: amd64\nComponents: main\nSHA256:\n"
+            "Origin: GetPatched\nSuite: focal\nArchitectures: amd64\nComponents: main\nSHA256:\n"
             f" {digest} {len(content)} main/binary-amd64/Packages\n"
         )
         signer = self.repository / "signer"
         signer.mkdir(mode=0o700)
         env = {**os.environ, "GNUPGHOME": str(signer)}
         generated = subprocess.run(
-            ["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "", "--quick-generate-key", "AptTo Test <test@getpatched.dev>", "ed25519", "sign", "0"],
+            ["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "", "--quick-generate-key", "GetPatched Test <test@getpatched.dev>", "ed25519", "sign", "0"],
             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
         )
         if generated.returncode:
@@ -166,10 +166,10 @@ class AptSnapshotPublisher(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "restricted"):
                 PUBLISH.validate_identity()
         with patch.dict(os.environ, {**values, "GITHUB_WORKFLOW_REF": "getpatched/platform/.github/workflows/private-staging.yml@refs/heads/main"}, clear=True):
-            with self.assertRaisesRegex(RuntimeError, "protected AptTo workflow"):
+            with self.assertRaisesRegex(RuntimeError, "protected GetPatched workflow"):
                 PUBLISH.validate_identity()
 
-    def test_publication_rejects_non_aptto_hosts_before_requesting_an_oidc_token(self):
+    def test_publication_rejects_non_getpatched_hosts_before_requesting_an_oidc_token(self):
         with self.assertRaisesRegex(ValueError, "HTTPS repo.getpatched.dev gateway"):
             PUBLISH.publish("https://attacker.example", "public", "snapshot-001", ["pilot"], self.repository, "0" * 40)
 

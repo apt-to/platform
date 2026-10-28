@@ -1,4 +1,4 @@
-"""End-to-end contract for AptTo's OSV-compatible dpkg advisory scanner."""
+"""End-to-end contract for GetPatched's OSV-compatible dpkg advisory scanner."""
 import json
 from pathlib import Path
 import subprocess
@@ -11,7 +11,7 @@ SCANNER = ROOT / "scripts" / "getpatched-scan.py"
 FEED = ROOT / "advisories" / "getpatched-osv.json"
 
 
-class AptToScannerContract(unittest.TestCase):
+class GetPatchedScannerContract(unittest.TestCase):
     def scan_packages(self, entries):
         status = "\n\n".join(
             f"Package: {name}\nStatus: install ok installed\nVersion: {version}\nArchitecture: amd64"
@@ -63,22 +63,22 @@ Architecture: amd64
 
         patched = self.scan("""Package: libxml2
 Status: install ok installed
-Version: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1
+Version: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1
 Architecture: amd64
 
 Package: libxml2-utils
 Status: install ok installed
-Version: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1
+Version: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1
 Architecture: amd64
 
 Package: libarchive13
 Status: install ok installed
-Version: 3.4.0-2ubuntu1.5+aptto1
+Version: 3.4.0-2ubuntu1.5+aptto1+getpatched1
 Architecture: amd64
 
 Package: libarchive-tools
 Status: install ok installed
-Version: 3.4.0-2ubuntu1.5+aptto1
+Version: 3.4.0-2ubuntu1.5+aptto1+getpatched1
 Architecture: amd64
 """)
         self.assertEqual(patched.returncode, 0, patched.stderr)
@@ -129,17 +129,25 @@ Architecture: i386
         self.assertEqual(report["scannedPackageVersions"], {"libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10"})
         self.assertEqual(set(report["findingsById"]), {"CVE-2025-49794", "CVE-2025-49796"})
 
-    def test_aptto_revisions_and_canonical_esm_fixed_versions_are_clean(self):
+    def test_getpatched_revisions_and_canonical_esm_fixed_versions_are_clean(self):
         result = self.scan_packages({
-            "libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto2",
+            "libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
             "libxml2-utils": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
-            "libarchive13": "3.4.0-2ubuntu1.5+aptto2",
+            "libarchive13": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
             "libarchive-tools": "3.4.0-2ubuntu1.5+esm1",
         })
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual(report["findings"], [])
         self.assertEqual(report["summary"]["scannedPackages"], 4)
+
+    def test_later_ubuntu_pro_fixed_versions_are_clean(self):
+        result = self.scan_packages({
+            "libarchive13": "3.4.0-2ubuntu1.5+esm2",
+            "libarchive-tools": "3.4.0-2ubuntu1.5+esm2",
+        })
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["findings"], [])
 
     def test_exact_reviewed_baseline_version_is_asserted_affected(self):
         result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.5"})
@@ -150,17 +158,22 @@ Architecture: i386
     def test_unreviewed_older_versions_fail_closed(self):
         result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.4"})
         self.assertEqual(result.returncode, 2)
-        self.assertIn("outside the reviewed affected/fixed version boundaries", result.stderr)
+        self.assertIn("not an exact reviewed affected or GetPatched fixed version", result.stderr)
 
     def test_unreviewed_versions_between_baseline_and_fixed_boundary_fail_closed(self):
-        result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.5+aptto0"})
+        result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.5+getpatched0"})
         self.assertEqual(result.returncode, 2)
-        self.assertIn("outside the reviewed affected/fixed version boundaries", result.stderr)
+        self.assertIn("not an exact reviewed affected or GetPatched fixed version", result.stderr)
+
+    def test_unreviewed_versions_after_fixed_boundary_fail_closed(self):
+        result = self.scan_packages({"libarchive13": "3.4.0-2ubuntu1.5+getpatched3"})
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("not an exact reviewed affected or GetPatched fixed version", result.stderr)
 
     def test_feed_generation_is_reproducible_and_has_exact_binary_identities(self):
         with tempfile.TemporaryDirectory(prefix="getpatched-feed-test-") as directory:
             output = Path(directory) / "feed.json"
-            subprocess.run([sys.executable, str(ROOT / "scripts" / "build_aptto_advisory_feed.py"), "--output", str(output)], check=True, capture_output=True, text=True)
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "build_getpatched_advisory_feed.py"), "--output", str(output)], check=True, capture_output=True, text=True)
             generated = json.loads(output.read_text())
         committed = json.loads(FEED.read_text())
         self.assertEqual(generated, committed)
@@ -178,7 +191,7 @@ Architecture: i386
             # Invoke the public CLI with the tampered feed and a real dpkg-status stanza.
             result = self.scan("Package: libarchive13\nStatus: install ok installed\nVersion: 3.4.0-2ubuntu1.5\nArchitecture: amd64\n", tampered)
         self.assertEqual(result.returncode, 2)
-        self.assertIn("does not match the reviewed AptTo package policy", result.stderr)
+        self.assertIn("does not match the reviewed GetPatched package policy", result.stderr)
 
 
 if __name__ == "__main__":

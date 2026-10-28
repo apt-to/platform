@@ -22,15 +22,15 @@ class PrivateStagingManifest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.expected = {
-            "source": "libarchive", "sourceVersion": "3.4.0-2ubuntu1.5+aptto1",
+            "source": "libarchive", "sourceVersion": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
             "sourceCommit": "a" * 40, "distribution": "focal", "architecture": "amd64",
             "publication": "runner local output", "packages": [{
-                "name": "libarchive13_3.4.0-2ubuntu1.5+aptto1_amd64.deb",
-                "package": "libarchive13", "version": "3.4.0-2ubuntu1.5+aptto1",
+                "name": "libarchive13_3.4.0-2ubuntu1.5+aptto1+getpatched1_amd64.deb",
+                "package": "libarchive13", "version": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
                 "architecture": "amd64", "bytes": 123, "sha256": "b" * 64,
             }],
             "sourceFiles": [{
-                "name": "libarchive_3.4.0-2ubuntu1.5+aptto1.dsc", "bytes": 456, "sha256": "c" * 64,
+                "name": "libarchive_3.4.0-2ubuntu1.5+aptto1+getpatched1.dsc", "bytes": 456, "sha256": "c" * 64,
             }],
         }
         self.expected_path = self.root / "expected.json"
@@ -47,7 +47,7 @@ class PrivateStagingManifest(unittest.TestCase):
         self.assertNotEqual(COMPARE.canonical(self.expected_path), COMPARE.canonical(self.rebuilt_path))
 
     def test_source_commit_or_candidate_name_mismatch_is_rejected(self):
-        for field, value in (("sourceCommit", "d" * 40), ("sourceVersion", "3.4.0-2ubuntu1.5+aptto2")):
+        for field, value in (("sourceCommit", "d" * 40), ("sourceVersion", "3.4.0-2ubuntu1.5+getpatched2")):
             altered = {**self.expected, field: value}
             self.rebuilt_path.write_text(json.dumps(altered))
             self.assertNotEqual(COMPARE.canonical(self.expected_path), COMPARE.canonical(self.rebuilt_path))
@@ -63,10 +63,10 @@ class PrivateStagingManifest(unittest.TestCase):
         self.assertIn('name: source-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}', producer)
         self.assertIn('gh run download "$RUN_ID" --repo getpatched/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
         self.assertIn('SOURCE_DIRECTORY: ${{ runner.temp }}/candidate/source', staging)
-        self.assertIn('APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev', staging)
+        self.assertIn('GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev', staging)
         self.assertRegex(
             staging,
-            r"rebuild-and-stage:\n\s+if: >-\n\s+vars\.APTTO_REPOSITORY_ENABLED == 'true' &&",
+            r"rebuild-and-stage:\n\s+if: >-\n\s+vars\.GETPATCHED_REPOSITORY_ENABLED == 'true' &&",
         )
 
     def test_release_endpoint_is_pinned_to_repository_hostname(self):
@@ -76,7 +76,7 @@ class PrivateStagingManifest(unittest.TestCase):
                 STAGE.validate_endpoint(endpoint)
 
     def test_debian_source_filename_allowlist_accepts_normal_underscored_names(self):
-        self.assertRegex("libarchive_3.4.0-2ubuntu1.5+aptto1.dsc", r"^[A-Za-z0-9][A-Za-z0-9_.+~-]*$")
+        self.assertRegex("libarchive_3.4.0-2ubuntu1.5+aptto1+getpatched1.dsc", r"^[A-Za-z0-9][A-Za-z0-9_.+~-]*$")
         self.assertNotRegex("../libarchive_3.4.0.dsc", r"^[A-Za-z0-9][A-Za-z0-9_.+~-]*$")
 
 

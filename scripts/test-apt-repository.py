@@ -26,11 +26,11 @@ def main():
     parser.add_argument("--archive-snapshot", required=True)
     args = parser.parse_args()
 
-    policy = json.loads((args.source / "debian/aptto/release-policy.json").read_text())
+    policy = json.loads((args.source / "debian/getpatched/release-policy.json").read_text())
     platform = json.loads((Path(__file__).resolve().parents[1] / "packages.json").read_text())
     candidate = platform["packages"][policy["source"]]
     binary_packages = candidate["binaryPackages"]
-    if (policy["version"] != policy["baseVersion"] + "+aptto1"
+    if (policy["version"] != policy["baseVersion"] + "+aptto1+getpatched1"
             or policy["baseVersion"] != candidate["baselineVersion"]
             or policy["architecture"] != platform["architecture"]
             or policy["release"] != platform["release"]):
@@ -56,7 +56,7 @@ def main():
     dist = repo / "dists/focal"
     (args.work / "repo-index.sh").write_text("""#!/bin/bash
 set -euo pipefail
-python3 /generate-apt-index.py --repo /repo --suite focal --architecture amd64 --component main --description 'AptTo focal amd64 test archive'
+python3 /generate-apt-index.py --repo /repo --suite focal --architecture amd64 --component main --description 'GetPatched focal amd64 test archive'
 """)
     run(["docker", "run", "--rm", "--platform", "linux/amd64", "--user", f"{os.getuid()}:{os.getgid()}",
          "--mount", f"type=bind,source={repo},target=/repo",
@@ -68,7 +68,7 @@ python3 /generate-apt-index.py --repo /repo --suite focal --architecture amd64 -
     key_home.mkdir(mode=0o700)
     env = {**os.environ, "GNUPGHOME": str(key_home)}
     run(["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "", "--quick-generate-key",
-         "AptTo Temporary Repository Test <repo-test@getpatched.dev>", "rsa3072", "sign", "0"], env=env)
+         "GetPatched Temporary Repository Test <repo-test@getpatched.dev>", "rsa3072", "sign", "0"], env=env)
     fingerprint = subprocess.run(["gpg", "--batch", "--with-colons", "--list-keys"], env=env,
                                  check=True, capture_output=True, text=True).stdout
     fingerprint = next(line.split(":")[9] for line in fingerprint.splitlines() if line.startswith("fpr:"))
@@ -107,7 +107,7 @@ for binary in $BINARY_PACKAGES; do
   test "$version" = "$EXPECTED_VERSION" || { echo "wrong installed version for $binary: $version" >&2; exit 1; }
 done
 apt-get source "$SOURCE_PACKAGE"
-test -f "$SOURCE_PACKAGE"*/debian/aptto/release-policy.json
+test -f "$SOURCE_PACKAGE"*/debian/getpatched/release-policy.json
 """)
     (client_context / "Dockerfile").write_text("""ARG TRUST_IMAGE
 ARG BASE_IMAGE

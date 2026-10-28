@@ -24,7 +24,7 @@ class AptRepositoryIndex(unittest.TestCase):
         digest = hashlib.sha256(index.read_bytes()).hexdigest()
         self.release = self.dist / "Release"
         self.release.write_text(
-            "Origin: AptTo\nLabel: getpatched.dev\nSuite: focal\nCodename: focal\n"
+            "Origin: GetPatched\nLabel: getpatched.dev\nSuite: focal\nCodename: focal\n"
             "Architectures: amd64\nComponents: main\nSHA256:\n"
             f" {digest} {index.stat().st_size} main/binary-amd64/Packages.gz\n"
             f" {'0' * 64} 123 Release\n"
@@ -63,17 +63,17 @@ class AptRepositoryIndex(unittest.TestCase):
         old_suite.mkdir(parents=True)
         (old_suite / "InRelease").write_bytes(b"prior signature")
         with self.assertRaisesRegex(ValueError, "fresh immutable repository snapshot"):
-            GENERATOR.generate(repo, "focal", "amd64", "main", "AptTo")
+            GENERATOR.generate(repo, "focal", "amd64", "main", "GetPatched")
 
     def test_signing_creates_verifiable_inrelease_and_detached_signature(self):
         dist = Path(self.temp.name) / "signed/dists/focal"
         dist.mkdir(parents=True)
-        (dist / "Release").write_text("Origin: AptTo\nArchitectures: amd64\n")
+        (dist / "Release").write_text("Origin: GetPatched\nArchitectures: amd64\n")
         key_home = Path(self.temp.name) / "signer"
         key_home.mkdir(mode=0o700)
         env = {**os.environ, "GNUPGHOME": str(key_home)}
         subprocess.run(["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "",
-                        "--quick-generate-key", "AptTo Test <test@getpatched.dev>", "ed25519", "sign", "0"],
+                        "--quick-generate-key", "GetPatched Test <test@getpatched.dev>", "ed25519", "sign", "0"],
                        check=True, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         listing = subprocess.run(["gpg", "--batch", "--with-colons", "--list-secret-keys"], check=True,
                                  capture_output=True, text=True, env=env).stdout

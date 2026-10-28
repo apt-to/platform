@@ -13,7 +13,7 @@ permissions:
 jobs:
   rebuild-and-stage:
     if: >-
-      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      vars.GETPATCHED_REPOSITORY_ENABLED == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'workflow_dispatch' &&
       github.event.workflow_run.head_branch == 'main' &&
@@ -60,7 +60,7 @@ jobs:
           git clone --no-checkout "https://github.com/getpatched/packaging-${package}.git" packaging
           git -C packaging fetch --no-tags origin "$source_commit"
           git -C packaging checkout --detach "$source_commit"
-          git -C packaging fetch --no-tags origin refs/heads/aptto/focal
+          git -C packaging fetch --no-tags origin refs/heads/getpatched/focal
           git -C packaging merge-base --is-ancestor "$source_commit" FETCH_HEAD
           echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
       - name: Rebuild in the isolated focal builder and compare binary hashes
@@ -71,7 +71,7 @@ jobs:
             build/recheck/release-candidates.json
       - name: Register verified release and upload privately to R2
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
+          GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev
           VERIFICATION_RUN_ID: ${{ github.event.workflow_run.id }}
           CANDIDATE_MANIFEST: ${{ runner.temp }}/candidate/release-candidates.json
           BINARY_DIRECTORY: ${{ github.workspace }}/build/recheck/binary

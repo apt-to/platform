@@ -121,7 +121,7 @@ function releaseAssets(assets, id) {
 }
 
 function sourceReleaseTag(record) {
-  return `getpatched-source/${record.tag.slice("aptto/".length)}`;
+  return `getpatched-source/${record.tag.slice("getpatched/".length)}`;
 }
 
 function checksumBuffer(hex) {
@@ -909,7 +909,7 @@ async function fetchSponsorSnapshot(env, now) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        query: `query AptToSponsorReconciliation($after: String) {
+        query: `query GetPatchedSponsorReconciliation($after: String) {
           organization(login: "getpatched") {
             login
             hasSponsorsListing
@@ -1085,12 +1085,12 @@ async function beginGithubLogin(request, env) {
   redirect.searchParams.set("code_challenge_method", "S256");
   return new Response(null, {
     status: 302,
-    headers: { location: redirect.toString(), "cache-control": "no-store", "set-cookie": setCookie("aptto_oauth_state", state, "/auth/github/callback", 600) },
+    headers: { location: redirect.toString(), "cache-control": "no-store", "set-cookie": setCookie("getpatched_oauth_state", state, "/auth/github/callback", 600) },
   });
 }
 
 async function consumeOauthState(request, env, returnedState) {
-  const cookieState = cookieValue(request, "aptto_oauth_state");
+  const cookieState = cookieValue(request, "getpatched_oauth_state") || cookieValue(request, "aptto_oauth_state");
   if (!cookieState || !returnedState || !constantTimeEqual(cookieState, returnedState)) return false;
   const key = `oauth-states/${await sha256Hex(new TextEncoder().encode(returnedState))}.json`;
   const loaded = await readRecord(env.RELEASES, key);
@@ -1142,15 +1142,16 @@ async function githubLoginCallback(request, env) {
     status: 302,
     headers: (() => {
       const headers = new Headers({ location: `${env.PUBLIC_ORIGIN}/account`, "cache-control": "no-store" });
+      headers.append("set-cookie", clearCookie("getpatched_oauth_state", "/auth/github/callback"));
       headers.append("set-cookie", clearCookie("aptto_oauth_state", "/auth/github/callback"));
-      headers.append("set-cookie", setCookie("aptto_session", session, "/", 7 * 24 * 60 * 60));
+      headers.append("set-cookie", setCookie("getpatched_session", session, "/", 7 * 24 * 60 * 60));
       return headers;
     })(),
   });
 }
 
 async function sessionUser(request, env) {
-  const session = cookieValue(request, "aptto_session");
+  const session = cookieValue(request, "getpatched_session") || cookieValue(request, "aptto_session");
   if (!session) return null;
   const key = `apt-sessions/${await sha256Hex(new TextEncoder().encode(session))}.json`;
   const loaded = await readRecord(env.RELEASES, key);
@@ -1175,7 +1176,7 @@ async function accountStatus(request, env) {
 
 async function logout(request, env) {
   assertSameOrigin(request, env);
-  const session = cookieValue(request, "aptto_session");
+  const session = cookieValue(request, "getpatched_session") || cookieValue(request, "aptto_session");
   if (session) {
     const key = `apt-sessions/${await sha256Hex(new TextEncoder().encode(session))}.json`;
     const loaded = await readRecord(env.RELEASES, key);
@@ -1186,7 +1187,10 @@ async function logout(request, env) {
       if (!saved) return json({ error: "session changed concurrently; retry logout" }, 409);
     }
   }
-  return new Response(null, { status: 204, headers: { "cache-control": "no-store", "set-cookie": clearCookie("aptto_session", "/") } });
+  const headers = new Headers({ "cache-control": "no-store" });
+  headers.append("set-cookie", clearCookie("getpatched_session", "/"));
+  headers.append("set-cookie", clearCookie("aptto_session", "/"));
+  return new Response(null, { status: 204, headers });
 }
 
 async function issueDeviceToken(request, env) {
@@ -1201,7 +1205,7 @@ async function issueDeviceToken(request, env) {
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   const label = typeof body.label === "string" ? body.label.trim() : "APT device";
   if (!label || label.length > 80) return json({ error: "device label must be 1 to 80 characters" }, 400);
-  const token = `aptto_${randomToken()}`;
+  const token = `getpatched_${randomToken()}`;
   const tokenHash = await sha256Hex(new TextEncoder().encode(token));
   const now = new Date();
   const record = {
@@ -1266,7 +1270,7 @@ async function deviceTokenUser(request, env, now = new Date()) {
   const separator = credentials.indexOf(":");
   if (separator < 0 || credentials.slice(0, separator) !== "apt") return null;
   const token = credentials.slice(separator + 1);
-  if (!/^aptto_[a-f0-9]{64}$/.test(token)) return null;
+  if (!/^(?:getpatched|aptto)_[a-f0-9]{64}$/.test(token)) return null;
   const tokenHash = await sha256Hex(new TextEncoder().encode(token));
   const loaded = await readRecord(env.RELEASES, `apt-device-tokens/${tokenHash}.json`);
   if (!loaded || loaded.record.revoked_at || !Number.isSafeInteger(loaded.record.github_user_id) || now.getTime() > Date.parse(loaded.record.expires_at)) return null;
@@ -1560,7 +1564,7 @@ function stateKey(id) {
 function assertRelease(record) {
   if (!record || !["prepared", "sponsor-period", "public"].includes(record.state)) throw new Error("invalid release state");
   if (!["getpatched/packaging-libxml2", "getpatched/packaging-libarchive"].includes(record.repository)) throw new Error("repository is not an approved pilot package");
-  if (typeof record.tag !== "string" || !/^aptto\/[A-Za-z0-9.+~-]+$/.test(record.tag)) throw new Error("invalid immutable release tag");
+  if (typeof record.tag !== "string" || !/^getpatched\/[A-Za-z0-9.+~-]+$/.test(record.tag)) throw new Error("invalid immutable release tag");
   if (!Number.isInteger(record.sponsor_delay_hours) || ![0, 168].includes(record.sponsor_delay_hours)) throw new Error("policy must be 0 or 168 hours");
   const expectedDelay = record.repository === "getpatched/packaging-libxml2" ? 168 : 0;
   if (record.sponsor_delay_hours !== expectedDelay) throw new Error("release policy does not match the approved pilot package");
@@ -1599,7 +1603,7 @@ async function verifyPackageRun(env, repository, sourceCommit, tag, runId) {
 }
 
 async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
-  const allowedSigner = String(env.APTTO_RELEASE_TAG_SIGNER || "").trim().toLowerCase();
+  const allowedSigner = String(env.GETPATCHED_RELEASE_TAG_SIGNER || "").trim().toLowerCase();
   if (!allowedSigner) throw new Error("allowed GitHub release-tag signer is not configured");
   const encodedTag = tag.split("/").map(encodeURIComponent).join("/");
   const refResponse = await githubRequest(env, `/repos/${repository}/git/ref/tags/${encodedTag}`);
@@ -1635,10 +1639,10 @@ async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
       signedTag.tagger.user?.login?.toLowerCase() !== allowedSigner) {
     throw new Error("package release tag signer is not the configured GitHub account");
   }
-  const ancestry = await githubRequest(env, `/repos/${repository}/compare/aptto%2Ffocal...${sourceCommit}`);
+  const ancestry = await githubRequest(env, `/repos/${repository}/compare/getpatched%2Ffocal...${sourceCommit}`);
   const comparison = await ancestry.json();
   if (comparison.merge_base_commit?.sha !== sourceCommit) {
-    throw new Error("tested source commit must be reachable from aptto/focal");
+    throw new Error("tested source commit must be reachable from getpatched/focal");
   }
   return annotated;
 }
@@ -1801,7 +1805,7 @@ async function publishSourceAssets(env, record) {
   } else if (lookup.status === 404) {
     release = await (await githubRequest(env, `/repos/${record.repository}/releases`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ tag_name: tagName, target_commitish: record.source_commit, name: `Debian source ${record.tag.slice("aptto/".length)}`, draft: true, prerelease: false, generate_release_notes: false }),
+      body: JSON.stringify({ tag_name: tagName, target_commitish: record.source_commit, name: `Debian source ${record.tag.slice("getpatched/".length)}`, draft: true, prerelease: false, generate_release_notes: false }),
     })).json();
   } else throw new Error(`GitHub source release lookup returned ${lookup.status}`);
   const assets = canonicalAssets(record.source_assets || []);

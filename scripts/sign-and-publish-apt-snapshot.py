@@ -14,10 +14,10 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_FILE_BYTES = 64 * 1024 * 1024
-PUBLISH_SPEC = importlib.util.spec_from_file_location("aptto_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
+PUBLISH_SPEC = importlib.util.spec_from_file_location("getpatched_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
 PUBLISH = importlib.util.module_from_spec(PUBLISH_SPEC)
 PUBLISH_SPEC.loader.exec_module(PUBLISH)
-GENERATOR_SPEC = importlib.util.spec_from_file_location("aptto_index_generator", ROOT / "scripts" / "generate-apt-index.py")
+GENERATOR_SPEC = importlib.util.spec_from_file_location("getpatched_index_generator", ROOT / "scripts" / "generate-apt-index.py")
 GENERATOR = importlib.util.module_from_spec(GENERATOR_SPEC)
 GENERATOR_SPEC.loader.exec_module(GENERATOR)
 
@@ -94,28 +94,28 @@ def validate_snapshot_ids(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
+    parser.add_argument("--endpoint", default=os.environ.get("GETPATCHED_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
-    parser.add_argument("--signing-fingerprint", default=os.environ.get("APTTO_SIGNING_FINGERPRINT"))
+    parser.add_argument("--signing-fingerprint", default=os.environ.get("GETPATCHED_SIGNING_FINGERPRINT"))
     args = parser.parse_args()
     PUBLISH.validate_identity()
     if not args.signing_fingerprint:
-        raise SystemExit("APTTO_SIGNING_FINGERPRINT is required")
+        raise SystemExit("GETPATCHED_SIGNING_FINGERPRINT is required")
     endpoint = args.endpoint.rstrip("/")
     parsed = urllib.parse.urlsplit(endpoint)
     if parsed.scheme != "https" or parsed.hostname != "repo.getpatched.dev" or parsed.path or parsed.query or parsed.fragment:
         raise SystemExit("snapshot endpoint must be the configured HTTPS repo.getpatched.dev gateway")
     try:
-        snapshot_ids = json.loads(os.environ.get("APTTO_SNAPSHOT_IDS", ""))
+        snapshot_ids = json.loads(os.environ.get("GETPATCHED_SNAPSHOT_IDS", ""))
     except json.JSONDecodeError as error:
-        raise SystemExit("APTTO_SNAPSHOT_IDS must contain the builder's JSON channel-to-ID output") from error
+        raise SystemExit("GETPATCHED_SNAPSHOT_IDS must contain the builder's JSON channel-to-ID output") from error
     try:
         snapshot_ids = validate_snapshot_ids(snapshot_ids)
     except ValueError as error:
-        raise SystemExit("APTTO_SNAPSHOT_IDS must contain exact public and early builder IDs") from error
-    key_data = os.environ.get("APTTO_SIGNING_KEY_ARMORED", "")
+        raise SystemExit("GETPATCHED_SNAPSHOT_IDS must contain exact public and early builder IDs") from error
+    key_data = os.environ.get("GETPATCHED_SIGNING_KEY_ARMORED", "")
     if not key_data:
-        raise SystemExit("APTTO_SIGNING_KEY_ARMORED secret is required")
+        raise SystemExit("GETPATCHED_SIGNING_KEY_ARMORED secret is required")
     with tempfile.TemporaryDirectory(prefix="getpatched-snapshot-signing-") as temporary:
         root = Path(temporary)
         key_home = root / "gnupg"

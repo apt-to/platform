@@ -76,10 +76,10 @@ test("APT snapshot inventory and gated package export require the dedicated sign
   globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
   const bytes = Buffer.from("private gated package bytes");
   const digest = createHash("sha256").update(bytes).digest("hex");
-  const id = "libxml2-2-9-10-aptto1";
+  const id = "libxml2-2-9-10-getpatched1";
   const objectKey = `staging/${id}/${digest}`;
   const gated = {
-    id, state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
+    id, state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "getpatched/2.9.10-getpatched1",
     source_commit: "c".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168,
     sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString(),
     required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: objectKey }],
@@ -127,7 +127,7 @@ test("unsigned snapshot build storage separates index-builder writes from signer
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
   const release = {
-    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "aptto/3.4.0-2ubuntu1.5+aptto1",
+    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "getpatched/3.4.0-2ubuntu1.5+aptto1+getpatched1",
     source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
     required_assets: [{ name: "libarchive_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
   };
@@ -137,7 +137,7 @@ test("unsigned snapshot build storage separates index-builder writes from signer
   const builderToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-index-build" }, privateKey, keyId)}`;
   const signerToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-signing" }, privateKey, keyId)}`;
   const contents = new Map([
-    ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
+    ["dists/focal/Release", "Origin: GetPatched\nSuite: focal\n"],
     ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\n"],
     ["dists/focal/main/binary-amd64/Packages.gz", "gzip"],
     ["dists/focal/main/binary-amd64/Packages.xz", "xz"],
@@ -537,7 +537,7 @@ test("authoritative inactive sponsor snapshot removes early-access eligibility",
 test("sponsor publication starts an exact 168-hour clock only after every private asset passes readback", async () => {
   const digest = createHash("sha256").update("private-package").digest();
   const release = {
-    id: "pilot", state: "prepared", repository: "getpatched/packaging-libxml2", tag: "aptto/1.2.3",
+    id: "pilot", state: "prepared", repository: "getpatched/packaging-libxml2", tag: "getpatched/1.2.3",
     source_commit: "b".repeat(40), sponsor_delay_hours: 168, release_checks_passed: true,
     required_assets: [{ name: "libxml2.deb", sha256: digest.toString("hex"), r2_key: `staging/pilot/${digest.toString("hex")}` }],
     source_assets: [{ name: "libxml2_1.2.3.dsc", sha256: "a".repeat(64), r2_key: `staging/pilot/source/${"a".repeat(64)}` }],
@@ -643,7 +643,7 @@ test("private early asset route requires a fresh sponsor entitlement and serves 
 
 test("early package URLs continue anonymously through the immutable public release after promotion", async () => {
   const record = {
-    id: "libxml2-1-2-3", state: "public", repository: "getpatched/packaging-libxml2", tag: "aptto/1.2.3",
+    id: "libxml2-1-2-3", state: "public", repository: "getpatched/packaging-libxml2", tag: "getpatched/1.2.3",
     public_release_id: 901, sponsor_delay_hours: 168,
     required_assets: [{ name: "libxml2_1.2.3_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/release/${"a".repeat(64)}` }],
   };
@@ -651,14 +651,14 @@ test("early package URLs continue anonymously through the immutable public relea
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     assert.equal(String(url), "https://api.github.com/repos/getpatched/packaging-libxml2/releases/901/assets");
-    return Response.json([{ name: "libxml2_1.2.3_amd64.deb", browser_download_url: "https://github.com/getpatched/packaging-libxml2/releases/download/aptto/1.2.3/libxml2_1.2.3_amd64.deb" }]);
+    return Response.json([{ name: "libxml2_1.2.3_amd64.deb", browser_download_url: "https://github.com/getpatched/packaging-libxml2/releases/download/getpatched/1.2.3/libxml2_1.2.3_amd64.deb" }]);
   };
   try {
     const response = await gateway.fetch(new Request("https://early.getpatched.dev/early/releases/libxml2-1-2-3/assets/libxml2_1.2.3_amd64.deb"), {
       RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only",
     });
     assert.equal(response.status, 302);
-    assert.equal(response.headers.get("location"), "https://github.com/getpatched/packaging-libxml2/releases/download/aptto/1.2.3/libxml2_1.2.3_amd64.deb");
+    assert.equal(response.headers.get("location"), "https://github.com/getpatched/packaging-libxml2/releases/download/getpatched/1.2.3/libxml2_1.2.3_amd64.deb");
     assert.equal(response.headers.get("cache-control"), "public, max-age=300");
   } finally { globalThis.fetch = originalFetch; }
 });
@@ -667,7 +667,7 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
   const binaryName = "libxml2_1.2.3_amd64.deb";
   const sourceName = "libxml2_1.2.3.dsc";
   const record = {
-    id: "libxml2-1-2-3", state: "public", repository: "getpatched/packaging-libxml2", tag: "aptto/1.2.3",
+    id: "libxml2-1-2-3", state: "public", repository: "getpatched/packaging-libxml2", tag: "getpatched/1.2.3",
     public_release_id: 901, source_release_id: 902, sponsor_delay_hours: 168,
     required_assets: [{ name: binaryName, sha256: "a".repeat(64), r2_key: `staging/libxml2-1-2-3/${"a".repeat(64)}` }],
     source_assets: [{ name: sourceName, sha256: "b".repeat(64), r2_key: `staging/libxml2-1-2-3/source/${"b".repeat(64)}` }],
@@ -677,7 +677,7 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
   globalThis.fetch = async (url) => {
     const value = String(url);
     if (value.endsWith("/releases/901/assets")) {
-      return Response.json([{ name: binaryName, browser_download_url: `https://github.com/getpatched/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}` }]);
+      return Response.json([{ name: binaryName, browser_download_url: `https://github.com/getpatched/packaging-libxml2/releases/download/getpatched/1.2.3/${binaryName}` }]);
     }
     if (value.endsWith("/releases/902/assets")) {
       return Response.json([{ name: sourceName, browser_download_url: `https://github.com/getpatched/packaging-libxml2/releases/download/getpatched-source/1.2.3/${sourceName}` }]);
@@ -688,7 +688,7 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
     const env = { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" };
     const binary = await gateway.fetch(new Request(`https://repo.getpatched.dev/pool/main/l/libxml2/${binaryName}`), env);
     assert.equal(binary.status, 302);
-    assert.equal(binary.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}`);
+    assert.equal(binary.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/getpatched/1.2.3/${binaryName}`);
     const source = await gateway.fetch(new Request(`https://repo.getpatched.dev/pool/main/l/libxml2/${sourceName}`), env);
     assert.equal(source.status, 302);
     assert.equal(source.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/getpatched-source/1.2.3/${sourceName}`);
@@ -707,7 +707,7 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
     const gatedDigest = createHash("sha256").update(gatedBytes).digest("hex");
     const gatedKey = `staging/libxml2-1-2-3/${gatedDigest}`;
     const now = new Date();
-    const sponsorToken = `aptto_${"c".repeat(64)}`;
+    const sponsorToken = `getpatched_${"c".repeat(64)}`;
     const sponsorTokenHash = createHash("sha256").update(sponsorToken).digest("hex");
     const sponsorBucket = new MemorySponsorBucket({
       "release-state/libxml2-1-2-3.json": {
@@ -747,7 +747,7 @@ test("repository pool paths resolve only manifest assets and preserve gated acce
       RELEASES: promoted, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only",
     });
     assert.equal(afterPromotion.status, 302);
-    assert.equal(afterPromotion.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/aptto/1.2.3/${binaryName}`);
+    assert.equal(afterPromotion.headers.get("location"), `https://github.com/getpatched/packaging-libxml2/releases/download/getpatched/1.2.3/${binaryName}`);
     assert.equal(afterPromotion.headers.get("cache-control"), "public, max-age=300");
   } finally { globalThis.fetch = originalFetch; }
 });
@@ -756,10 +756,10 @@ test("identical original source tarballs shared by successive releases resolve u
   const name = "libarchive_3.4.0.orig.tar.gz";
   const digest = "b".repeat(64);
   const records = [1, 2].map((revision) => ({
-    id: `libarchive-aptto${revision}`, state: "public", repository: "getpatched/packaging-libarchive",
-    tag: `aptto/3.4.0-2ubuntu1.5+aptto${revision}`, source_release_id: 900 + revision, sponsor_delay_hours: 0,
-    required_assets: [{ name: `libarchive13_aptto${revision}_amd64.deb`, sha256: "a".repeat(64), r2_key: `staging/libarchive-aptto${revision}/binary` }],
-    source_assets: [{ name, sha256: digest, r2_key: `staging/libarchive-aptto${revision}/source` }],
+    id: `libarchive-getpatched${revision}`, state: "public", repository: "getpatched/packaging-libarchive",
+    tag: `getpatched/3.4.0-2ubuntu1.5+getpatched${revision}`, source_release_id: 900 + revision, sponsor_delay_hours: 0,
+    required_assets: [{ name: `libarchive13_getpatched${revision}_amd64.deb`, sha256: "a".repeat(64), r2_key: `staging/libarchive-getpatched${revision}/binary` }],
+    source_assets: [{ name, sha256: digest, r2_key: `staging/libarchive-getpatched${revision}/source` }],
   }));
   const bucket = new MemoryBucket(Object.fromEntries(records.map((record) => [`release-state/${record.id}.json`, record])));
   const originalFetch = globalThis.fetch;
@@ -807,7 +807,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
   const keyId = "snapshot-environment-test";
   const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
   const release = {
-    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "aptto/3.4.0-2ubuntu1.5+aptto1",
+    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "getpatched/3.4.0-2ubuntu1.5+aptto1+getpatched1",
     source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
     required_assets: [{ name: "libarchive_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
   };
@@ -825,10 +825,10 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     const builderReleaseAuthorization = `Bearer ${signedOidcToken(privateKey, { ...snapshotClaims, environment: "getpatched-index-build" }, privateKey, keyId)}`;
   const firstId = "focal-20261025T120000-r101-public";
   const contents = new Map([
-    ["dists/focal/Release", "Origin: AptTo\nSuite: focal\n"],
-    ["dists/focal/InRelease", "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nOrigin: AptTo\n"],
+    ["dists/focal/Release", "Origin: GetPatched\nSuite: focal\n"],
+    ["dists/focal/InRelease", "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nOrigin: GetPatched\n"],
     ["dists/focal/Release.gpg", "-----BEGIN PGP SIGNATURE-----\nvalid test fixture\n-----END PGP SIGNATURE-----\n"],
-    ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\nVersion: 3.4.0-2ubuntu1.5+aptto1\n"],
+    ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\nVersion: 3.4.0-2ubuntu1.5+aptto1+getpatched1\n"],
     ["dists/focal/main/binary-amd64/Packages.gz", "gzip fixture"],
     ["dists/focal/main/binary-amd64/Packages.xz", "xz fixture"],
     ["dists/focal/main/source/Sources", "Package: libarchive\n"],
@@ -855,7 +855,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     const replay = await gateway.fetch(request("https://repo.getpatched.dev/internal/repository-snapshots/public", "POST", JSON.stringify({ id: firstId, release_ids: ["pilot"], files })), env);
     assert.equal(replay.status, 200, "repeated registration of the same immutable manifest is safe");
     bucket.entries.set("release-state/gated.json", {
-      value: { ...release, id: "gated", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "aptto/2.9.10+dfsg-5ubuntu0.20.04.10+aptto1", sponsor_delay_hours: 168, sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString() },
+      value: { ...release, id: "gated", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "getpatched/2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1", sponsor_delay_hours: 168, sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString() },
       etag: "gated-release",
     });
     const prematurePublic = await gateway.fetch(request("https://repo.getpatched.dev/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-gated", release_ids: ["gated"], files })), env);
@@ -939,7 +939,7 @@ test("protected retention keeps the active snapshot and five rollback snapshots 
   };
   const signerAuthorization = `Bearer ${signedOidcToken(privateKey, claims, privateKey, keyId)}`;
   const bucket = new MemorySnapshotBucket({ "release-state/pilot.json": {
-    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "aptto/1.2.3",
+    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "getpatched/1.2.3",
     source_commit: "b".repeat(40), sponsor_delay_hours: 0, release_checks_passed: true,
     required_assets: [{ name: "libarchive.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
   } });
@@ -1045,7 +1045,7 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
   assert.equal(authorization.searchParams.get("code_challenge_method"), "S256");
   assert.match(authorization.searchParams.get("code_challenge"), /^[A-Za-z0-9_-]{43}$/);
   const state = authorization.searchParams.get("state");
-  const stateCookie = login.headers.get("set-cookie").match(/aptto_oauth_state=([^;,]+)/)[1];
+  const stateCookie = login.headers.get("set-cookie").match(/getpatched_oauth_state=([^;,]+)/)[1];
   assert.equal(decodeURIComponent(stateCookie), state);
 
   const now = new Date();
@@ -1075,8 +1075,9 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
     assert.equal(callback.status, 302);
     assert.equal(callback.headers.get("location"), "https://getpatched.dev/account");
     const callbackCookies = callback.headers.getSetCookie();
-    assert.equal(callbackCookies.length, 2);
-    const sessionCookie = callbackCookies.find((cookie) => cookie.startsWith("aptto_session=")).match(/aptto_session=([^;,]+)/)[1];
+    assert.equal(callbackCookies.length, 3);
+    const sessionCookie = callbackCookies.find((cookie) => cookie.startsWith("getpatched_session=")).match(/getpatched_session=([^;,]+)/)[1];
+    const legacySessionCookie = `aptto_session=${sessionCookie}`;
     const stateRecord = await bucket.get(`oauth-states/${createHash("sha256").update(state).digest("hex")}.json`);
     const consumedState = await stateRecord.json();
     assert.equal(consumedState.code_verifier, null);
@@ -1085,41 +1086,42 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
     assert.match(submittedVerifier, /^[a-f0-9]{96}$/);
 
     const tokenResponse = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
-      method: "POST", headers: { origin: "https://getpatched.dev", cookie: `aptto_session=${sessionCookie}`, "content-type": "application/json" },
+      method: "POST", headers: { origin: "https://getpatched.dev", cookie: legacySessionCookie, "content-type": "application/json" },
       body: JSON.stringify({ label: "workstation" }),
     }), env);
     assert.equal(tokenResponse.status, 201);
     const issued = await tokenResponse.json();
-    assert.match(issued.token, /^aptto_[a-f0-9]{64}$/);
+    assert.match(issued.token, /^getpatched_[a-f0-9]{64}$/);
     const tokenHash = createHash("sha256").update(issued.token).digest("hex");
     assert.ok(bucket.entries.has(`apt-device-tokens/${tokenHash}.json`));
     assert.equal(JSON.stringify([...bucket.entries.values()]).includes(issued.token), false);
     assert.equal(JSON.stringify([...bucket.entries.values()]).includes("transient-oauth-secret"), false);
 
     const listed = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
-      headers: { cookie: `aptto_session=${sessionCookie}` },
+      headers: { cookie: legacySessionCookie },
     }), env);
     assert.equal((await listed.json()).devices.length, 1);
     const revoked = await gateway.fetch(new Request(`https://getpatched.dev/api/device-tokens/${tokenHash}/revoke`, {
-      method: "POST", headers: { origin: "https://getpatched.dev", cookie: `aptto_session=${sessionCookie}` },
+      method: "POST", headers: { origin: "https://getpatched.dev", cookie: legacySessionCookie },
     }), env);
     assert.equal(revoked.status, 200);
     const listedAfterRevoke = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
-      headers: { cookie: `aptto_session=${sessionCookie}` },
+      headers: { cookie: legacySessionCookie },
     }), env);
     assert.ok((await listedAfterRevoke.json()).devices[0].revoked_at);
 
     const loggedOut = await gateway.fetch(new Request("https://getpatched.dev/api/logout", {
-      method: "POST", headers: { origin: "https://getpatched.dev", cookie: `aptto_session=${sessionCookie}` },
+      method: "POST", headers: { origin: "https://getpatched.dev", cookie: legacySessionCookie },
     }), env);
     assert.equal(loggedOut.status, 204);
+    assert.ok(loggedOut.headers.getSetCookie().some((cookie) => cookie.startsWith("aptto_session=;")));
     const afterLogout = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
-      headers: { cookie: `aptto_session=${sessionCookie}` },
+      headers: { cookie: legacySessionCookie },
     }), env);
     assert.equal(afterLogout.status, 401);
 
     const replay = await gateway.fetch(new Request(`https://getpatched.dev/auth/github/callback?code=one-time-code&state=${state}`, {
-      headers: { cookie: `aptto_oauth_state=${stateCookie}` },
+      headers: { cookie: `getpatched_oauth_state=${stateCookie}` },
     }), env);
     assert.equal(replay.status, 400);
     assert.equal(oauthCalls, 2);
@@ -1154,7 +1156,7 @@ test("account status requires a valid session and fails closed when sponsor data
   const anonymous = await gateway.fetch(new Request("https://getpatched.dev/api/me"), env);
   assert.equal(anonymous.status, 401);
 
-  const statusRequest = () => new Request("https://getpatched.dev/api/me", { headers: { cookie: `aptto_session=${session}` } });
+  const statusRequest = () => new Request("https://getpatched.dev/api/me", { headers: { cookie: `getpatched_session=${session}` } });
   const eligible = await gateway.fetch(statusRequest(), env);
   assert.deepEqual(await eligible.json(), {
     github_login: "alice", sponsorship: "eligible", snapshot_valid_until: new Date(now.getTime() + 1800000).toISOString(),
@@ -1238,53 +1240,53 @@ test("release gate requires the named successful package job and exact tested so
     if (String(url).endsWith("/jobs?per_page=100")) {
       return Response.json({ jobs: [{ id: 9, name: "package (libxml2)", run_attempt: 2, conclusion: "success" }] });
     }
-    if (String(url).endsWith("/git/ref/tags/aptto/1.2.3")) {
-      return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
+    if (String(url).endsWith("/git/ref/tags/getpatched/1.2.3")) {
+      return Response.json({ ref: "refs/tags/getpatched/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
     }
     if (String(url).endsWith("/graphql")) return Response.json({ data: { repository: { object: {
-      __typename: "Tag", oid: "d".repeat(40), name: "aptto/1.2.3",
+      __typename: "Tag", oid: "d".repeat(40), name: "getpatched/1.2.3",
       tagger: { email: "releases@getpatched.dev", user: { login: signerLogin } },
     } } } });
-    if (String(url).includes("/compare/aptto%2Ffocal...")) {
+    if (String(url).includes("/compare/getpatched%2Ffocal...")) {
       return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
     }
     return Response.json({ sha: annotatedSha, verification: { verified: true, reason: "valid" }, tagger: { email: "releases@getpatched.dev" }, object: { type: "commit", sha: "b".repeat(40) } });
   };
   try {
     const verified = await verifyPackageRun(
-      { GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER },
-      "getpatched/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456,
+      { GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER },
+      "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456,
     );
     assert.equal(verified.job_id, 9);
     assert.equal(verified.run_id, 456);
     assert.equal(calls.length, 6);
     annotatedSha = "e".repeat(40);
     await assert.rejects(
-      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456),
       /signed package tag must verify/,
     );
     annotatedSha = "d".repeat(40);
     signerLogin = "unexpected-maintainer";
     await assert.rejects(
-      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456),
       /configured GitHub account/,
     );
     signerLogin = TEST_RELEASE_TAG_SIGNER;
     const savedLogin = signerLogin;
     signerLogin = null;
     await assert.rejects(
-      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456),
       /configured GitHub account/,
     );
     signerLogin = savedLogin;
     displayTitle = `Verify all at ${"b".repeat(40)}`;
     await assert.rejects(
-      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "aptto/1.2.3", 456),
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456),
       /successful package-verification dispatch/,
     );
     displayTitle = `Verify libxml2 at ${"b".repeat(40)}`;
     await assert.rejects(
-      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "a".repeat(40), "aptto/1.2.3", 456),
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "a".repeat(40), "getpatched/1.2.3", 456),
       /successful package-verification dispatch/,
     );
   } finally {
@@ -1295,17 +1297,17 @@ test("release gate requires the named successful package job and exact tested so
 test("signed source tag must point to the tested commit", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
-    if (String(url).endsWith("/git/ref/tags/aptto/1.2.3")) {
-      return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
+    if (String(url).endsWith("/git/ref/tags/getpatched/1.2.3")) {
+      return Response.json({ ref: "refs/tags/getpatched/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
     }
-    if (String(url).includes("/compare/aptto%2Ffocal...")) {
+    if (String(url).includes("/compare/getpatched%2Ffocal...")) {
       return Response.json({ merge_base_commit: { sha: "e".repeat(40) } });
     }
     return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, object: { type: "commit", sha: "e".repeat(40) } });
   };
   try {
     await assert.rejects(
-      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
+      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "getpatched/1.2.3", "b".repeat(40)),
       /point to the tested source commit/,
     );
   } finally {
@@ -1319,7 +1321,7 @@ test("release-tag verification fails closed without the approved signer account"
   globalThis.fetch = async () => { requests += 1; return Response.json({}); };
   try {
     await assert.rejects(
-      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "getpatched/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
+      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only" }, "getpatched/packaging-libxml2", "getpatched/1.2.3", "b".repeat(40)),
       /allowed GitHub release-tag signer is not configured/,
     );
     assert.equal(requests, 0);
@@ -1331,11 +1333,11 @@ test("release-tag verification fails closed without the approved signer account"
 test("signed source commit must be reachable from the supported packaging branch", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
-    if (String(url).endsWith("/git/ref/tags/aptto/1.2.3")) {
-      return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
+    if (String(url).endsWith("/git/ref/tags/getpatched/1.2.3")) {
+      return Response.json({ ref: "refs/tags/getpatched/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
     }
     if (String(url).endsWith("/graphql")) return Response.json({ data: { repository: { object: {
-      __typename: "Tag", oid: "d".repeat(40), name: "aptto/1.2.3",
+      __typename: "Tag", oid: "d".repeat(40), name: "getpatched/1.2.3",
       tagger: { email: "releases@getpatched.dev", user: { login: TEST_RELEASE_TAG_SIGNER } },
     } } } });
     if (String(url).includes("/git/tags/")) {
@@ -1345,8 +1347,8 @@ test("signed source commit must be reachable from the supported packaging branch
   };
   try {
     await assert.rejects(
-      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "aptto/1.2.3", "b".repeat(40)),
-      /reachable from aptto\/focal/,
+      verifySignedSourceTag({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "getpatched/1.2.3", "b".repeat(40)),
+      /reachable from getpatched\/focal/,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -1368,10 +1370,10 @@ test("public releases require repository-level immutable-release enforcement", a
 
 test("public state audits fail closed if GitHub reports a mutable release", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => Response.json({ draft: false, immutable: false, tag_name: "aptto/1.2.3", assets: [] });
+  globalThis.fetch = async () => Response.json({ draft: false, immutable: false, tag_name: "getpatched/1.2.3", assets: [] });
   const bucket = new MemoryBucket({
     "release-state/pilot.json": {
-      id: "pilot", state: "public", repository: "getpatched/packaging-libxml2", tag: "aptto/1.2.3",
+      id: "pilot", state: "public", repository: "getpatched/packaging-libxml2", tag: "getpatched/1.2.3",
       source_commit: "b".repeat(40), public_release_id: 42,
       sponsor_delay_hours: 168,
       required_assets: [{ name: "libxml2.deb", sha256: "a".repeat(64), r2_key: "staging/libxml2" }],
@@ -1391,9 +1393,9 @@ test("public release staging copies remain for 30 days and are deleted after an 
   const binaryHash = createHash("sha256").update(binaryBytes).digest("hex");
   const sourceHash = createHash("sha256").update(sourceBytes).digest("hex");
   const record = {
-    id: "pilot", state: "public", repository: "getpatched/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
+    id: "pilot", state: "public", repository: "getpatched/packaging-libxml2", tag: "getpatched/2.9.10-getpatched1",
     source_commit: "b".repeat(40), public_release_id: 901, source_release_id: 902,
-    source_release_tag: "getpatched-source/2.9.10-aptto1", sponsor_delay_hours: 168,
+    source_release_tag: "getpatched-source/2.9.10-getpatched1", sponsor_delay_hours: 168,
     public_published_at: "2026-01-01T00:00:00.000Z", staging_cleanup_after: "2026-01-31T00:00:00.000Z",
     required_assets: [{ name: "libxml2.deb", sha256: binaryHash, r2_key: `staging/pilot/${binaryHash}` }],
     source_assets: [{ name: "libxml2.dsc", sha256: sourceHash, r2_key: `staging/pilot/source/${sourceHash}` }],
@@ -1406,12 +1408,12 @@ test("public release staging copies remain for 30 days and are deleted after an 
   let sourceTampered = false;
   globalThis.fetch = async (url) => {
     const target = new URL(String(url));
-    if (target.pathname.includes("/git/ref/tags/")) return Response.json({ ref: "refs/tags/aptto/2.9.10-aptto1", object: { type: "tag", sha: "d".repeat(40) } });
+    if (target.pathname.includes("/git/ref/tags/")) return Response.json({ ref: "refs/tags/getpatched/2.9.10-getpatched1", object: { type: "tag", sha: "d".repeat(40) } });
     if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
-      __typename: "Tag", oid: "d".repeat(40), name: "aptto/2.9.10-aptto1", tagger: { email: "releases@getpatched.dev", user: { login: TEST_RELEASE_TAG_SIGNER } },
+      __typename: "Tag", oid: "d".repeat(40), name: "getpatched/2.9.10-getpatched1", tagger: { email: "releases@getpatched.dev", user: { login: TEST_RELEASE_TAG_SIGNER } },
     } } } });
     if (target.pathname.includes("/git/tags/")) return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@getpatched.dev" }, object: { type: "commit", sha: record.source_commit } });
-    if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: record.source_commit } });
+    if (target.pathname.includes("/compare/getpatched%2Ffocal...")) return Response.json({ merge_base_commit: { sha: record.source_commit } });
     if (target.pathname.endsWith("/releases/901")) return Response.json({ id: 901, tag_name: record.tag, draft: false, immutable: true, assets: [{ name: "libxml2.deb" }] });
     if (target.pathname.endsWith("/releases/902")) return Response.json({ id: 902, tag_name: record.source_release_tag, draft: false, immutable: true, assets: [{ name: "libxml2.dsc" }] });
     if (target.pathname.endsWith("/releases/901/assets")) return Response.json([{ name: "libxml2.deb", url: "https://api.github.com/assets/libxml2.deb" }]);
@@ -1421,7 +1423,7 @@ test("public release staging copies remain for 30 days and are deleted after an 
     return Response.json({});
   };
   try {
-    const env = { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER };
+    const env = { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER };
     await publishOne(env, "release-state/pilot.json", new Date("2026-01-30T23:59:59.999Z"));
     assert.equal(bucket.assets.has(record.required_assets[0].r2_key), true, "copies are still available immediately before the recovery deadline");
     sourceTampered = true;
@@ -1438,7 +1440,7 @@ test("public release staging copies remain for 30 days and are deleted after an 
 test("prepared seven-day releases cannot bypass the private sponsor publication transition", async () => {
   const bucket = new MemoryBucket({
     "release-state/pilot.json": {
-      id: "pilot", state: "prepared", repository: "getpatched/packaging-libxml2", tag: "aptto/1.2.3",
+      id: "pilot", state: "prepared", repository: "getpatched/packaging-libxml2", tag: "getpatched/1.2.3",
       sponsor_delay_hours: 168, release_checks_passed: true,
       required_assets: [{ name: "libxml2.deb", sha256: "a".repeat(64), r2_key: "staging/libxml2" }],
     },
@@ -1449,7 +1451,7 @@ test("prepared seven-day releases cannot bypass the private sponsor publication 
 
 test("prepared releases are not reconciled until the immutable source release is recorded", async () => {
   const record = {
-    id: "pilot", state: "prepared", repository: "getpatched/packaging-libarchive", tag: "aptto/1.2.3+aptto1",
+    id: "pilot", state: "prepared", repository: "getpatched/packaging-libarchive", tag: "getpatched/1.2.3+getpatched1",
     source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
     required_assets: [{ name: "libarchive.deb", sha256: "a".repeat(64), r2_key: "staging/pilot/binary" }],
     source_assets: [{ name: "libarchive.dsc", sha256: "c".repeat(64), r2_key: "staging/pilot/source" }],
@@ -1480,7 +1482,7 @@ test("sponsor promotion stays closed before 168 hours and catches up after a mis
       [missedCronOffsetMs, "public"],
     ]) {
       const bucket = new MemoryBucket({ [key]: {
-        id: "pilot", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
+        id: "pilot", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "getpatched/2.9.10-getpatched1",
         source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168, source_release_id: 902,
         sponsor_publication_complete: true, public_after: deadline.toISOString(),
         required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: `staging/pilot/${digest}` }],
@@ -1489,18 +1491,18 @@ test("sponsor promotion stays closed before 168 hours and catches up after a mis
       globalThis.fetch = async (url) => {
         const target = new URL(String(url));
         if (target.pathname.includes("/git/ref/tags/")) {
-          return Response.json({ ref: "refs/tags/aptto/2.9.10-aptto1", object: { type: "tag", sha: "d".repeat(40) } });
+          return Response.json({ ref: "refs/tags/getpatched/2.9.10-getpatched1", object: { type: "tag", sha: "d".repeat(40) } });
         }
         if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
-          __typename: "Tag", oid: "d".repeat(40), name: "aptto/2.9.10-aptto1",
+          __typename: "Tag", oid: "d".repeat(40), name: "getpatched/2.9.10-getpatched1",
           tagger: { email: "releases@getpatched.dev", user: { login: TEST_RELEASE_TAG_SIGNER } },
         } } } });
         if (target.pathname.includes("/git/tags/")) {
           return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@getpatched.dev" }, object: { type: "commit", sha: "b".repeat(40) } });
         }
-        if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
+        if (target.pathname.includes("/compare/getpatched%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
         if (target.pathname.includes("/releases/tags/")) {
-          return Response.json({ id: 901, tag_name: "aptto/2.9.10-aptto1", draft: false, immutable: true, assets: [{ name: "libxml2_amd64.deb" }] });
+          return Response.json({ id: 901, tag_name: "getpatched/2.9.10-getpatched1", draft: false, immutable: true, assets: [{ name: "libxml2_amd64.deb" }] });
         }
         if (target.pathname.endsWith("/releases/901/assets")) {
           return Response.json([{ name: "libxml2_amd64.deb", url: "https://api.github.com/assets/libxml2_amd64.deb" }]);
@@ -1512,7 +1514,7 @@ test("sponsor promotion stays closed before 168 hours and catches up after a mis
         return Response.json({});
       };
       const now = new Date(deadline.getTime() + offsetMs);
-      const failures = await reconcile({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, now);
+      const failures = await reconcile({ RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, now);
       assert.deepEqual(failures, [], `reconciliation should succeed at ${offsetMs} ms from deadline`);
       const saved = await (await bucket.get(key)).json();
       assert.equal(saved.state, expectedState, `release state at ${offsetMs} ms from deadline`);
@@ -1535,7 +1537,7 @@ test("zero-hour package publication is authenticated and completes synchronously
   const bytes = Buffer.from("public package bytes");
   const digest = createHash("sha256").update(bytes).digest();
   const release = {
-    id: "pilot", state: "prepared", repository: "getpatched/packaging-libarchive", tag: "aptto/1.2.3",
+    id: "pilot", state: "prepared", repository: "getpatched/packaging-libarchive", tag: "getpatched/1.2.3",
     source_commit: "b".repeat(40), staging_run_id: 40210000000, sponsor_delay_hours: 0, release_checks_passed: true,
     required_assets: [{ name: "libarchive.deb", sha256: digest.toString("hex"), r2_key: `staging/pilot/${digest.toString("hex")}` }],
     source_assets: [{ name: "libarchive_1.2.3.dsc", sha256: createHash("sha256").update("source").digest("hex"), r2_key: `staging/pilot/source/${createHash("sha256").update("source").digest("hex")}` }],
@@ -1555,18 +1557,18 @@ test("zero-hour package publication is authenticated and completes synchronously
   globalThis.fetch = async (url, options = {}) => {
     const target = new URL(String(url));
     if (target.pathname === "/.well-known/jwks") return Response.json({ keys: [jwk] });
-    if (target.pathname.endsWith("/git/ref/tags/aptto/1.2.3")) {
-      return Response.json({ ref: "refs/tags/aptto/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
+    if (target.pathname.endsWith("/git/ref/tags/getpatched/1.2.3")) {
+      return Response.json({ ref: "refs/tags/getpatched/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
     }
     if (target.pathname === "/graphql") return Response.json({ data: { repository: { object: {
-      __typename: "Tag", oid: "d".repeat(40), name: "aptto/1.2.3",
+      __typename: "Tag", oid: "d".repeat(40), name: "getpatched/1.2.3",
       tagger: { email: "releases@getpatched.dev", user: { login: TEST_RELEASE_TAG_SIGNER } },
     } } } });
     if (target.pathname.includes("/git/tags/")) {
       return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" }, tagger: { email: "releases@getpatched.dev" }, object: { type: "commit", sha: "b".repeat(40) } });
     }
-    if (target.pathname.includes("/compare/aptto%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
-    if (target.pathname.endsWith("/releases/tags/aptto%2F1.2.3")) return new Response("not found", { status: 404 });
+    if (target.pathname.includes("/compare/getpatched%2Ffocal...")) return Response.json({ merge_base_commit: { sha: "b".repeat(40) } });
+    if (target.pathname.endsWith("/releases/tags/getpatched%2F1.2.3")) return new Response("not found", { status: 404 });
     if (target.pathname.endsWith("/releases/tags/getpatched-source%2F1.2.3")) return new Response("not found", { status: 404 });
     if (target.pathname.includes("/releases/tags/")) return new Response("not found", { status: 404 });
     if (target.hostname === "uploads.github.com") {
@@ -1584,7 +1586,7 @@ test("zero-hour package publication is authenticated and completes synchronously
     }
     if (target.pathname.endsWith("/immutable-releases")) return Response.json({ enabled: true });
     if (target.pathname.endsWith("/releases/901") && options.method === "PATCH") {
-      return Response.json({ id: 901, tag_name: "aptto/1.2.3", draft: false, immutable: true, assets: [...publishedAssets.keys()].map((name) => ({ name })) });
+      return Response.json({ id: 901, tag_name: "getpatched/1.2.3", draft: false, immutable: true, assets: [...publishedAssets.keys()].map((name) => ({ name })) });
     }
     if (target.pathname.endsWith("/releases") && options.method === "POST") {
       return Response.json({
@@ -1600,11 +1602,11 @@ test("zero-hour package publication is authenticated and completes synchronously
     const token = signedOidcToken(privateKey, {}, privateKey, "immediate-release-test");
     const sourceResponse = await gateway.fetch(new Request("https://getpatched.dev/internal/releases/pilot/publish-sources", {
       method: "POST", headers: { authorization: `Bearer ${token}` },
-    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER });
+    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER });
     assert.equal(sourceResponse.status, 200, await sourceResponse.clone().text());
     const response = await gateway.fetch(new Request(url, {
       method: "POST", headers: { authorization: `Bearer ${token}` },
-    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", APTTO_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER });
+    }), { RELEASES: bucket, GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER });
     assert.equal(response.status, 200, await response.clone().text());
     const saved = await (await bucket.get("release-state/pilot.json")).json();
     assert.deepEqual(await response.json(), { id: "pilot", state: "public", source_release_tag: "getpatched-source/1.2.3", public_published_at: saved.public_published_at });

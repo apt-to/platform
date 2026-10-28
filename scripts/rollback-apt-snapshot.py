@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reactivate a retained immutable AptTo focal repository snapshot."""
+"""Reactivate a retained immutable GetPatched focal repository snapshot."""
 import argparse
 import importlib.util
 import os
@@ -9,7 +9,7 @@ import urllib.parse
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("aptto_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
+SPEC = importlib.util.spec_from_file_location("getpatched_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
 PUBLISH = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PUBLISH)
 SNAPSHOT_ID = re.compile(r"focal-[0-9]{8}T[0-9]{6}-r[0-9]{1,20}-(public|early)\Z")
@@ -34,9 +34,9 @@ def rollback(endpoint, channel, snapshot_id):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", default=os.environ.get("APTTO_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
-    parser.add_argument("--channel", default=os.environ.get("APTTO_ROLLBACK_CHANNEL"))
-    parser.add_argument("--snapshot-id", default=os.environ.get("APTTO_ROLLBACK_SNAPSHOT_ID"))
+    parser.add_argument("--endpoint", default=os.environ.get("GETPATCHED_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
+    parser.add_argument("--channel", default=os.environ.get("GETPATCHED_ROLLBACK_CHANNEL"))
+    parser.add_argument("--snapshot-id", default=os.environ.get("GETPATCHED_ROLLBACK_SNAPSHOT_ID"))
     args = parser.parse_args()
     PUBLISH.validate_identity()
     result = rollback(args.endpoint, args.channel, args.snapshot_id)

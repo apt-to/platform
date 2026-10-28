@@ -43,7 +43,7 @@ concurrency:
 jobs:
   build-indexes:
     if: >-
-      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      vars.GETPATCHED_REPOSITORY_ENABLED == 'true' &&
       (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback') &&
       (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'prune') &&
       github.ref == 'refs/heads/main' &&
@@ -72,13 +72,13 @@ jobs:
       - name: Assemble and privately stage unsigned indexes
         id: build
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
-          APTTO_FORCE_SNAPSHOT_REFRESH: ${{ inputs.force_refresh }}
+          GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev
+          GETPATCHED_FORCE_SNAPSHOT_REFRESH: ${{ inputs.force_refresh }}
         shell: bash
         run: |
           set -euo pipefail
           build_args=()
-          if [[ "$APTTO_FORCE_SNAPSHOT_REFRESH" == "true" ]]; then build_args+=(--force-refresh); fi
+          if [[ "$GETPATCHED_FORCE_SNAPSHOT_REFRESH" == "true" ]]; then build_args+=(--force-refresh); fi
           python3 scripts/build-apt-snapshot.py --channel both "${build_args[@]}" | tee snapshot-builds.jsonl
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
@@ -116,16 +116,16 @@ jobs:
           sudo apt-get install --yes --no-install-recommends gnupg
       - name: Verify, sign and atomically publish snapshots
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
-          APTTO_SIGNING_KEY_ARMORED: ${{ secrets.APTTO_SIGNING_KEY_ARMORED }}
-          APTTO_SIGNING_FINGERPRINT: ${{ vars.APTTO_SIGNING_FINGERPRINT }}
-          APTTO_SNAPSHOT_IDS: ${{ needs.build-indexes.outputs.snapshot_ids }}
+          GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev
+          GETPATCHED_SIGNING_KEY_ARMORED: ${{ secrets.GETPATCHED_SIGNING_KEY_ARMORED }}
+          GETPATCHED_SIGNING_FINGERPRINT: ${{ vars.GETPATCHED_SIGNING_FINGERPRINT }}
+          GETPATCHED_SNAPSHOT_IDS: ${{ needs.build-indexes.outputs.snapshot_ids }}
         run: python3 scripts/sign-and-publish-apt-snapshot.py --channel both
 
   snapshot-retention:
     if: >-
       always() &&
-      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      vars.GETPATCHED_REPOSITORY_ENABLED == 'true' &&
       github.ref == 'refs/heads/main' &&
       ((github.event_name == 'schedule' && github.event.schedule == '25 3 * * 0') ||
        (github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'prune')) &&
@@ -146,12 +146,12 @@ jobs:
           persist-credentials: false
       - name: Prune old immutable snapshots and unsigned builds
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
+          GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev
         run: python3 scripts/retain-apt-snapshots.py --channel both
 
   rollback:
     if: >-
-      vars.APTTO_REPOSITORY_ENABLED == 'true' &&
+      vars.GETPATCHED_REPOSITORY_ENABLED == 'true' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.operation == 'rollback'
@@ -169,7 +169,7 @@ jobs:
           persist-credentials: false
       - name: Reactivate the exact retained snapshot
         env:
-          APTTO_RELEASE_ENDPOINT: https://repo.getpatched.dev
-          APTTO_ROLLBACK_CHANNEL: ${{ inputs.rollback_channel }}
-          APTTO_ROLLBACK_SNAPSHOT_ID: ${{ inputs.rollback_snapshot_id }}
+          GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev
+          GETPATCHED_ROLLBACK_CHANNEL: ${{ inputs.rollback_channel }}
+          GETPATCHED_ROLLBACK_SNAPSHOT_ID: ${{ inputs.rollback_snapshot_id }}
         run: python3 scripts/rollback-apt-snapshot.py

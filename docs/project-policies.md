@@ -1,6 +1,6 @@
 # Project policies
 
-This document describes how to contribute to AptTo, report security issues, handle archive signing keys, and understand the project's support scope. Package-specific licence notices remain authoritative for each source and binary package.
+This document describes how to contribute to GetPatched, report security issues, handle archive signing keys, and understand the project's support scope. Package-specific licence notices remain authoritative for each source and binary package.
 
 ## Contributing
 
@@ -12,7 +12,7 @@ Package contributions must preserve upstream and distribution copyright/licence 
 
 Please report suspected vulnerabilities privately through GitHub's **Report a vulnerability** feature on the affected `getpatched` repository. This feature is enabled on `getpatched/platform`; check the affected package repository's Security tab because settings are per repository. A separate private contact route has not been published. If private reporting is unavailable on a repository, do not post vulnerability details in a public issue; the maintainers must publish a verified private contact route before inviting confidential reports through another channel. Include the affected repository/package and version, impact, reproduction steps, and any proposed fix. Do not include secrets or real sponsor credentials in a report.
 
-The maintainers will acknowledge reports as capacity permits, coordinate a fix and disclosure timeline with the reporter, and publish a public advisory after a fix or coordinated disclosure decision. AptTo is a small maintenance project and does not promise a response-time SLA. Reports about upstream packages should also be sent to the relevant upstream security team when appropriate.
+The maintainers will acknowledge reports as capacity permits, coordinate a fix and disclosure timeline with the reporter, and publish a public advisory after a fix or coordinated disclosure decision. GetPatched is a small maintenance project and does not promise a response-time SLA. Reports about upstream packages should also be sent to the relevant upstream security team when appropriate.
 
 ## Archive signing keys
 
@@ -22,10 +22,10 @@ Publish the primary-key fingerprint and public key with installation instruction
 
 ## Support scope
 
-The initial compatibility target is Ubuntu 20.04 LTS (focal), amd64, for the specific packages and versions listed in the public catalogue. Ubuntu 20.04 is outside standard support; Ubuntu Pro/ESM may provide additional coverage. AptTo maintains selected package backports, not Ubuntu itself, a complete operating system, every library vulnerability, other architectures, or other Ubuntu releases unless the catalogue explicitly adds them.
+The initial compatibility target is Ubuntu 20.04 LTS (focal), amd64, for the specific packages and versions listed in the public catalogue. Ubuntu 20.04 is outside standard support; Ubuntu Pro/ESM may provide additional coverage. GetPatched maintains selected package backports, not Ubuntu itself, a complete operating system, every library vulnerability, other architectures, or other Ubuntu releases unless the catalogue explicitly adds them.
 
 Each release is supported only to the extent documented by its package metadata, source, regression evidence, and publication status. Sponsor access changes the timing of selected binary availability; it does not change the package licence or grant exclusive redistribution rights. Source and corresponding-source materials remain public. A package shown as a candidate or development build is not a production security fix or support commitment.
 
 ## Licensing
 
-AptTo has not declared a single repository-wide licence in this document. Each package retains the applicable upstream and distribution licences and notices. Before adding a new project-wide licence or changing any repository's licensing terms, maintainers must review the complete contents and record an explicit licensing decision. Do not infer a licence from GitHub's default settings or from the licence of one included package.
+GetPatched has not declared a single repository-wide licence in this document. Each package retains the applicable upstream and distribution licences and notices. Before adding a new project-wide licence or changing any repository's licensing terms, maintainers must review the complete contents and record an explicit licensing decision. Do not infer a licence from GitHub's default settings or from the licence of one included package.

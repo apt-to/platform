@@ -10,7 +10,7 @@ on:
         required: true
         options: [libxml2, libarchive]
       source_commit:
-        description: Full commit SHA on the package's aptto/focal branch
+        description: Full commit SHA on the package's getpatched/focal branch
         type: string
         required: true
 
@@ -36,7 +36,7 @@ jobs:
           ref: ${{ inputs.source_commit }}
           path: packaging
           persist-credentials: false
-      - name: Verify source commit is pinned and on aptto/focal
+      - name: Verify source commit is pinned and on getpatched/focal
         working-directory: packaging
         env:
           SOURCE_COMMIT: ${{ inputs.source_commit }}
@@ -46,7 +46,7 @@ jobs:
             exit 1
           fi
           test "$(git rev-parse HEAD)" = "${SOURCE_COMMIT,,}"
-          git fetch --no-tags origin refs/heads/aptto/focal
+          git fetch --no-tags origin refs/heads/getpatched/focal
           git merge-base --is-ancestor "$SOURCE_COMMIT" FETCH_HEAD
       - name: Build and verify without publishing binaries
         run: python3 scripts/build-package.py --source packaging --output build/output

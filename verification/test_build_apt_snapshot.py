@@ -14,8 +14,8 @@ SPEC.loader.exec_module(BUILD)
 
 def release_record(state="public"):
     return {
-        "id": "libarchive-3-4-0-aptto1", "state": state,
-        "repository": "getpatched/packaging-libarchive", "tag": "aptto/3.4.0-2ubuntu1.5+aptto1",
+        "id": "libarchive-3-4-0-getpatched1", "state": state,
+        "repository": "getpatched/packaging-libarchive", "tag": "getpatched/3.4.0-2ubuntu1.5+aptto1+getpatched1",
         "source_commit": "a" * 40,
         "required_assets": [{"name": "libarchive13_amd64.deb", "sha256": "b" * 64}],
         "source_assets": [{"name": "libarchive_3.4.0.dsc", "sha256": "c" * 64}],
@@ -50,7 +50,7 @@ class SnapshotAssemblyContract(unittest.TestCase):
     def test_public_channel_excludes_sponsor_period_candidate(self):
         releases = [release_record(), release_record("sponsor-period")]
         selected = [release for release in releases if release["state"] == "public"]
-        self.assertEqual([release["id"] for release in selected], ["libarchive-3-4-0-aptto1"])
+        self.assertEqual([release["id"] for release in selected], ["libarchive-3-4-0-getpatched1"])
 
     def test_early_channel_includes_public_and_sponsor_period_candidates(self):
         releases = [release_record(), release_record("sponsor-period")]
@@ -90,12 +90,12 @@ class SnapshotAssemblyContract(unittest.TestCase):
     def test_reuses_identical_source_tarball_shared_by_multiple_release_revisions(self):
         first = release_record()
         second = release_record()
-        second["id"] = "libarchive-3-4-0-aptto2"
-        second["tag"] = "aptto/3.4.0-2ubuntu1.5+aptto2"
+        second["id"] = "libarchive-3-4-0-getpatched2"
+        second["tag"] = "getpatched/3.4.0-2ubuntu1.5+getpatched2"
         descriptor = {"name": "libarchive_3.4.0.dsc", "sha256": "c" * 64}
         shared = {"name": "libarchive_3.4.0.orig.tar.xz", "sha256": hashlib.sha256(b"shared upstream source").hexdigest()}
         first["source_assets"] = [descriptor, shared]
-        second["source_assets"] = [{"name": "libarchive_3.4.0+aptto2.dsc", "sha256": "e" * 64}, shared]
+        second["source_assets"] = [{"name": "libarchive_3.4.0+getpatched2.dsc", "sha256": "e" * 64}, shared]
         release_records = [first, second]
         source_downloads = []
 
@@ -131,7 +131,7 @@ class SnapshotAssemblyContract(unittest.TestCase):
         class Opener:
             def __init__(self, handler=None): self.handler = handler
             def open(self, _request, timeout): self.timeout = timeout; return Response()
-        release = {"id": "libarchive-aptto1", "repository": "getpatched/packaging-libarchive"}
+        release = {"id": "libarchive-getpatched1", "repository": "getpatched/packaging-libarchive"}
         asset = {"name": "libarchive.dsc", "sha256": __import__("hashlib").sha256(b"asset123").hexdigest()}
         with patch.object(BUILD, "public_asset_url", return_value="https://github.com/getpatched/packaging-libarchive/releases/download/tag/libarchive.dsc"), \
              patch.object(BUILD.urllib.request, "build_opener", side_effect=lambda *handlers: Opener(handlers)), \

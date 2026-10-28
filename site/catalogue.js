@@ -15,12 +15,15 @@ function packageRow(item) {
   const policy = item.access === "sponsor"
     ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Public ${escapeHtml(item.delayHours)} hours after sponsor release</span>`
     : `<span class="policy-dot policy-public"></span><span class="policy-main">Public immediately</span><span class="policy-detail">After release checks pass</span>`;
+  const checks = item.verification
+    ? `<a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Development checks passed<small>Hosted build and regressions ↗</small></a>`
+    : `<span class="verification-pending">Verification pending<small>Fresh hosted build and installed regressions required</small></span>`;
   return `<tr data-source="${escapeHtml(item.source)}">
     <th scope="row" class="package-name"><span>${escapeHtml(item.source)}</span><small>source package</small></th>
     <td class="version-cell" data-label="PACKAGE VERSION"><code>${escapeHtml(item.version)}</code><span class="unpublished-mark">NOT PUBLISHED</span></td>
     <td class="cve-cell" data-label="PATCH FOCUS">${cves}<small>Patch and regression details</small></td>
     <td class="policy-cell" data-label="BINARY ACCESS">${policy}</td>
-    <td data-label="DEVELOPMENT CHECKS"><a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Development checks passed<small>Hosted build and regressions ↗</small></a></td>
+    <td data-label="DEVELOPMENT CHECKS">${checks}</td>
     <td class="row-action" data-label="PACKAGE EVIDENCE"><nav class="evidence-links" aria-label="${escapeHtml(item.source)} package evidence">
       <a href="${escapeHtml(item.sourceUrl)}">Source ↗</a>
       <a href="${escapeHtml(item.patchUrl)}">Patch ↗</a>

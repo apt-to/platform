@@ -154,7 +154,7 @@ def generate(repo, suite, architecture, component, description):
     release_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
         "apt-ftparchive",
-        "-o", "APT::FTPArchive::Release::Origin=AptTo",
+        "-o", "APT::FTPArchive::Release::Origin=GetPatched",
         "-o", "APT::FTPArchive::Release::Label=getpatched.dev",
         "-o", f"APT::FTPArchive::Release::Suite={suite}",
         "-o", f"APT::FTPArchive::Release::Codename={suite}",
@@ -177,7 +177,7 @@ def main():
     parser.add_argument("--suite", default="focal")
     parser.add_argument("--architecture", default="amd64")
     parser.add_argument("--component", default="main")
-    parser.add_argument("--description", default="AptTo maintained packages")
+    parser.add_argument("--description", default="GetPatched maintained packages")
     parser.add_argument("--signing-key-home", type=Path, help="isolated GnuPG home containing the repository signing key")
     parser.add_argument("--signing-fingerprint", help="full fingerprint of the repository signing key")
     args = parser.parse_args()
