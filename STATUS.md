@@ -4,7 +4,7 @@
 
 - Security-evidence PR [#43](https://github.com/getpatched/platform/pull/43) merged to `main` at `4c5d856d793d8c42bc794588e04670470b16c108`. Required catalogue check [40770229116](https://github.com/getpatched/platform/actions/runs/40770229116) passed; main quality [40770314926](https://github.com/getpatched/platform/actions/runs/40770314926) and automatic Worker/site deployment with route smoke checks [40770314988](https://github.com/getpatched/platform/actions/runs/40770314988) passed.
 - Fresh curl checks after deployment returned 200 for `https://getpatched.dev/` and `/account`, 503 for `https://repo.getpatched.dev/dists/focal/InRelease`, and 401 for anonymous `https://early.getpatched.dev/dists/focal/InRelease`. Site is healthy; production APT snapshot is still unavailable and early access remains fail-closed. An earlier Python `urllib` check received environment-level 403s; curl established the actual route responses.
-- **Next actions:** inspect retained Actions artifacts/logs and screenshots for secret exposure; continue the R2 self-test only after approval of the exact route-scoped Cloudflare Browser Integrity Check exception. Authentic Ubuntu Pro ESM and Sponsors setup remain independent release gates.
+- **Next actions:** inspect remaining retained run artifacts where relevant; continue the R2 self-test only after approval of the exact route-scoped Cloudflare Browser Integrity Check exception. Authentic Ubuntu Pro ESM and Sponsors setup remain independent release gates.
 
 ## Current continuation — 28 October 2026, 21:12 UTC
 
