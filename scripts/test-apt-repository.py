@@ -111,8 +111,19 @@ done
 set -- $BINARY_PACKAGES
 core_package="$1"
 esm_pockets="${ESM_POCKETS//,/ }"
-preference_file="$(dpkg-query -L "$core_package" | grep '^/etc/apt/preferences.d/90-getpatched-' | head -n 1)"
-test -n "$preference_file" && test -f "$preference_file"
+case "$core_package" in
+  libxml2) preference_file=/etc/apt/preferences.d/90-getpatched-libxml2 ;;
+  libarchive13) preference_file=/etc/apt/preferences.d/90-getpatched-libarchive ;;
+  *) echo "No APT preference path configured for runtime package $core_package" >&2; exit 1 ;;
+esac
+owned_preferences="$(dpkg-query -L "$core_package" | grep ^/etc/apt/preferences.d/ || true)"
+if [ ! -f "$preference_file" ] || ! printf %s
+ "$owned_preferences" | grep -Fxq "$preference_file"; then
+  echo "Runtime package $core_package did not install its APT preference file at $preference_file" >&2
+  printf %s
+ "$owned_preferences" >&2
+  exit 1
+fi
 for pocket in $esm_pockets; do
   grep -F "Pin: release a=$pocket" "$preference_file"
 done
