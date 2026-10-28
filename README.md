@@ -6,6 +6,8 @@ The pilot targets Ubuntu 20.04 (focal), amd64. The initial candidates are libxml
 
 This is an implementation in progress. No package is claimed fixed or supported until its release evidence is published.
 
+The current verification record and open acceptance gates are indexed in [`EVIDENCE.md`](EVIDENCE.md); see [`STATUS.md`](STATUS.md) for the latest checkpoint.
+
 ## Source preflight
 
 `python3 scripts/inspect-ubuntu.py` records the currently published focal source-package metadata from Launchpad, descriptor hashes, and archive checksums/sizes from the source descriptors. It downloads small descriptors, uses no credentials, and does not mutate the archive. Descriptor signatures are not verified by this helper; archive bytes must be verified against the recorded hashes when imported. Its JSON output is suitable for saving as preflight evidence.
