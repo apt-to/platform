@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR_SPEC = importlib.util.spec_from_file_location(
@@ -75,6 +76,12 @@ def create_fixture(repository, temporary):
     run(["dpkg-deb", "--root-owner-group", "--build", str(binary_root), str(binary_path)])
 
     source_root = temporary / "source"
+    upstream_root = temporary / "getpatched-signing-probe-0.0.1"
+    upstream_root.mkdir()
+    (upstream_root / "README").write_text("Disposable signing verification source.\n")
+    upstream_tarball = temporary / "getpatched-signing-probe_0.0.1.orig.tar.gz"
+    with tarfile.open(upstream_tarball, "w:gz") as archive:
+        archive.add(upstream_root, arcname="getpatched-signing-probe-0.0.1")
     debian_dir = source_root / "debian"
     (debian_dir / "source").mkdir(parents=True)
     (source_root / "README").write_text("Disposable signing verification source.\n")
