@@ -1,5 +1,12 @@
 # GetPatched implementation status
 
+## Live configuration check — 28 October 2026, 23:23 UTC
+
+- Read-only Cloudflare checks with the project-scoped deployment credential confirmed the Diderichsen account. `getpatched.dev` is active; the `apt.to` zone exists but is still pending and its assigned nameservers have not completed activation. The public `apt.to` root currently returns a generic lander. No DNS or registrar settings were changed. The current repository spec and deployed Worker target `getpatched.dev`; the resumed task brief names `apt.to`, so the intended production identity needs reconciliation before retargeting.
+- Live route checks returned HTTP 200 for `https://getpatched.dev/`, HTTP 503 for the public Focal `InRelease`, HTTP 401 for anonymous early `InRelease`, and HTTP 200 for the `apt.to` lander. The site is reachable, but there is no public APT snapshot and the early endpoint remains fail-closed.
+- Cloudflare's Worker secret-name endpoint returned an empty list for the deployed `getpatched-release-gateway` Worker. GitHub's protected `getpatched-esm` environment also has no secrets or variables. OAuth, Worker-to-GitHub release API access, and the authenticated Ubuntu Pro ESM source audit are therefore not configured; no package release or repository metadata was published.
+- **Next actions:** resolve whether production should remain `getpatched.dev`/`getpatched` or move to `apt.to`/`apt-to`; complete GitHub sudo reauthentication and add the required OAuth and narrowly scoped Worker GitHub credentials; add `UBUNTU_PRO_TOKEN` in `getpatched-esm`; finish GitHub Sponsors enrollment. Keep package publication disabled until the real ESM, sponsor, signed-repository, client-install, and promotion gates pass.
+
 ## Verification update — 28 October 2026, 23:16 UTC
 
 - Hosted signing-key verification workflow [40786134419](https://github.com/getpatched/platform/actions/runs/40786134419) passed from `main`: it imported the protected APT signing key, checked its configured fingerprint, then signed and verified a disposable Focal repository. This confirms key usability and fingerprint consistency; it does not publish production indexes or verify the live repository endpoint.
