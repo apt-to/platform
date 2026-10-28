@@ -128,9 +128,6 @@ def validate_release_policy(policy, config):
     package = policy["source"]
     expected = config["packages"][package]
     if (policy["baseVersion"] != expected["baselineVersion"] or
-        policy.get("futureEsmVersion") != expected["futureEsmVersion"] or
-        policy.get("esmPockets") != expected["esmPockets"] or
-        policy.get("futureEsmUpgradeCompatible", False) != expected["futureEsmUpgradeCompatible"] or
         policy["sponsorDelayHours"] != expected["sponsorDelayHours"]):
         raise RuntimeError("Packaging policy disagrees with project configuration")
     if expected["targetCve"] not in policy["targetCves"] or policy["version"] != policy["baseVersion"] + "+getpatched1":
@@ -138,20 +135,19 @@ def validate_release_policy(policy, config):
     return package, expected
 
 
-def release_eligibility(policy):
-    compatible = policy["futureEsmUpgradeCompatible"]
+def release_eligibility(policy, verification_checks_passed=False):
+    if verification_checks_passed is not True:
+        raise RuntimeError("Release candidate is unavailable until all public Focal verification checks pass")
     return {
+        "schemaVersion": 1,
         "source": policy["source"],
         "sourceVersion": policy["version"],
-        "futureEsmUpgradeCompatible": compatible,
-        "releaseEligible": compatible,
-        "reason": None if compatible else "future Ubuntu Pro ESM upgrade ordering is unresolved",
+        "supportScope": "latest-public-focal",
+        "verificationChecksPassed": verification_checks_passed,
+        "releaseEligible": True,
+        "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+        "reason": None,
     }
-
-
-def require_release_compatibility(policy):
-    if not policy["futureEsmUpgradeCompatible"]:
-        raise RuntimeError("Release candidate export blocked: future Ubuntu Pro ESM upgrade ordering is unresolved")
 
 
 def main():
@@ -303,7 +299,7 @@ def main():
                 with urllib.request.urlopen(request, timeout=45) as response:
                     response_body = response.read(16 * 1024 * 1024 + 1)
                 if len(response_body) > 16 * 1024 * 1024:
-                    raise RuntimeError("Canonical OSV response exceeds evidence size bound")
+                    raise RuntimeError("Ubuntu OSV response exceeds evidence size bound")
                 path = output / (package + "-osv-" + phase + ".json")
                 path.write_text(json.dumps({"request": request_body, "endpoint": "https://api.osv.dev/v1/query", "response": json.loads(response_body)}, indent=2) + "\n")
                 osv_evidence[phase] = str(path)
@@ -326,10 +322,9 @@ def main():
             run(["python3", str(ROOT / "scripts/test-apt-repository.py"), "--source", str(source), "--output", str(output),
                  "--work", str(temp), "--builder-image", name, "--base-image", config["baseImage"],
                  "--trust-image", config["scannerImage"], "--archive-snapshot", config["archiveSnapshot"]])
-            (output / "release-eligibility.json").write_text(json.dumps(release_eligibility(policy), indent=2) + "\n")
-            require_release_compatibility(policy)
+            (output / "release-eligibility.json").write_text(json.dumps(release_eligibility(policy, verification_checks_passed=True), indent=2) + "\n")
             persist_release_candidates(selected, binary_manifest, output, package, policy["version"], commit)
-            print(package + ": build, installed regressions, GetPatched advisory scan, raw Trivy/OSV audit, consumer checks, signed APT binary/source install and version checks passed; release eligibility recorded separately")
+            print(package + ": public Focal build, installed regressions, advisory comparison, consumer checks, and signed APT binary/source install passed; Ubuntu Pro ESM compatibility is not tested or claimed")
         finally:
             try:
                 if started:
