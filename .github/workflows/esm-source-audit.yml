@@ -1,0 +1,109 @@
+name: Inspect authentic Focal ESM sources
+run-name: Inspect Focal ESM source for ${{ inputs.source_package }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_package:
+        description: Ubuntu source package to inspect
+        type: choice
+        required: true
+        options: [libxml2, libarchive]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: getpatched-esm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Attach ephemeral runner and fetch only Focal ESM source indexes
+        env:
+          UBUNTU_PRO_TOKEN: ${{ secrets.UBUNTU_PRO_TOKEN }}
+          SOURCE_PACKAGE: ${{ inputs.source_package }}
+        run: |
+          set -euo pipefail
+          case "$SOURCE_PACKAGE" in
+            libxml2|libarchive) ;;
+            *) echo "Unsupported source package" >&2; exit 1 ;;
+          esac
+          if [[ -z "$UBUNTU_PRO_TOKEN" ]]; then
+            echo "The getpatched-esm environment must define UBUNTU_PRO_TOKEN." >&2
+            exit 1
+          fi
+
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ubuntu-pro-client dpkg-dev
+          if ! sudo pro attach "$UBUNTU_PRO_TOKEN" --no-auto-enable >"$RUNNER_TEMP/pro-attach.log" 2>&1; then
+            rm -f "$RUNNER_TEMP/pro-attach.log"
+            echo "Ubuntu Pro attach failed; private client output was discarded." >&2
+            exit 1
+          fi
+          unset UBUNTU_PRO_TOKEN
+          rm -f "$RUNNER_TEMP/pro-attach.log"
+
+          if ! sudo pro enable --assume-yes esm-infra >"$RUNNER_TEMP/pro-enable.log" 2>&1; then
+            rm -f "$RUNNER_TEMP/pro-enable.log"
+            echo "Ubuntu Pro ESM Infra enablement failed; private client output was discarded." >&2
+            exit 1
+          fi
+          rm -f "$RUNNER_TEMP/pro-enable.log"
+
+          test -r /usr/share/keyrings/ubuntu-pro-esm-infra.gpg
+          sudo tee /etc/apt/sources.list.d/getpatched-focal-esm.sources >/dev/null <<'EOF'
+          Types: deb-src
+          URIs: https://esm.ubuntu.com/infra/ubuntu
+          Suites: focal-infra-security focal-infra-updates
+          Components: main
+          Signed-By: /usr/share/keyrings/ubuntu-pro-esm-infra.gpg
+          EOF
+
+          mkdir -p "$RUNNER_TEMP/apt-esm-lists" "$RUNNER_TEMP/esm-source"
+          sudo apt-get \
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/getpatched-focal-esm.sources \
+            -o Dir::Etc::sourceparts=- \
+            -o Dir::State::lists="$RUNNER_TEMP/apt-esm-lists" \
+            update -qq
+          cd "$RUNNER_TEMP/esm-source"
+          sudo apt-get \
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/getpatched-focal-esm.sources \
+            -o Dir::Etc::sourceparts=- \
+            -o Dir::State::lists="$RUNNER_TEMP/apt-esm-lists" \
+            source --download-only "$SOURCE_PACKAGE"
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/esm-source"
+
+      - name: Verify source descriptor and record authenticated source hashes
+        env:
+          SOURCE_PACKAGE: ${{ inputs.source_package }}
+        run: |
+          set -euo pipefail
+          python3 scripts/inspect-esm-source.py \
+            --package "$SOURCE_PACKAGE" \
+            --source-dir "$RUNNER_TEMP/esm-source" \
+            --policy packages.json \
+            --output build/esm-source-report.json
+
+      - name: Retain source audit report only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: focal-esm-source-audit-${{ inputs.source_package }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/esm-source-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Detach and remove temporary ESM source data
+        if: always()
+        run: |
+          set +e
+          sudo pro detach --assume-yes >/dev/null 2>&1
+          sudo rm -f /etc/apt/sources.list.d/getpatched-focal-esm.sources
+          sudo rm -rf "$RUNNER_TEMP/apt-esm-lists" "$RUNNER_TEMP/esm-source"
