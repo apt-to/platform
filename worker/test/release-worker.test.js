@@ -1126,6 +1126,12 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("account status reports when GitHub sign-in is not configured", async () => {
+  const response = await gateway.fetch(new Request("https://getpatched.dev/api/me"), { RELEASES: new MemoryBucket() });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "GitHub sign-in is not configured" });
+});
+
 test("account status requires a valid session and fails closed when sponsor data is stale", async () => {
   const session = "session-for-account-test";
   const sessionHash = createHash("sha256").update(session).digest("hex");
@@ -1139,18 +1145,24 @@ test("account status requires a valid session and fails closed when sponsor data
       sponsors: [{ github_user_id: 17 }], valid_until: new Date(now.getTime() + 1800000).toISOString(),
     },
   });
-  const anonymous = await gateway.fetch(new Request("https://getpatched.dev/api/me"), { RELEASES: bucket });
+  const env = {
+    RELEASES: bucket,
+    GITHUB_OAUTH_CLIENT_ID: "test-client-id",
+    GITHUB_OAUTH_CLIENT_SECRET: "test-client-secret",
+    PUBLIC_ORIGIN: "https://getpatched.dev",
+  };
+  const anonymous = await gateway.fetch(new Request("https://getpatched.dev/api/me"), env);
   assert.equal(anonymous.status, 401);
 
   const statusRequest = () => new Request("https://getpatched.dev/api/me", { headers: { cookie: `aptto_session=${session}` } });
-  const eligible = await gateway.fetch(statusRequest(), { RELEASES: bucket });
+  const eligible = await gateway.fetch(statusRequest(), env);
   assert.deepEqual(await eligible.json(), {
     github_login: "alice", sponsorship: "eligible", snapshot_valid_until: new Date(now.getTime() + 1800000).toISOString(),
   });
 
   const snapshot = bucket.entries.get("sponsor-entitlements/current.json");
   snapshot.value = { ...snapshot.value, valid_until: new Date(now.getTime() - 1).toISOString() };
-  const stale = await gateway.fetch(statusRequest(), { RELEASES: bucket });
+  const stale = await gateway.fetch(statusRequest(), env);
   assert.equal((await stale.json()).sponsorship, "unavailable");
 });
 
@@ -1447,14 +1459,20 @@ test("prepared releases are not reconciled until the immutable source release is
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("sponsor promotion boundary is closed immediately before and open exactly at 168 hours", async () => {
+test("sponsor promotion stays closed before 168 hours and catches up after a missed cron window", async () => {
   const bytes = Buffer.from("verified sponsor package bytes");
   const digest = createHash("sha256").update(bytes).digest("hex");
   const deadline = new Date("2026-10-01T12:00:00.000Z");
   const key = "release-state/pilot.json";
   const originalFetch = globalThis.fetch;
   try {
-    for (const [offsetMs, expectedState] of [[-1, "sponsor-period"], [0, "public"], [1, "public"]]) {
+    const missedCronOffsetMs = 8 * 24 * 60 * 60 * 1000;
+    for (const [offsetMs, expectedState] of [
+      [-1, "sponsor-period"],
+      [0, "public"],
+      [1, "public"],
+      [missedCronOffsetMs, "public"],
+    ]) {
       const bucket = new MemoryBucket({ [key]: {
         id: "pilot", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "aptto/2.9.10-aptto1",
         source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 168, source_release_id: 902,

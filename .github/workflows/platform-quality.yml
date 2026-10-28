@@ -19,7 +19,14 @@ jobs:
         run: python3 -B -m unittest discover -s verification -p 'test_*.py' -v
       - name: Check catalogue JavaScript syntax
         run: node --check site/catalogue.js
+      - name: Check sponsor account interface behavior
+        run: |
+          node --test verification/test_site_account_ui.mjs
+          node --test verification/test_site_account_oauth_unconfigured.mjs
       - name: Check release worker syntax and state adapter
         run: |
           node --check worker/src/index.js
           node --test worker/test/*.test.js
+      - name: Validate production Worker bundle without deploying
+        working-directory: worker
+        run: npx --yes wrangler@4.151.3 deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --config wrangler.jsonc
