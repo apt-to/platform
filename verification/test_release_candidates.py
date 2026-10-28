@@ -25,7 +25,9 @@ class ReleaseCandidateOutput(unittest.TestCase):
                 "sponsorDelayHours": package["sponsorDelayHours"],
                 "futureEsmUpgradeCompatible": False,
             }
-            self.assertEqual(BUILD_PACKAGE.validate_release_policy(source_policy, policy), source)
+            validated_source, expected = BUILD_PACKAGE.validate_release_policy(source_policy, policy)
+            self.assertEqual(validated_source, source)
+            self.assertEqual(expected, package)
             eligibility = BUILD_PACKAGE.release_eligibility(source_policy)
             self.assertFalse(eligibility["releaseEligible"])
             self.assertFalse(eligibility["futureEsmUpgradeCompatible"])

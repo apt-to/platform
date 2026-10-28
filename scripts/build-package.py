@@ -133,7 +133,7 @@ def validate_release_policy(policy, config):
         raise RuntimeError("Packaging policy disagrees with project configuration")
     if expected["targetCve"] not in policy["targetCves"] or policy["version"] != policy["baseVersion"] + "+getpatched1":
         raise RuntimeError("Unexpected pilot backport identity")
-    return package
+    return package, expected
 
 
 def release_eligibility(policy):
@@ -165,7 +165,7 @@ def main():
     policy = json.loads((source / "debian/getpatched/release-policy.json").read_text())
     provenance = json.loads((source / "debian/getpatched/source-provenance.json").read_text())
     config = json.loads((ROOT / "packages.json").read_text())
-    package = validate_release_policy(policy, config)
+    package, expected = validate_release_policy(policy, config)
     if run(["git", "-C", str(source), "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
         raise RuntimeError("Commit the reviewed packaging changes before recording build evidence")
     commit = run(["git", "-C", str(source), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
