@@ -17,24 +17,20 @@ Status checked on 28 October 2026. `getpatched.dev` is already delegated to Clou
 
 ## Deployment gates
 
-The repository keeps production deployment behind `APTTO_WORKER_DEPLOY_ENABLED=true`, the manual `confirm_production` input, and the planned protected GitHub environment `aptto-worker-deploy`, which does not exist yet. The repository publication path has separate controls and must remain disabled until its signing and publication gates pass.
+`.github/workflows/worker-deploy.yml` verifies and deploys the Worker and static site on every push to `main`, including merges. Its `aptto-worker-deploy` environment is limited to `main` and does not require a human reviewer under the maintainer's single-operator policy. Manual dispatch from `main` remains available with `confirm_production=true`. Package publication and signing controls are separate and remain in force.
 
-Before enabling deployment:
+Before the first deployment:
 
-1. Create the `aptto-worker-deploy` GitHub environment with an independent required reviewer and self-review prevention. GitHub currently has no independent reviewer because `marktopper` is the only organization member. Do not configure the environment or add deployment credentials until an independent reviewer is selected.
-2. For the first Worker creation, Cloudflare's current [Workers roles guidance](https://developers.cloudflare.com/workers/authorization/workers/) requires product-level Workers `Admin`, plus `Workers Routes Write` limited to the `getpatched.dev` zone for the declared Custom Domains. This temporary product-level permission can affect all Workers in the account; get explicit approval before provisioning it, store it only in the protected environment, and revoke it immediately after creating the project Worker. The existing script-write token is not documented to create a new Worker.
-3. After the Worker exists, replace the bootstrap credential with the ongoing deploy scope: Workers `Editor` and `Workers Routes Write` limited to `getpatched.dev`. Cloudflare does not currently support per-Worker roles for Custom Domains, so disclose that the ongoing Editor role applies across the account. Do not copy credentials into Git, logs or artifacts.
-4. Confirm the exact token permissions and independent environment reviewer. Keep credentials and account-specific credential metadata out of repository content, build logs, and artifacts.
-5. Verify the Worker configuration and private R2 binding. Configure required runtime secrets only through the intended Cloudflare secret mechanism. Keep package publication and signing gates off until their own protections and credentials are ready.
-6. Run the existing manual deployment workflow from `main` only after its environment gate is configured, with `confirm_production=true`. The declared Worker custom domains are intended to provision routing and certificates as part of deployment; do not add guessed DNS records manually.
-7. Verify Cloudflare routes, HTTPS, site and account pages, public/early archive access boundaries, R2 access, and health responses. Save workflow and endpoint evidence in `EVIDENCE.md` and update `STATUS.md`.
+1. For initial Worker creation, Cloudflare's current [Workers roles guidance](https://developers.cloudflare.com/workers/authorization/workers/) requires product-level Workers `Admin`, plus `Workers Routes Write` limited to the `getpatched.dev` zone for the declared Custom Domains. This temporary product-level permission can affect all Workers in the account; obtain action-time confirmation, store it only as the protected `CLOUDFLARE_BOOTSTRAP_TOKEN` environment secret, and revoke it after the Worker is created. The existing script-write token is not documented to create a new Worker.
+2. Routine deployments use `CLOUDFLARE_API_TOKEN` with Workers `Editor` and `Workers Routes Write` limited to `getpatched.dev`. Cloudflare does not currently support per-Worker roles for Custom Domains, so the ongoing Editor role applies across the account. Do not copy credentials into Git, logs or artifacts.
+3. Verify the Worker configuration and private R2 binding. Configure runtime secrets only through the intended Cloudflare secret mechanism. Keep package publication and signing gates off until their own protections and credentials are ready.
+4. After the initial deployment, verify Cloudflare routes, HTTPS, site and account pages, public/early archive access boundaries, R2 access, and health responses. Save workflow and endpoint evidence in `EVIDENCE.md` and update `STATUS.md`.
 
 ## Current blockers and next actions
 
-- The stored Cloudflare credential is active but has no documented Workers `Admin` grant for creating the first Worker. A temporary bootstrap credential with Workers product-level `Admin` and `getpatched.dev`-only Workers Routes Write is required; its broader account impact needs explicit approval. After creation, use the ongoing Editor plus zone-limited route scope.
-- A human must choose an independent GitHub reviewer for `aptto-worker-deploy` and establish the environment's required-reviewer protection. The organization currently has only `marktopper` and no teams.
-- Required Worker runtime secrets and the R2 binding need configuration and verification before production deployment.
+- A temporary bootstrap credential is needed for the first Worker creation. Its Workers `Admin` permission is account-wide; request confirmation at the time of creation. After bootstrap, routine deployments should use the existing least-privilege deployment token.
+- The website can deploy before sponsor OAuth and release runtime credentials are configured; the account page must accurately report unavailable sign-in. The private R2 binding and archive routes still require live verification.
 - No DNS records or Worker routes are live yet. Because delegation already points to Cloudflare, no further nameserver change is needed.
 - No pre-registration `getpatched.dev` zone export exists to restore. Leave the zone's DNS record set empty until Wrangler deploys the declared custom domains; do not copy records from the former `apt.to` zone or add guessed routes.
 
-Do not enable the deployment variable or run a production deployment until these gates are complete. Do not enable package publication as part of the Worker setup.
+Do not enable package publication as part of the Worker setup.

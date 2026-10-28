@@ -4,6 +4,9 @@ Updated 28 October 2026. This is an evidence ledger; candidate verification is n
 
 ## Current identity and deployment checkpoint
 
+- Deployment automation is being prepared on the current working branch: `.github/workflows/worker-deploy.yml` will verify and deploy on pushes to `main`, including merges, while retaining a manually confirmed dispatch. GitHub's `aptto-worker-deploy` environment now exists with its account ID and ongoing deployment token secrets; the environment is restricted to `main` and has no human reviewer under the maintainer's single-operator policy. The automation change is not merged, and no Worker has been deployed.
+- The initial Worker still needs a temporary Cloudflare token with product-level Workers `Admin` and `Workers Routes Write` scoped to `getpatched.dev`. That token has not been created or stored. The workflow supports it as `CLOUDFLARE_BOOTSTRAP_TOKEN`, then falls back to `CLOUDFLARE_API_TOKEN` for routine deployments; remove and revoke the bootstrap credential after Worker creation.
+
 ## Live deployment preflight — 28 October 2026, 06:18 UTC
 
 - Read-only Cloudflare API checks using the specifically named GetPatched deployment credential returned HTTP 200 from the account-scoped token verifier and Workers script inventory. The inventory contains no `aptto-release-gateway`; existing account Workers were left untouched. The stored credential's recorded policy is account-wide Workers Scripts Write and Account Settings Read, plus Workers Routes Write limited to `getpatched.dev`; no credential value was read into output or recorded here.
@@ -87,8 +90,8 @@ The advisory scanner now treats an exact reviewed vulnerable baseline as affecte
 ## Unfulfilled acceptance gates
 
 - Complete GitHub Sponsors enrollment and configure/test the real sponsor tier and entitlement rules.
-- Add an independent reviewer who can approve protected signing and deployment jobs; configure production OAuth, webhook and sponsor credentials, protected signing-key custody, and least-privilege Cloudflare CI credentials. Do not place the existing account key in GitHub.
-- Create the missing `aptto-worker-deploy` environment and complete remaining release resources only after their credentials and protections are ready.
+- Preserve independent review and self-review protection for package signing; configure production OAuth, webhook and sponsor credentials and protected signing-key custody. Do not place the existing account key in GitHub.
+- Create and revoke a temporary bootstrap credential for the initial Worker deployment; keep the ongoing deployment token scoped to Worker editing and `getpatched.dev` routes.
 - Nameserver delegation is already on Cloudflare. The new `getpatched.dev` registration has no prior zone export to restore. Leave DNS records absent until the Worker deploys its declared custom domains; do not copy records from `apt.to` or add guessed routes.
 - Deploy the real website, sponsor portal, signed public and early APT endpoints, private R2 holding, and public GitHub Releases promotion flow.
 - Exercise anonymous, valid, invalid, expired and revoked sponsor credentials; test the exact 168-hour boundary, retries, concurrent/missed promotion, failures, tampering, identical-byte promotion, rollback and source downloads against live hosted services.
@@ -96,5 +99,5 @@ The advisory scanner now treats an exact reviewed vulnerable baseline as affecte
 
 ## Next actions
 
-1. Complete GitHub Sponsors setup and add an independent signing/deployment reviewer; create production OAuth/webhook credentials and a scoped Cloudflare deployment token without reusing the existing account key.
-2. After runtime secrets, private R2 and protected deployment environments are ready, deploy through the gated workflow and run the live website, signed APT, sponsor-access, staging, and byte-identical promotion acceptance tests. The nameserver cutover is complete; Wrangler should provision the declared routes during deployment. Do not label candidates released or the platform complete until that evidence exists.
+1. Merge the reviewed website-deployment workflow only after the temporary bootstrap token is created and stored; verify the deployment and then revoke/remove that bootstrap credential.
+2. Complete GitHub Sponsors setup, retain independent signing review, and configure production OAuth/webhook credentials and signed APT release custody. The nameserver cutover is complete; Wrangler should provision the declared routes during deployment. Do not label candidates released or the platform complete until live acceptance evidence exists.
