@@ -11,6 +11,8 @@
   "packages": {
     "libxml2": {
       "baselineVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+      "futureEsmVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+esm6",
+      "esmPockets": ["focal-infra-security", "focal-infra-updates"],
       "futureEsmUpgradeCompatible": false,
       "binaryPackages": ["libxml2", "libxml2-utils"],
       "targetCve": "CVE-2025-49794",
@@ -21,6 +23,8 @@
     },
     "libarchive": {
       "baselineVersion": "3.4.0-2ubuntu1.5",
+      "futureEsmVersion": "3.4.0-2ubuntu1.5+esm3",
+      "esmPockets": ["focal-infra-security", "focal-infra-updates"],
       "futureEsmUpgradeCompatible": false,
       "binaryPackages": ["libarchive13", "libarchive-tools"],
       "targetCve": "CVE-2026-4111",

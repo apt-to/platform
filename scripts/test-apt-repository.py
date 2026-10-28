@@ -32,6 +32,8 @@ def main():
     binary_packages = candidate["binaryPackages"]
     if (policy["version"] != policy["baseVersion"] + "+getpatched1"
             or policy["baseVersion"] != candidate["baselineVersion"]
+            or policy["futureEsmVersion"] != candidate["futureEsmVersion"]
+            or policy["esmPockets"] != candidate["esmPockets"]
             or policy["architecture"] != platform["architecture"]
             or policy["release"] != platform["release"]):
         raise RuntimeError("source package policy does not match the reviewed focal candidate")
@@ -106,6 +108,81 @@ for binary in $BINARY_PACKAGES; do
   version="$(dpkg-query -W -f='${Version}' "$binary")"
   test "$version" = "$EXPECTED_VERSION" || { echo "wrong installed version for $binary: $version" >&2; exit 1; }
 done
+set -- $BINARY_PACKAGES
+core_package="$1"
+esm_pockets="${ESM_POCKETS//,/ }"
+preference_file="$(dpkg-query -L "$core_package" | grep '^/etc/apt/preferences.d/90-getpatched-' | head -n 1)"
+test -n "$preference_file" && test -f "$preference_file"
+for pocket in $esm_pockets; do
+  grep -F "Pin: release a=$pocket" "$preference_file"
+done
+mkdir -p /tmp/esm-test-repo/pool /tmp/esm-package-build
+for binary in $BINARY_PACKAGES; do
+  package_root="/tmp/esm-package-build/$binary"
+  mkdir -p "$package_root/DEBIAN"
+  dependency=""
+  if [ "$binary" != "$core_package" ]; then
+    dependency="Depends: $core_package (= $ESM_VERSION)"
+  fi
+  cat > "$package_root/DEBIAN/control" <<EOF
+Package: $binary
+Version: $ESM_VERSION
+Architecture: amd64
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+EOF
+  if [ -n "$dependency" ]; then
+    printf '%s\n' "$dependency" >> "$package_root/DEBIAN/control"
+  fi
+  printf '%s\n' 'Description: isolated fixture for ESM upgrade ordering test' >> "$package_root/DEBIAN/control"
+  dpkg-deb --build "$package_root" "/tmp/esm-test-repo/pool/$binary.deb"
+done
+(cd /tmp/esm-test-repo && dpkg-scanpackages --multiversion pool /dev/null > /tmp/esm-packages)
+for pocket in $esm_pockets; do
+  suite_dir="/tmp/esm-test-repo/dists/$pocket"
+  mkdir -p "$suite_dir/main/binary-amd64"
+  cp /tmp/esm-packages "$suite_dir/main/binary-amd64/Packages"
+  gzip -k "$suite_dir/main/binary-amd64/Packages"
+  packages_gz="$suite_dir/main/binary-amd64/Packages.gz"
+  packages_digest="$(sha256sum "$packages_gz" | cut -d ' ' -f 1)"
+  packages_size="$(stat -c '%s' "$packages_gz")"
+  cat > "$suite_dir/Release" <<EOF
+Origin: Ubuntu
+Label: UbuntuESM
+Suite: $pocket
+Codename: $pocket
+Architectures: amd64
+Components: main
+SHA256:
+ $packages_digest $packages_size main/binary-amd64/Packages.gz
+EOF
+done
+for pocket in $ESM_POCKETS; do
+  sources="/tmp/esm-sources-$pocket.list"
+  lists="/tmp/esm-lists-$pocket"
+  mkdir -p "$lists/partial"
+  printf 'deb [arch=amd64 signed-by=/usr/share/keyrings/getpatched-test-archive.gpg] file:/repo focal main\n' > "$sources"
+  printf 'deb [trusted=yes arch=amd64] file:/tmp/esm-test-repo %s main\n' "$pocket" >> "$sources"
+  apt_options=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$lists")
+  apt-get "${apt_options[@]}" update
+  for binary in $BINARY_PACKAGES; do
+    policy="$(apt-cache "${apt_options[@]}" policy "$binary")"
+    candidate="$(printf '%s\n' "$policy" | sed -n 's/^[[:space:]]*Candidate: //p')"
+    test "$candidate" = "$ESM_VERSION" || { echo "wrong ESM candidate for $binary in $pocket: $candidate" >&2; exit 1; }
+    printf '%s\n' "$policy" | grep -F "1001 file:/tmp/esm-test-repo $pocket/main amd64 Packages" >/dev/null || {
+      echo "ESM pocket $pocket did not receive the expected APT pin priority for $binary" >&2
+      printf '%s\n' "$policy"
+      exit 1
+    }
+  done
+  apt-get "${apt_options[@]}" -s install --only-upgrade $BINARY_PACKAGES > /tmp/getpatched-esm-upgrade.txt
+  for binary in $BINARY_PACKAGES; do
+    grep -F "Inst $binary " /tmp/getpatched-esm-upgrade.txt | grep -F "($ESM_VERSION" >/dev/null || {
+      echo "simulated upgrade did not select vendor ESM version for $binary from $pocket" >&2
+      cat /tmp/getpatched-esm-upgrade.txt
+      exit 1
+    }
+  done
+done
 apt-get source "$SOURCE_PACKAGE"
 test -f "$SOURCE_PACKAGE"*/debian/getpatched/release-policy.json
 """)
@@ -120,8 +197,10 @@ COPY apt-client.sh /apt-client.sh
 ARG ARCHIVE_SNAPSHOT
 ARG BINARY_PACKAGES
 ARG EXPECTED_VERSION
+ARG ESM_VERSION
+ARG ESM_POCKETS
 ARG SOURCE_PACKAGE
-ENV ARCHIVE_SNAPSHOT=${ARCHIVE_SNAPSHOT} BINARY_PACKAGES=${BINARY_PACKAGES} EXPECTED_VERSION=${EXPECTED_VERSION} SOURCE_PACKAGE=${SOURCE_PACKAGE}
+ENV ARCHIVE_SNAPSHOT=${ARCHIVE_SNAPSHOT} BINARY_PACKAGES=${BINARY_PACKAGES} EXPECTED_VERSION=${EXPECTED_VERSION} ESM_VERSION=${ESM_VERSION} ESM_POCKETS=${ESM_POCKETS} SOURCE_PACKAGE=${SOURCE_PACKAGE}
 RUN bash /apt-client.sh
 """)
     client_image = "getpatched-apt-client-test-" + uuid.uuid4().hex[:12]
@@ -131,7 +210,10 @@ RUN bash /apt-client.sh
              "--build-arg", "BASE_IMAGE=" + args.base_image, "--build-arg", "TRUST_IMAGE=" + args.trust_image,
              "--build-arg", "ARCHIVE_SNAPSHOT=" + args.archive_snapshot,
          "--build-arg", "BINARY_PACKAGES=" + " ".join(binary_packages),
-             "--build-arg", "EXPECTED_VERSION=" + policy["version"], "--build-arg", "SOURCE_PACKAGE=" + policy["source"],
+             "--build-arg", "EXPECTED_VERSION=" + policy["version"],
+             "--build-arg", "ESM_VERSION=" + policy["futureEsmVersion"],
+             "--build-arg", "ESM_POCKETS=" + ",".join(policy["esmPockets"]),
+             "--build-arg", "SOURCE_PACKAGE=" + policy["source"],
              str(client_context)])
         client_built = True
     finally:
@@ -146,6 +228,7 @@ RUN bash /apt-client.sh
         "binaryPackages": binary_packages, "version": policy["version"],
         "sourcePackageFetched": True, "inReleaseVerified": True, "releaseGpgVerified": True,
         "byHashSha256": True, "temporaryTestKeyFingerprint": fingerprint,
+        "esmDowngradeSimulation": {"candidateVersion": policy["futureEsmVersion"], "pockets": policy["esmPockets"], "passed": True},
         "releaseSha256": digest(release), "inReleaseSha256": digest(dist / "InRelease"),
         "clientBaseImage": args.base_image, "publication": "none; repository and temporary signing key were discarded after the isolated focal client test"
     }, indent=2) + "\n")
