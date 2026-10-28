@@ -7,10 +7,11 @@ Status checked on 28 October 2026. `getpatched.dev` is already delegated to Clou
 - Cloudflare account: Diderichsen (`c2e600736a5bb19e12ab38b0c7efbe71`).
 - Cloudflare zone: `getpatched.dev` (`7115be62cf0e3f9e2642b30ab0082183`).
 - Cloudflare-assigned authoritative nameservers: `kia.ns.cloudflare.com` and `terin.ns.cloudflare.com`; public delegation matches.
+- The authoritative `.dev` RDAP record reports initial registration on 26 October 2026 at 14:54 UTC. This is a newly registered domain, not a transfer of the former `apt.to` zone; no legacy `getpatched.dev` registrar export is expected from before registration.
 - Cloudflare DNS currently has zero records. The apex and the `repo` and `early` hostnames therefore have no configured routes.
 - Cloudflare Overview reports no Worker connected to the zone. `worker/wrangler.jsonc` declares the intended Worker custom domains `getpatched.dev`, `repo.getpatched.dev`, and `early.getpatched.dev`; declarations do not mean they are deployed.
 - R2 bucket `aptto-release-staging` exists in this account, using Standard storage in EEUR. It contains 0 B, has no custom domain, and has its public `r2.dev` endpoint disabled. Its Worker binding still needs verification in the deployed Worker.
-- The registration and original registrar zone export were not rechecked in this task. Cloudflare delegation proves the active DNS authority, not that all former registrar records were migrated. Recover any required mail, verification, or service records from the registrar before relying on them.
+- The account-wide Domains page confirms `getpatched.dev` is Active and the separate, superseded `apt.to` zone has invalid nameservers. No `getpatched.dev` mail, verification, or service records are currently configured; add such records only if those services become part of this project. Do not copy or alter `apt.to` records as a substitute.
 - No production service, HTTPS endpoint, package archive, or sponsor flow has been verified.
 
 ## Deployment gates
