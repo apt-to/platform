@@ -116,7 +116,7 @@ def main():
     key_data = os.environ.get("APTTO_SIGNING_KEY_ARMORED", "")
     if not key_data:
         raise SystemExit("APTTO_SIGNING_KEY_ARMORED secret is required")
-    with tempfile.TemporaryDirectory(prefix="aptto-snapshot-signing-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="getpatched-snapshot-signing-") as temporary:
         root = Path(temporary)
         key_home = root / "gnupg"
         key_home.mkdir(mode=0o700)

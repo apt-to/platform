@@ -43,7 +43,7 @@ def main():
     if installed != expected:
         raise RuntimeError("Installed version mismatch: " + installed + " != " + expected)
     checks = []
-    with tempfile.TemporaryDirectory(prefix="aptto-regression-") as directory:
+    with tempfile.TemporaryDirectory(prefix="getpatched-regression-") as directory:
         temp = Path(directory)
         if package == "libxml2":
             for cve in ("CVE-2025-49794", "CVE-2025-49796"):

@@ -10,14 +10,14 @@ Status updated on 28 October 2026. `getpatched.dev` is delegated to Cloudflare i
 - The authoritative `.dev` RDAP record reports initial registration on 26 October 2026 at 14:54 UTC. This is a newly registered domain, not a transfer of the former `apt.to` zone; no legacy `getpatched.dev` registrar export is expected from before registration.
 - Wrangler provisions the Worker custom domains `getpatched.dev`, `repo.getpatched.dev`, and `early.getpatched.dev`. The live root and `/account` routes passed smoke checks after deployment.
 - The public `repo.getpatched.dev/dists/focal/InRelease` route currently returns HTTP 503 because no signed production repository metadata is published; unauthenticated `early.getpatched.dev/dists/focal/InRelease` returns HTTP 401. This confirms route responses, not a live APT repository or sponsor access.
-- R2 bucket `aptto-release-staging` exists in this account, using Standard storage in EEUR. It contains 0 B, has no custom domain, and has its public `r2.dev` endpoint disabled. Its Worker binding still needs verification in the deployed Worker.
-- Historical predeployment checks at 06:18 UTC showed no `aptto-release-gateway` script. The Worker was subsequently created by the initial deployment run and verified by a successful follow-up run using the ongoing deployment token.
+- R2 bucket `getpatched-release-staging` exists in this account, using Standard storage in EEUR. It contains 0 B, has no custom domain, and has its public `r2.dev` endpoint disabled. Its Worker binding still needs verification in the deployed Worker.
+- Historical predeployment checks at 06:18 UTC showed no `getpatched-release-gateway` script. The Worker was subsequently created by the initial deployment run and verified by a successful follow-up run using the ongoing deployment token.
 - The account-wide Domains page confirms `getpatched.dev` is Active and the separate, superseded `apt.to` zone has invalid nameservers. No `getpatched.dev` mail, verification, or service records are currently configured; add such records only if those services become part of this project. Do not copy or alter `apt.to` records as a substitute.
 - The website's HTTPS routes are verified live. Package archive publication, sponsor access, and the deployed Worker's private R2 binding are not yet verified.
 
 ## Deployment gates
 
-`.github/workflows/worker-deploy.yml` verifies and deploys the Worker and static site on every push to `main`, including merges. Its `aptto-worker-deploy` environment is limited to `main` and does not require a human reviewer under the maintainer's single-operator policy. Manual dispatch from `main` remains available with `confirm_production=true`. Package publication and signing controls are separate and remain in force.
+`.github/workflows/worker-deploy.yml` verifies and deploys the Worker and static site on every push to `main`, including merges. Its `getpatched-worker-deploy` environment is limited to `main` and does not require a human reviewer under the maintainer's single-operator policy. Manual dispatch from `main` remains available with `confirm_production=true`. Package publication and signing controls are separate and remain in force.
 
 Deployment history and continuing checks:
 

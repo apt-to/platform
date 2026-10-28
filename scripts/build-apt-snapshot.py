@@ -208,7 +208,7 @@ def main():
     parsed = urllib.parse.urlsplit(endpoint)
     if parsed.scheme != "https" or parsed.hostname != "repo.getpatched.dev" or parsed.path or parsed.query or parsed.fragment:
         raise SystemExit("snapshot endpoint must be the configured HTTPS repo.getpatched.dev gateway")
-    with tempfile.TemporaryDirectory(prefix="aptto-repository-build-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="getpatched-repository-build-") as temporary:
         root = Path(temporary)
         channels = ("public", "early") if args.channel == "both" else (args.channel,)
         results = []

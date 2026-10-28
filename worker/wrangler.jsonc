@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "aptto-release-gateway",
+  "name": "getpatched-release-gateway",
   "main": "src/index.js",
   "compatibility_date": "2026-10-25",
   "workers_dev": false,
@@ -15,7 +15,7 @@
     "run_worker_first": true
   },
   "r2_buckets": [
-    { "binding": "RELEASES", "bucket_name": "aptto-release-staging" }
+    { "binding": "RELEASES", "bucket_name": "getpatched-release-staging" }
   ],
   "triggers": { "crons": ["*/15 * * * *"] },
   "vars": { "GITHUB_API": "https://api.github.com" }

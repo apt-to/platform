@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: aptto-worker-production-deploy
+  group: getpatched-worker-production-deploy
   cancel-in-progress: false
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
        (github.event_name == 'workflow_dispatch' && inputs.confirm_production == true))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    environment: aptto-worker-deploy
+    environment: getpatched-worker-deploy
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,5 +1,5 @@
 {
-  "name": "aptto-release-gateway",
+  "name": "getpatched-release-gateway",
   "private": true,
   "type": "module",
   "scripts": { "test": "node --test" }

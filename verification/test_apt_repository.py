@@ -80,7 +80,7 @@ class AptRepositoryIndex(unittest.TestCase):
         fingerprint = next(line.split(":")[9] for line in listing.splitlines() if line.startswith("fpr:"))
         public_key = GENERATOR.sign_release(dist, key_home, fingerprint)
         GENERATOR.sign_release(dist, key_home, fingerprint)
-        self.assertEqual(list(Path(self.temp.name).glob("aptto-gpg-verify-*")), [])
+        self.assertEqual(list(Path(self.temp.name).glob("getpatched-gpg-verify-*")), [])
         self.assertTrue(public_key.is_file())
         self.assertTrue((dist / "InRelease").is_file())
         self.assertTrue((dist / "Release.gpg").is_file())

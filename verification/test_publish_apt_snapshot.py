@@ -108,7 +108,7 @@ class AptSnapshotPublisher(unittest.TestCase):
     def test_real_signatures_verify_only_with_configured_primary_key_fingerprint(self):
         packages = self.dist / "main/binary-amd64/Packages"
         packages.parent.mkdir(parents=True, exist_ok=True)
-        content = b"Package: aptto-test\nVersion: 1.0\nArchitecture: amd64\n"
+        content = b"Package: getpatched-test\nVersion: 1.0\nArchitecture: amd64\n"
         packages.write_bytes(content)
         digest = hashlib.sha256(content).hexdigest()
         (self.dist / "Release").write_text(

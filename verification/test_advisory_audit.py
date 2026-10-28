@@ -19,7 +19,7 @@ class AdvisoryAuditContract(unittest.TestCase):
         )
 
     def test_audit_requires_real_raw_reports_osv_and_installed_test_evidence(self):
-        with tempfile.TemporaryDirectory(prefix="aptto-audit-test-") as directory:
+        with tempfile.TemporaryDirectory(prefix="getpatched-audit-test-") as directory:
             root = Path(directory)
             fixture = root / "input.json"
             fixture.write_text(json.dumps({"source": "libarchive"}))
@@ -28,7 +28,7 @@ class AdvisoryAuditContract(unittest.TestCase):
             self.assertIn("required evidence", result.stderr.lower())
 
     def test_raw_reports_are_hash_bound_and_not_rewritten(self):
-        with tempfile.TemporaryDirectory(prefix="aptto-audit-test-") as directory:
+        with tempfile.TemporaryDirectory(prefix="getpatched-audit-test-") as directory:
             root = Path(directory)
             before = root / "before.json"
             after = root / "after.json"
@@ -46,17 +46,17 @@ class AdvisoryAuditContract(unittest.TestCase):
             image_ids = {"baselineImageId": "sha256:baseline", "patchedImageId": "sha256:patched"}
             image_path = root / "images.json"
             image_path.write_text(json.dumps(image_ids))
-            aptto_feed = ROOT / "advisories" / "aptto-osv.json"
+            aptto_feed = ROOT / "advisories" / "getpatched-osv.json"
             aptto_scan_paths = {}
             for phase, version, image_id, ids in (
                 ("before", "3.4.0-2ubuntu1.5", image_ids["baselineImageId"], ["CVE-2026-4111"]),
                 ("after", "3.4.0-2ubuntu1.5+aptto1", image_ids["patchedImageId"], []),
             ):
-                status_path = root / (phase + "-aptto-status")
+                status_path = root / (phase + "-getpatched-status")
                 status_path.write_text("verified status inventory " + phase)
-                scan_path = root / (phase + "-aptto-scan.json")
+                scan_path = root / (phase + "-getpatched-scan.json")
                 scan_path.write_text(json.dumps({
-                    "scanner": "aptto-dpkg-osv/1", "release": "focal", "architecture": "amd64", "imageId": image_id,
+                    "scanner": "getpatched-dpkg-osv/1", "release": "focal", "architecture": "amd64", "imageId": image_id,
                     "advisoryFeedSha256": hashlib.sha256(aptto_feed.read_bytes()).hexdigest(),
                     "packagePolicySha256": hashlib.sha256((ROOT / "packages.json").read_bytes()).hexdigest(),
                     "statusFileSha256": hashlib.sha256(status_path.read_bytes()).hexdigest(),

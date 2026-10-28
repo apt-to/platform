@@ -96,16 +96,16 @@ def run_aptto_scan(image, image_id, phase, output, temp, package, expected):
     status_result = run(["docker", "run", "--rm", "--network", "none", image, "cat", "/var/lib/dpkg/status"], capture_output=True, text=True, timeout=60)
     if len(status_result.stdout.encode()) > 16 * 1024 * 1024:
         raise RuntimeError("Installed dpkg status inventory exceeds the scanner input bound")
-    status_path = output / (package + "-aptto-status-" + phase + ".txt")
+    status_path = output / (package + "-getpatched-status-" + phase + ".txt")
     status_path.write_text(status_result.stdout)
     scan = subprocess.run([
-        sys.executable, str(ROOT / "scripts/aptto-scan.py"), "--feed", str(ROOT / "advisories/aptto-osv.json"),
+        sys.executable, str(ROOT / "scripts/getpatched-scan.py"), "--feed", str(ROOT / "advisories/getpatched-osv.json"),
         "--status-file", str(status_path), "--release", "focal", "--architecture", "amd64", "--image-id", image_id,
     ], capture_output=True, text=True, timeout=60, check=False)
     if scan.returncode not in (0, 1):
         raise RuntimeError("AptTo advisory scan failed: " + scan.stderr[-2000:])
     report = json.loads(scan.stdout)
-    report_path = output / (package + "-aptto-scan-" + phase + ".json")
+    report_path = output / (package + "-getpatched-scan-" + phase + ".json")
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     target_cves = set(expected["targetCves"])
     versions = report.get("scannedPackageVersions", {})
@@ -146,9 +146,9 @@ def main():
     if run(["git", "-C", str(source), "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
         raise RuntimeError("Commit the reviewed packaging changes before recording build evidence")
     commit = run(["git", "-C", str(source), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    with tempfile.TemporaryDirectory(prefix="aptto-build-inputs-") as directory:
+    with tempfile.TemporaryDirectory(prefix="getpatched-build-inputs-") as directory:
         temp = Path(directory)
-        name = "aptto-build-" + package + "-" + uuid.uuid4().hex[:12]
+        name = "getpatched-build-" + package + "-" + uuid.uuid4().hex[:12]
         container = name + "-job"
         scan_base = name + "-baseline"
         scan_patched = name + "-patched"
@@ -292,7 +292,7 @@ def main():
                 "packagePolicy": str(source / "debian/aptto/release-policy.json"), "databaseSha256": database_hash, "sourceCommit": commit,
                 "beforeScanMetadata": str(output / (package + "-trivy-before-metadata.json")),
                 "afterScanMetadata": str(output / (package + "-trivy-after-metadata.json")), "scanImages": str(output / "scan-images.json"),
-                "aptToFeed": str(ROOT / "advisories/aptto-osv.json"),
+                "aptToFeed": str(ROOT / "advisories/getpatched-osv.json"),
                 "beforeAptToScan": str(aptto_scan_paths["before"]["report"]), "afterAptToScan": str(aptto_scan_paths["after"]["report"]),
                 "beforeAptToStatus": str(aptto_scan_paths["before"]["status"]), "afterAptToStatus": str(aptto_scan_paths["after"]["status"]),
             }
