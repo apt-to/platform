@@ -27,3 +27,6 @@ jobs:
         run: |
           node --check worker/src/index.js
           node --test worker/test/*.test.js
+      - name: Validate production Worker bundle without deploying
+        working-directory: worker
+        run: npx --yes wrangler@4.151.3 deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --config wrangler.jsonc
