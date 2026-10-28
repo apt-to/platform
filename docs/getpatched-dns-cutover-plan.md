@@ -32,6 +32,6 @@ Before enabling deployment:
 - A human must choose an independent GitHub reviewer for `aptto-worker-deploy` and establish the environment's required-reviewer protection.
 - Required Worker runtime secrets and the R2 binding need configuration and verification before production deployment.
 - No DNS records or Worker routes are live yet. Because delegation already points to Cloudflare, no further nameserver change is needed.
-- Review the former registrar DNS export for mail, verification, and service records before deploying custom domains; the active Cloudflare zone currently contains zero records.
+- No pre-registration `getpatched.dev` zone export exists to restore. Leave the zone's DNS record set empty until Wrangler deploys the declared custom domains; do not copy records from the former `apt.to` zone or add guessed routes.
 
 Do not enable the deployment variable or run a production deployment until these gates are complete. Do not enable package publication as part of the Worker setup.
