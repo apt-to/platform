@@ -1,0 +1,27 @@
+name: Verify protected APT signing key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: getpatched-signing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install APT metadata and signing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends apt-utils dpkg-dev gnupg xz-utils
+      - name: Sign and verify a disposable local repository
+        env:
+          GETPATCHED_SIGNING_KEY_ARMORED: ${{ secrets.GETPATCHED_SIGNING_KEY_ARMORED }}
+          GETPATCHED_SIGNING_FINGERPRINT: ${{ vars.GETPATCHED_SIGNING_FINGERPRINT }}
+        run: python3 -B scripts/verify-signing-key.py
