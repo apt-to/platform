@@ -174,7 +174,7 @@ for pocket in $esm_pockets; do
   printf 'deb [arch=amd64 signed-by=/usr/share/keyrings/getpatched-test-archive.gpg] file:/repo focal main\n' > "$sources"
   printf 'deb [trusted=yes arch=amd64] file:/tmp/esm-test-repo %s main\n' "$pocket" >> "$sources"
   apt_options=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$lists")
-  apt-get "${apt_options[@]}" update
+  apt-get "${apt_options[@]}" -o Debug::pkgAcquire::Auth=true -o Debug::pkgAcquire::Worker=1 update
   echo "Synthetic ESM Release metadata for $pocket:" >&2
   cat "/tmp/esm-test-repo/dists/$pocket/Release" >&2
   echo "APT list files for $pocket:" >&2
