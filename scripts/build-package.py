@@ -111,7 +111,7 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected)
     versions = report.get("scannedPackageVersions", {})
     if report.get("imageId") != image_id or not set(expected["binaryPackages"]).issubset(versions):
         raise RuntimeError("GetPatched scan did not identify every expected installed binary package and image")
-    expected_version = expected["baselineVersion"] if phase == "before" else expected["baselineVersion"] + "+aptto1+getpatched1"
+    expected_version = expected["baselineVersion"] if phase == "before" else expected["baselineVersion"] + "+getpatched1"
     if any(versions[name] != expected_version for name in expected["binaryPackages"]):
         raise RuntimeError("GetPatched scan identified an unexpected installed package version")
     target_findings = set(report.get("findingsById", [])) & target_cves
@@ -141,7 +141,7 @@ def main():
     expected = config["packages"][package]
     if policy["baseVersion"] != expected["baselineVersion"] or policy["sponsorDelayHours"] != expected["sponsorDelayHours"]:
         raise RuntimeError("Packaging policy disagrees with project configuration")
-    if expected["targetCve"] not in policy["targetCves"] or policy["version"] != policy["baseVersion"] + "+aptto1+getpatched1":
+    if expected["targetCve"] not in policy["targetCves"] or policy["version"] != policy["baseVersion"] + "+getpatched1":
         raise RuntimeError("Unexpected pilot backport identity")
     if run(["git", "-C", str(source), "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
         raise RuntimeError("Commit the reviewed packaging changes before recording build evidence")

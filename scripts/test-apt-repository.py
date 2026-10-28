@@ -30,7 +30,7 @@ def main():
     platform = json.loads((Path(__file__).resolve().parents[1] / "packages.json").read_text())
     candidate = platform["packages"][policy["source"]]
     binary_packages = candidate["binaryPackages"]
-    if (policy["version"] != policy["baseVersion"] + "+aptto1+getpatched1"
+    if (policy["version"] != policy["baseVersion"] + "+getpatched1"
             or policy["baseVersion"] != candidate["baselineVersion"]
             or policy["architecture"] != platform["architecture"]
             or policy["release"] != platform["release"]):

@@ -4,7 +4,7 @@
   "packages": [
     {
       "source": "libxml2",
-      "version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+      "version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
       "cves": ["CVE-2025-49794", "CVE-2025-49796"],
       "access": "sponsor",
       "delayHours": 168,
@@ -18,7 +18,7 @@
     },
     {
       "source": "libarchive",
-      "version": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+      "version": "3.4.0-2ubuntu1.5+getpatched1",
       "cves": ["CVE-2026-4111"],
       "access": "public",
       "delayHours": 0,

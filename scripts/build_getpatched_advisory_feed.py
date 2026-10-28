@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ROOT / "packages.json"
 OUTPUT = ROOT / "advisories" / "getpatched-osv.json"
-PATCHED_VERSION_SUFFIX = "+aptto1+getpatched1"
+PATCHED_VERSION_SUFFIX = "+getpatched1"
 UBUNTU_FIXED = {
     "libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
     "libarchive": "3.4.0-2ubuntu1.5+esm1",

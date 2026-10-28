@@ -15,7 +15,7 @@ SPEC.loader.exec_module(BUILD)
 def release_record(state="public"):
     return {
         "id": "libarchive-3-4-0-getpatched1", "state": state,
-        "repository": "getpatched/packaging-libarchive", "tag": "getpatched/3.4.0-2ubuntu1.5+aptto1+getpatched1",
+        "repository": "getpatched/packaging-libarchive", "tag": "getpatched/3.4.0-2ubuntu1.5+getpatched1",
         "source_commit": "a" * 40,
         "required_assets": [{"name": "libarchive13_amd64.deb", "sha256": "b" * 64}],
         "source_assets": [{"name": "libarchive_3.4.0.dsc", "sha256": "c" * 64}],

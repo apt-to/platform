@@ -24,7 +24,7 @@ class PublicCatalogueContract(unittest.TestCase):
         self.assertEqual(catalogue["target"]["architecture"], platform["architecture"])
         for source, policy in platform["packages"].items():
             entry = entries[source]
-            self.assertEqual(entry["version"], policy["baselineVersion"] + "+aptto1+getpatched1")
+            self.assertEqual(entry["version"], policy["baselineVersion"] + "+getpatched1")
             old_version = policy["baselineVersion"] + "+aptto1"
             self.assertLess(debian_version_compare(old_version, entry["version"]), 0)
             self.assertEqual(entry["cves"], policy["targetCves"])
