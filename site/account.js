@@ -113,6 +113,9 @@ async function start() {
     if (error.status === 401) {
       signedOut.hidden = false;
       setMessage("You are signed out. Sign in with GitHub to check sponsor eligibility.");
+    } else if (error.status === 503) {
+      signedOut.hidden = true;
+      setMessage("GitHub sign-in is not configured yet. The public catalogue and package sources remain available.", "error");
     } else {
       signedOut.hidden = true;
       setMessage("Your account status could not be loaded. Try reloading this page.", "error");

@@ -1159,6 +1159,9 @@ async function sessionUser(request, env) {
 }
 
 async function accountStatus(request, env) {
+  if (!env.GITHUB_OAUTH_CLIENT_ID || !env.GITHUB_OAUTH_CLIENT_SECRET || !env.PUBLIC_ORIGIN) {
+    return json({ error: "GitHub sign-in is not configured" }, 503);
+  }
   const user = await sessionUser(request, env);
   if (!user) return json({ error: "sign-in required" }, 401);
   const snapshot = await readFreshSponsorSnapshot(env.RELEASES);
