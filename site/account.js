@@ -105,46 +105,55 @@ function showTokenOnce(token) {
 }
 
 async function start() {
+  let user;
   try {
-    const user = await api("/api/me");
-    signedIn.hidden = false;
-    document.querySelector("#github-login").textContent = `@${user.github_login}`;
-    eligiblePanel.hidden = false;
-    await loadDevices();
-    if (user.sponsorship === "eligible") {
-      notEligiblePanel.hidden = true;
-      document.querySelector("#device-form").hidden = false;
-      document.querySelector("#sponsor-status").textContent = "An active eligible sponsorship is confirmed. Device credentials are checked against current sponsor status when used.";
-      setMessage("Sponsor status verified. Manage credentials for your machines below.", "success");
-      return;
-    }
-    document.querySelector("#device-form").hidden = true;
-    tokenReveal.hidden = true;
-    notEligiblePanel.hidden = false;
-    const statusCopy = document.querySelector("#sponsor-status");
-    if (user.sponsorship === "unavailable") {
-      statusCopy.textContent = "Sponsor status could not be verified right now.";
-      document.querySelector("#eligibility-title").textContent = "Sponsor access is temporarily unavailable";
-      document.querySelector("#eligibility-copy").textContent = "The current GitHub Sponsors eligibility snapshot is missing or expired. Try again later; no device access will be granted until status can be verified.";
-      document.querySelector("#sponsor-link").hidden = true;
-      setMessage("Sponsor eligibility is temporarily unavailable.", "error");
-    } else {
-      statusCopy.textContent = "No active eligible sponsorship was found for this GitHub account.";
-      document.querySelector("#eligibility-title").textContent = "Sponsor access is not active";
-      document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available. An eligible sponsorship is required only for binaries during their seven-day early window.";
-      document.querySelector("#sponsor-link").hidden = false;
-      setMessage("Signed in. Sponsor access is not active for this account.");
-    }
+    user = await api("/api/me");
   } catch (error) {
+    signedIn.hidden = true;
     if (error.status === 401) {
       signedOut.hidden = false;
-      signedIn.hidden = true;
       setMessage("You are signed out. Sign in with GitHub to check sponsor eligibility.");
     } else {
+      signedOut.hidden = true;
       setMessage("Your account status could not be loaded. Try reloading this page.", "error");
-      signedOut.hidden = false;
-      signedIn.hidden = true;
     }
+    return;
+  }
+
+  signedOut.hidden = true;
+  signedIn.hidden = false;
+  document.querySelector("#github-login").textContent = `@${user.github_login}`;
+  eligiblePanel.hidden = false;
+  try {
+    await loadDevices();
+  } catch (error) {
+    showError(error);
+  }
+
+  if (user.sponsorship === "eligible") {
+    notEligiblePanel.hidden = true;
+    document.querySelector("#device-form").hidden = false;
+    document.querySelector("#sponsor-status").textContent = "An active eligible sponsorship is confirmed. Device credentials are checked against current sponsor status when used.";
+    setMessage("Sponsor status verified. Manage credentials for your machines below.", "success");
+    return;
+  }
+
+  document.querySelector("#device-form").hidden = true;
+  tokenReveal.hidden = true;
+  notEligiblePanel.hidden = false;
+  const statusCopy = document.querySelector("#sponsor-status");
+  if (user.sponsorship === "unavailable") {
+    statusCopy.textContent = "Sponsor status could not be verified right now.";
+    document.querySelector("#eligibility-title").textContent = "Sponsor access is temporarily unavailable";
+    document.querySelector("#eligibility-copy").textContent = "The current GitHub Sponsors eligibility snapshot is missing or expired. Try again later; no device access will be granted until status can be verified.";
+    document.querySelector("#sponsor-link").hidden = true;
+    setMessage("Sponsor eligibility is temporarily unavailable.", "error");
+  } else {
+    statusCopy.textContent = "No active eligible sponsorship was found for this GitHub account.";
+    document.querySelector("#eligibility-title").textContent = "Sponsor access is not active";
+    document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available. An eligible sponsorship is required only for binaries during their seven-day early window.";
+    document.querySelector("#sponsor-link").hidden = false;
+    setMessage("Signed in. Sponsor access is not active for this account.");
   }
 }
 
