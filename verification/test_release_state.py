@@ -23,7 +23,7 @@ class PublicationClock(unittest.TestCase):
         second = {"name": "libxml2_utils_2.9.10_amd64.deb", "sha256": "b" * 64}
         release = {
             "source": "libxml2",
-            "version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+            "version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
             "sponsor_delay_hours": 168,
             "state": "prepared",
             "required_assets": [first, second],
@@ -58,7 +58,7 @@ class PublicationClock(unittest.TestCase):
         asset = {"name": "libarchive13_3.4.0_amd64.deb", "sha256": "c" * 64}
         release = {
             "source": "libarchive",
-            "version": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+            "version": "3.4.0-2ubuntu1.5+getpatched1",
             "sponsor_delay_hours": 0,
             "state": "prepared",
             "required_assets": [asset],
@@ -84,7 +84,7 @@ class PublicationClock(unittest.TestCase):
         assets = [{"name": "libxml2_amd64.deb", "sha256": "d" * 64}]
         prepared = {
             "source": "libxml2",
-            "version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+            "version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
             "sponsor_delay_hours": 168,
             "state": "prepared",
             "required_assets": assets,

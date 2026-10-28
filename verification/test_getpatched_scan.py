@@ -63,22 +63,22 @@ Architecture: amd64
 
         patched = self.scan("""Package: libxml2
 Status: install ok installed
-Version: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1
+Version: 2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1
 Architecture: amd64
 
 Package: libxml2-utils
 Status: install ok installed
-Version: 2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1
+Version: 2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1
 Architecture: amd64
 
 Package: libarchive13
 Status: install ok installed
-Version: 3.4.0-2ubuntu1.5+aptto1+getpatched1
+Version: 3.4.0-2ubuntu1.5+getpatched1
 Architecture: amd64
 
 Package: libarchive-tools
 Status: install ok installed
-Version: 3.4.0-2ubuntu1.5+aptto1+getpatched1
+Version: 3.4.0-2ubuntu1.5+getpatched1
 Architecture: amd64
 """)
         self.assertEqual(patched.returncode, 0, patched.stderr)
@@ -131,9 +131,9 @@ Architecture: i386
 
     def test_getpatched_revisions_and_canonical_esm_fixed_versions_are_clean(self):
         result = self.scan_packages({
-            "libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+            "libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
             "libxml2-utils": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
-            "libarchive13": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+            "libarchive13": "3.4.0-2ubuntu1.5+getpatched1",
             "libarchive-tools": "3.4.0-2ubuntu1.5+esm1",
         })
         self.assertEqual(result.returncode, 0, result.stderr)

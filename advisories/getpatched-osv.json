@@ -6,7 +6,7 @@
         {
           "database_specific": {
             "fixed_versions": [
-              "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+              "3.4.0-2ubuntu1.5+getpatched1",
               "3.4.0-2ubuntu1.5+esm1"
             ]
           },
@@ -26,7 +26,7 @@
         {
           "database_specific": {
             "fixed_versions": [
-              "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+              "3.4.0-2ubuntu1.5+getpatched1",
               "3.4.0-2ubuntu1.5+esm1"
             ]
           },
@@ -47,7 +47,7 @@
       "database_specific": {
         "baseline_version": "3.4.0-2ubuntu1.5",
         "ecosystem": "GetPatched:focal",
-        "getpatched_fixed_version": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+        "getpatched_fixed_version": "3.4.0-2ubuntu1.5+getpatched1",
         "severity": "MEDIUM",
         "source_package": "libarchive",
         "ubuntu_pro_fixed_version": "3.4.0-2ubuntu1.5+esm1",
@@ -70,7 +70,7 @@
         {
           "database_specific": {
             "fixed_versions": [
-              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
             ]
           },
@@ -90,7 +90,7 @@
         {
           "database_specific": {
             "fixed_versions": [
-              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
             ]
           },
@@ -111,7 +111,7 @@
       "database_specific": {
         "baseline_version": "2.9.10+dfsg-5ubuntu0.20.04.10",
         "ecosystem": "GetPatched:focal",
-        "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+        "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
         "severity": "MEDIUM",
         "source_package": "libxml2",
         "ubuntu_pro_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
@@ -134,7 +134,7 @@
         {
           "database_specific": {
             "fixed_versions": [
-              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
             ]
           },
@@ -154,7 +154,7 @@
         {
           "database_specific": {
             "fixed_versions": [
-              "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
             ]
           },
@@ -175,7 +175,7 @@
       "database_specific": {
         "baseline_version": "2.9.10+dfsg-5ubuntu0.20.04.10",
         "ecosystem": "GetPatched:focal",
-        "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1",
+        "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
         "severity": "MEDIUM",
         "source_package": "libxml2",
         "ubuntu_pro_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",

@@ -60,7 +60,7 @@ def main():
         targets = data["targetCves"]
         if targets != package["targetCves"]:
             raise ValueError("target CVE list differs from reviewed platform configuration")
-        if data["baselineVersion"] != package["baselineVersion"] or data["patchedVersion"] != package["baselineVersion"] + "+aptto1+getpatched1":
+        if data["baselineVersion"] != package["baselineVersion"] or data["patchedVersion"] != package["baselineVersion"] + "+getpatched1":
             raise ValueError("package version identity does not match the configured backport")
         policy = load(data["packagePolicy"])
         provenance = load(data["buildProvenance"])

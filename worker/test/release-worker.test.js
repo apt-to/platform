@@ -127,7 +127,7 @@ test("unsigned snapshot build storage separates index-builder writes from signer
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
   const release = {
-    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "getpatched/3.4.0-2ubuntu1.5+aptto1+getpatched1",
+    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "getpatched/3.4.0-2ubuntu1.5+getpatched1",
     source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
     required_assets: [{ name: "libarchive_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
   };
@@ -807,7 +807,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
   const keyId = "snapshot-environment-test";
   const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
   const release = {
-    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "getpatched/3.4.0-2ubuntu1.5+aptto1+getpatched1",
+    id: "pilot", state: "public", repository: "getpatched/packaging-libarchive", tag: "getpatched/3.4.0-2ubuntu1.5+getpatched1",
     source_commit: "b".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
     required_assets: [{ name: "libarchive_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/pilot/${"a".repeat(64)}` }],
   };
@@ -828,7 +828,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     ["dists/focal/Release", "Origin: GetPatched\nSuite: focal\n"],
     ["dists/focal/InRelease", "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nOrigin: GetPatched\n"],
     ["dists/focal/Release.gpg", "-----BEGIN PGP SIGNATURE-----\nvalid test fixture\n-----END PGP SIGNATURE-----\n"],
-    ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\nVersion: 3.4.0-2ubuntu1.5+aptto1+getpatched1\n"],
+    ["dists/focal/main/binary-amd64/Packages", "Package: libarchive\nVersion: 3.4.0-2ubuntu1.5+getpatched1\n"],
     ["dists/focal/main/binary-amd64/Packages.gz", "gzip fixture"],
     ["dists/focal/main/binary-amd64/Packages.xz", "xz fixture"],
     ["dists/focal/main/source/Sources", "Package: libarchive\n"],
@@ -855,7 +855,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
     const replay = await gateway.fetch(request("https://repo.getpatched.dev/internal/repository-snapshots/public", "POST", JSON.stringify({ id: firstId, release_ids: ["pilot"], files })), env);
     assert.equal(replay.status, 200, "repeated registration of the same immutable manifest is safe");
     bucket.entries.set("release-state/gated.json", {
-      value: { ...release, id: "gated", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "getpatched/2.9.10+dfsg-5ubuntu0.20.04.10+aptto1+getpatched1", sponsor_delay_hours: 168, sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString() },
+      value: { ...release, id: "gated", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "getpatched/2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1", sponsor_delay_hours: 168, sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString() },
       etag: "gated-release",
     });
     const prematurePublic = await gateway.fetch(request("https://repo.getpatched.dev/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-gated", release_ids: ["gated"], files })), env);

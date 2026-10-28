@@ -33,13 +33,13 @@ class AdvisoryAuditContract(unittest.TestCase):
             before = root / "before.json"
             after = root / "after.json"
             before_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive13@3.4.0-2ubuntu1.5"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5", "ID": "libarchive-tools@3.4.0-2ubuntu1.5"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
-            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1+getpatched1", "ID": "libarchive13@3.4.0-2ubuntu1.5+aptto1+getpatched1"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5+aptto1+getpatched1", "ID": "libarchive-tools@3.4.0-2ubuntu1.5+aptto1+getpatched1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
+            after_data = {"Results": [{"Packages": [{"Name": "libarchive13", "Version": "3.4.0", "Release": "2ubuntu1.5+getpatched1", "ID": "libarchive13@3.4.0-2ubuntu1.5+getpatched1"}, {"Name": "libarchive-tools", "Version": "3.4.0", "Release": "2ubuntu1.5+getpatched1", "ID": "libarchive-tools@3.4.0-2ubuntu1.5+getpatched1"}], "Vulnerabilities": [{"VulnerabilityID": "CVE-UNRELATED", "PkgName": "libarchive13"}]}]}
             before.write_text(json.dumps(before_data))
             after.write_text(json.dumps(after_data))
             osv_before = root / "osv-before.json"
             osv_after = root / "osv-after.json"
             request_before = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5"}
-            request_after = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+aptto1+getpatched1"}
+            request_after = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:Pro:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"}
             record = {"id": "UBUNTU-CVE-2026-4111", "upstream": ["CVE-2026-4111"]}
             for path, request_body in ((osv_before, request_before), (osv_after, request_after)):
                 path.write_text(json.dumps({"request": request_body, "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": [record]}}))
@@ -50,7 +50,7 @@ class AdvisoryAuditContract(unittest.TestCase):
             getpatched_scan_paths = {}
             for phase, version, image_id, ids in (
                 ("before", "3.4.0-2ubuntu1.5", image_ids["baselineImageId"], ["CVE-2026-4111"]),
-                ("after", "3.4.0-2ubuntu1.5+aptto1+getpatched1", image_ids["patchedImageId"], []),
+                ("after", "3.4.0-2ubuntu1.5+getpatched1", image_ids["patchedImageId"], []),
             ):
                 status_path = root / (phase + "-getpatched-status")
                 status_path.write_text("verified status inventory " + phase)
@@ -70,7 +70,7 @@ class AdvisoryAuditContract(unittest.TestCase):
                 "source": "libarchive",
                 "targetCves": ["CVE-2026-4111"],
                 "baseVersion": "3.4.0-2ubuntu1.5",
-                "version": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+                "version": "3.4.0-2ubuntu1.5+getpatched1",
             }))
             sidecars = {}
             for phase, report_path in (("before", before), ("after", after)):
@@ -81,12 +81,12 @@ class AdvisoryAuditContract(unittest.TestCase):
             evidence_paths = {}
             for name in ("baseline-regression.json", "patched-regression.json", "build-provenance.json", "binary-manifest.json"):
                 evidence_path = root / name
-                evidence_path.write_text((historical_evidence / name).read_text().replace("+aptto1", "+aptto1+getpatched1"))
+                evidence_path.write_text((historical_evidence / name).read_text().replace("+aptto1", "+getpatched1"))
                 evidence_paths[name] = str(evidence_path)
             input_data = {
                 "source": "libarchive",
                 "baselineVersion": "3.4.0-2ubuntu1.5",
-                "patchedVersion": "3.4.0-2ubuntu1.5+aptto1+getpatched1",
+                "patchedVersion": "3.4.0-2ubuntu1.5+getpatched1",
                 "targetCves": ["CVE-2026-4111"],
                 "beforeTrivy": str(before), "afterTrivy": str(after),
                 "beforeOsv": str(osv_before), "afterOsv": str(osv_after),
