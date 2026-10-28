@@ -153,8 +153,11 @@ for pocket in $esm_pockets; do
   cp /tmp/esm-packages "$suite_dir/main/binary-amd64/Packages"
   gzip -k "$suite_dir/main/binary-amd64/Packages"
   packages_gz="$suite_dir/main/binary-amd64/Packages.gz"
+  packages_plain="$suite_dir/main/binary-amd64/Packages"
   packages_digest="$(sha256sum "$packages_gz" | cut -d ' ' -f 1)"
   packages_size="$(stat -c '%s' "$packages_gz")"
+  packages_plain_digest="$(sha256sum "$packages_plain" | cut -d ' ' -f 1)"
+  packages_plain_size="$(stat -c '%s' "$packages_plain")"
   cat > "$suite_dir/Release" <<EOF
 Origin: Ubuntu
 Label: UbuntuESM
@@ -165,6 +168,7 @@ Architectures: amd64
 Components: main
 SHA256:
  $packages_digest $packages_size main/binary-amd64/Packages.gz
+ $packages_plain_digest $packages_plain_size main/binary-amd64/Packages
 EOF
 done
 for pocket in $esm_pockets; do
