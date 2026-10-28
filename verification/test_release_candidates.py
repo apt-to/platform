@@ -12,6 +12,43 @@ SPEC.loader.exec_module(BUILD_PACKAGE)
 
 
 class ReleaseCandidateOutput(unittest.TestCase):
+    def test_unresolved_esm_ordering_marks_both_packages_ineligible(self):
+        policy = json.loads((SCRIPT.parents[1] / "packages.json").read_text())
+        self.assertEqual(set(policy["packages"]), {"libxml2", "libarchive"})
+        for source, package in policy["packages"].items():
+            self.assertFalse(package["futureEsmUpgradeCompatible"])
+            source_policy = {
+                "source": source,
+                "baseVersion": package["baselineVersion"],
+                "version": package["baselineVersion"] + "+getpatched1",
+                "targetCves": package["targetCves"],
+                "sponsorDelayHours": package["sponsorDelayHours"],
+                "futureEsmUpgradeCompatible": False,
+            }
+            self.assertEqual(BUILD_PACKAGE.validate_release_policy(source_policy, policy), source)
+            eligibility = BUILD_PACKAGE.release_eligibility(source_policy)
+            self.assertFalse(eligibility["releaseEligible"])
+            self.assertFalse(eligibility["futureEsmUpgradeCompatible"])
+            self.assertIn("ordering is unresolved", eligibility["reason"])
+            with self.assertRaisesRegex(RuntimeError, "future Ubuntu Pro ESM upgrade ordering is unresolved"):
+                BUILD_PACKAGE.require_release_compatibility(source_policy)
+
+    def test_compatibility_gate_runs_after_verification_and_before_candidate_persistence(self):
+        source = (SCRIPT.parents[0] / "build-package.py").read_text()
+        verify_at = source.index('"--trust-image", config["scannerImage"], "--archive-snapshot", config["archiveSnapshot"]])')
+        eligibility_at = source.index('"release-eligibility.json"')
+        gate_at = source.rindex("require_release_compatibility(policy)")
+        persist_at = source.rindex("persist_release_candidates(selected, binary_manifest")
+        self.assertLess(verify_at, eligibility_at)
+        self.assertLess(eligibility_at, gate_at)
+        self.assertLess(gate_at, persist_at)
+
+    def test_private_staging_requires_explicit_release_eligibility(self):
+        workflow = (SCRIPT.parents[1] / ".github/workflows/private-staging.yml").read_text()
+        self.assertIn('test -s "$RUNNER_TEMP/candidate/release-eligibility.json"', workflow)
+        self.assertIn('eligibility.get("releaseEligible") is not True', workflow)
+        self.assertIn('eligibility.get("futureEsmUpgradeCompatible") is not True', workflow)
+
     def test_only_verified_selected_binaries_are_persisted_with_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

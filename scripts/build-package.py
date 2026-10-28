@@ -124,6 +124,34 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected)
     return {"report": report_path, "status": status_path}
 
 
+def validate_release_policy(policy, config):
+    package = policy["source"]
+    expected = config["packages"][package]
+    if (policy["baseVersion"] != expected["baselineVersion"] or
+        policy.get("futureEsmUpgradeCompatible", False) != expected["futureEsmUpgradeCompatible"] or
+        policy["sponsorDelayHours"] != expected["sponsorDelayHours"]):
+        raise RuntimeError("Packaging policy disagrees with project configuration")
+    if expected["targetCve"] not in policy["targetCves"] or policy["version"] != policy["baseVersion"] + "+getpatched1":
+        raise RuntimeError("Unexpected pilot backport identity")
+    return package
+
+
+def release_eligibility(policy):
+    compatible = policy["futureEsmUpgradeCompatible"]
+    return {
+        "source": policy["source"],
+        "sourceVersion": policy["version"],
+        "futureEsmUpgradeCompatible": compatible,
+        "releaseEligible": compatible,
+        "reason": None if compatible else "future Ubuntu Pro ESM upgrade ordering is unresolved",
+    }
+
+
+def require_release_compatibility(policy):
+    if not policy["futureEsmUpgradeCompatible"]:
+        raise RuntimeError("Release candidate export blocked: future Ubuntu Pro ESM upgrade ordering is unresolved")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path)
@@ -137,12 +165,7 @@ def main():
     policy = json.loads((source / "debian/getpatched/release-policy.json").read_text())
     provenance = json.loads((source / "debian/getpatched/source-provenance.json").read_text())
     config = json.loads((ROOT / "packages.json").read_text())
-    package = policy["source"]
-    expected = config["packages"][package]
-    if policy["baseVersion"] != expected["baselineVersion"] or policy["sponsorDelayHours"] != expected["sponsorDelayHours"]:
-        raise RuntimeError("Packaging policy disagrees with project configuration")
-    if expected["targetCve"] not in policy["targetCves"] or policy["version"] != policy["baseVersion"] + "+getpatched1":
-        raise RuntimeError("Unexpected pilot backport identity")
+    package = validate_release_policy(policy, config)
     if run(["git", "-C", str(source), "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
         raise RuntimeError("Commit the reviewed packaging changes before recording build evidence")
     commit = run(["git", "-C", str(source), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
@@ -210,7 +233,6 @@ def main():
                 selected.append(target)
             if {p.name.split("_", 1)[0] for p in selected} != set(expected["binaryPackages"]):
                 raise RuntimeError("Could not extract every patched runtime package")
-            persist_release_candidates(selected, binary_manifest, output, package, policy["version"], commit)
             patched_context = temp / "patched-context"
             patched_context.mkdir()
             (patched_context / "getpatched").mkdir()
@@ -302,7 +324,10 @@ def main():
             run(["python3", str(ROOT / "scripts/test-apt-repository.py"), "--source", str(source), "--output", str(output),
                  "--work", str(temp), "--builder-image", name, "--base-image", config["baseImage"],
                  "--trust-image", config["scannerImage"], "--archive-snapshot", config["archiveSnapshot"]])
-            print(package + ": build, installed regressions, GetPatched advisory scan, raw Trivy/OSV audit, consumer checks, signed APT binary/source install and version ordering passed")
+            (output / "release-eligibility.json").write_text(json.dumps(release_eligibility(policy), indent=2) + "\n")
+            require_release_compatibility(policy)
+            persist_release_candidates(selected, binary_manifest, output, package, policy["version"], commit)
+            print(package + ": build, installed regressions, GetPatched advisory scan, raw Trivy/OSV audit, consumer checks, signed APT binary/source install and version checks passed; release eligibility recorded separately")
         finally:
             try:
                 if started:

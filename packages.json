@@ -11,6 +11,7 @@
   "packages": {
     "libxml2": {
       "baselineVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+      "futureEsmUpgradeCompatible": false,
       "binaryPackages": ["libxml2", "libxml2-utils"],
       "targetCve": "CVE-2025-49794",
       "targetCves": ["CVE-2025-49794", "CVE-2025-49796"],
@@ -20,6 +21,7 @@
     },
     "libarchive": {
       "baselineVersion": "3.4.0-2ubuntu1.5",
+      "futureEsmUpgradeCompatible": false,
       "binaryPackages": ["libarchive13", "libarchive-tools"],
       "targetCve": "CVE-2026-4111",
       "targetCves": ["CVE-2026-4111"],
