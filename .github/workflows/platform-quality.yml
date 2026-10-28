@@ -20,7 +20,9 @@ jobs:
       - name: Check catalogue JavaScript syntax
         run: node --check site/catalogue.js
       - name: Check sponsor account interface behavior
-        run: node --test verification/test_site_account_ui.mjs
+        run: |
+          node --test verification/test_site_account_ui.mjs
+          node --test verification/test_site_account_oauth_unconfigured.mjs
       - name: Check release worker syntax and state adapter
         run: |
           node --check worker/src/index.js
