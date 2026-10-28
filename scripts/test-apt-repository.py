@@ -175,6 +175,10 @@ for pocket in $esm_pockets; do
   printf 'deb [trusted=yes arch=amd64] file:/tmp/esm-test-repo %s main\n' "$pocket" >> "$sources"
   apt_options=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$lists")
   apt-get "${apt_options[@]}" update
+  echo "Synthetic ESM Release metadata for $pocket:" >&2
+  cat "/tmp/esm-test-repo/dists/$pocket/Release" >&2
+  echo "APT list files for $pocket:" >&2
+  find "$lists" -maxdepth 2 -type f -print >&2
   for binary in $BINARY_PACKAGES; do
     policy="$(apt-cache "${apt_options[@]}" policy "$binary")"
     candidate="$(printf '%s\n' "$policy" | sed -n 's/^[[:space:]]*Candidate: //p')"
