@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f4f3ee">
+    <meta name="theme-color" content="#fbfbfa">
     <meta name="description" content="GetPatched maintains tested backports of selected Ubuntu packages, with public source and transparent build evidence.">
     <title>GetPatched — maintained package backports</title>
     <link rel="stylesheet" href="/styles.css">
@@ -12,41 +12,62 @@
   <body>
     <a class="skip-link" href="#catalogue">Skip to package catalogue</a>
     <header class="site-header">
-      <a class="wordmark" href="/" aria-label="GetPatched home"><span class="wordmark-text">getpatched</span></a>
+      <a class="wordmark" href="/" aria-label="GetPatched home"><span class="wordmark-get">get</span><span class="wordmark-patched">patched</span></a>
       <nav aria-label="Main navigation">
         <a class="nav-current" href="#catalogue" aria-current="page">Packages</a>
-        <a href="/account">Sponsor access</a>
+        <a href="#process">Our method</a>
+        <a href="#evidence">Evidence</a>
+        <a href="#about">About</a>
       </nav>
-      <a class="github-link" href="https://github.com/getpatched">GitHub <span aria-hidden="true">↗</span></a>
+      <a class="account-link" href="/account">Sponsor access</a>
+      <a class="github-link" href="https://github.com/getpatched" aria-label="GetPatched on GitHub">GitHub <span aria-hidden="true">↗</span></a>
     </header>
 
     <main>
       <section class="intro" aria-labelledby="page-title">
         <div class="intro-copy">
-          <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>GETPATCHED / PACKAGE INDEX</p>
-          <h1 id="page-title">Package maintenance,<br><span>made inspectable.</span></h1>
-          <p class="lede">Selected Ubuntu package backports, built from public source with the patches, regressions and scan evidence alongside.</p>
+          <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>INDEPENDENT UBUNTU PACKAGE MAINTENANCE</p>
+          <h1 id="page-title">Good software<br>deserves a<br><span>longer life.</span></h1>
+          <p class="lede">We backport and test security fixes for selected Ubuntu packages.</p>
         </div>
-        <aside class="scope" aria-label="Current target">
-          <p class="scope-label">CURRENT TARGET</p>
-          <p class="scope-release">Ubuntu 20.04 <span>focal</span></p>
-          <p class="scope-arch">amd64 <span>·</span> selected packages</p>
-          <div class="scope-rule"></div>
-          <p class="scope-note">This is a package backport project, not an Ubuntu support programme.</p>
-        </aside>
+        <ol class="maintenance-flow" aria-label="Our maintenance process">
+          <li class="flow-step">
+            <svg viewBox="0 0 100 86" aria-hidden="true"><path class="flow-icon" d="M18 10h45l19 19v47H18z"/><path class="flow-icon" d="M63 10v20h19M30 43h36M30 54h36M30 65h20"/><circle class="flow-orange-fill" cx="75" cy="20" r="17"/><path class="flow-knockout" d="M75 11v6m0 6v6m9-15-5 3m-8 5-5 3m18 4-5-3m-8-5-5-3"/></svg>
+            <span>Upstream fix</span>
+          </li>
+          <li class="flow-step">
+            <svg viewBox="0 0 100 86" aria-hidden="true"><path class="flow-icon" d="M13 12h43l18 18v47H13z"/><path class="flow-icon" d="M56 12v18h18"/><path class="flow-orange-fill" d="M43 39h43v38H43z"/><path class="flow-knockout" d="M52 51h6m-3-3v6m8-3h19m-30 12h6m-3-3v6m8-3h19"/></svg>
+            <span>Ubuntu backport</span>
+          </li>
+          <li class="flow-step">
+            <svg viewBox="0 0 100 86" aria-hidden="true"><rect class="flow-icon" x="9" y="13" width="68" height="58" rx="3"/><path class="flow-icon" d="M9 26h68"/><circle class="flow-orange-fill" cx="19" cy="20" r="2"/><circle class="flow-orange-fill" cx="27" cy="20" r="2"/><circle class="flow-orange-fill" cx="35" cy="20" r="2"/><rect class="flow-orange-fill" x="18" y="37" width="9" height="9" rx="1"/><path class="flow-knockout" d="m20 41 2 2 4-5"/><path class="flow-icon" d="M33 41h22"/><rect class="flow-orange-fill" x="18" y="53" width="9" height="9" rx="1"/><path class="flow-knockout" d="m20 57 2 2 4-5"/><path class="flow-icon" d="M33 57h18"/><circle class="flow-icon" cx="72" cy="67" r="13"/><path class="flow-icon" d="M72 47v7m0 26v7m20-20h-7m-26 0h-7m34-14-5 5m-18 18-5 5m28 0-5-5M63 55l-5-5"/><circle class="flow-orange-fill" cx="72" cy="67" r="5"/></svg>
+            <span>Regression tests</span>
+          </li>
+          <li class="flow-step">
+            <svg viewBox="0 0 100 86" aria-hidden="true"><path class="flow-icon" d="m15 29 35-19 35 19v42L50 82 15 71z"/><path class="flow-icon" d="m15 29 35 20 35-20M50 49v33"/><path class="flow-orange-fill" d="M50 10 85 29 68 39 34 20z"/><path class="flow-orange-fill" d="M68 39 85 29v42L68 81z"/><path class="flow-knockout" d="m42 34 8 5 8-5"/></svg>
+            <span>Evidence</span>
+          </li>
+        </ol>
       </section>
 
       <section class="notice" role="status" aria-live="polite">
         <span class="notice-symbol" aria-hidden="true">i</span>
-        <p><strong>Development checks passed; release verification remains open.</strong> Sources and development test evidence are public. Production signing, package downloads and getpatched.dev repository endpoints are not live yet.</p>
+        <p><strong>Release verification is still open.</strong> Package sources and development evidence are public; GitHub sign-in, production signing and package downloads are not configured yet.</p>
         <a href="https://github.com/getpatched/platform/actions">View build runs <span aria-hidden="true">↗</span></a>
       </section>
 
       <section class="catalogue" id="catalogue" aria-labelledby="catalogue-title">
         <div class="section-heading">
-          <div>
-            <p class="eyebrow">THE CATALOGUE</p>
-            <h2 id="catalogue-title">Packages in verification</h2>
+          <h2 id="catalogue-title">Package catalogue</h2>
+          <p class="scope-inline"><svg class="ubuntu-mark" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="12"/><circle cx="20" cy="6" r="2.5"/><circle cx="8" cy="27" r="2.5"/><circle cx="32" cy="27" r="2.5"/><path d="M20 8.5v5m-10.7 12.5 4.3-2.5m13.1 0 4.3 2.5"/></svg><span>Ubuntu 20.04 focal <span class="scope-dot">·</span> amd64</span></p>
+        </div>
+
+        <div class="catalogue-controls">
+          <div class="filter-row" role="group" aria-label="Filter by release access policy">
+            <span class="filter-label">ACCESS</span>
+            <button class="filter-button is-selected" type="button" data-filter="all" aria-pressed="true">All <span>00</span></button>
+            <button class="filter-button" type="button" data-filter="sponsor" aria-pressed="false">Sponsor first <span>00</span></button>
+            <button class="filter-button" type="button" data-filter="public" aria-pressed="false">Public immediately <span>00</span></button>
           </div>
           <label class="search-box">
             <span class="search-icon" aria-hidden="true">⌕</span>
@@ -54,18 +75,10 @@
             <input id="package-search" type="search" placeholder="Search packages or CVEs" autocomplete="off">
             <kbd>/</kbd>
           </label>
-        </div>
-
-        <div class="filter-row" role="group" aria-label="Filter by release access policy">
-          <span class="filter-label">ACCESS POLICY</span>
-          <button class="filter-button is-selected" type="button" data-filter="all" aria-pressed="true">All candidates <span>00</span></button>
-          <button class="filter-button" type="button" data-filter="sponsor" aria-pressed="false">Sponsor first <span>00</span></button>
-          <button class="filter-button" type="button" data-filter="public" aria-pressed="false">Public immediately <span>00</span></button>
-          <span class="filter-spacer"></span>
           <span class="result-count" id="result-count" aria-live="polite">Loading catalogue…</span>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" id="evidence">
           <table>
             <thead>
               <tr>
@@ -92,10 +105,10 @@
             <a href="https://github.com/getpatched">Browse getpatched on GitHub ↗</a>
           </div>
         </div>
-        <p class="table-caption"><span class="caption-mark" aria-hidden="true">↳</span> Each row links to its source, patch, regression tests and release history. Development checks do not complete release verification; no production packages are published yet. Any sponsor delay starts at sponsor publication. No download action is shown until the signed repository is live.</p>
+        <p class="table-caption"><span class="caption-mark" aria-hidden="true">↳</span> Each row links to its source, patch, regression tests and release history. Development checks do not complete release verification. Production signing, package downloads and getpatched.dev repository endpoints are not live yet. Any sponsor delay starts at sponsor publication. No download action is shown until the signed repository is live.</p>
       </section>
 
-      <section class="how-it-works" aria-labelledby="process-title">
+      <section class="how-it-works" id="process" aria-labelledby="process-title">
         <div class="process-heading">
           <p class="eyebrow">RELEASE MODEL</p>
           <h2 id="process-title">Source stays open.<br>Binary timing varies.</h2>
@@ -116,7 +129,7 @@
         </div>
       </section>
 
-      <section class="boundary-note" aria-label="Maintenance boundary">
+      <section class="boundary-note" id="about" aria-label="Maintenance boundary">
         <span class="boundary-slash" aria-hidden="true">//</span>
         <p><strong>Scope, plainly stated.</strong> GetPatched evaluates and maintains specific packages and versions. It does not replace Ubuntu Pro, provide updates for the whole operating system, or claim that a package has no other vulnerabilities.</p>
         <a href="https://github.com/getpatched/platform/blob/main/README.md">Read the build notes ↗</a>
@@ -124,7 +137,7 @@
     </main>
 
     <footer class="site-footer">
-      <a class="wordmark footer-wordmark" href="/" aria-label="GetPatched home"><span class="wordmark-text">getpatched</span></a>
+      <a class="wordmark footer-wordmark" href="/" aria-label="GetPatched home"><span class="wordmark-get">get</span><span class="wordmark-patched">patched</span></a>
       <p>Public source. Reproducible work. Carefully scoped maintenance.</p>
       <div><a href="https://github.com/getpatched/platform">Platform</a><a href="https://github.com/getpatched/packaging-libxml2">libxml2 source</a><a href="https://github.com/getpatched/packaging-libarchive">libarchive source</a></div>
       <span class="footer-year">GETPATCHED / 2026</span>
