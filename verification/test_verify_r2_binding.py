@@ -125,7 +125,7 @@ class VerifyR2BindingClientTests(unittest.TestCase):
         }
         body = b'{"error":"edge policy denied request","detail":"must not be logged"}'
         def raise_http_error(*_args, **_kwargs):
-            raise urllib.error.HTTPError(VERIFY.ENDPOINT, 403, "Forbidden", {}, io.BytesIO(body))
+            raise urllib.error.HTTPError(VERIFY.ENDPOINT, 403, "Forbidden", {"Content-Type": "application/json", "CF-Ray": "test-ray"}, io.BytesIO(body))
 
         with patch.dict(os.environ, environment, clear=True), patch.object(VERIFY, "request_token", return_value="signed-test-oidc"), \
                 patch.object(VERIFY.urllib.request, "build_opener") as build_opener:
@@ -133,6 +133,7 @@ class VerifyR2BindingClientTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "HTTP 403: edge policy denied request") as raised:
                 VERIFY.verify_remote_binding()
         self.assertNotIn("must not be logged", str(raised.exception))
+        self.assertIn("cf-ray: test-ray", str(raised.exception))
 
     def test_malformed_gateway_error_preserves_http_status(self):
         environment = {
@@ -145,12 +146,31 @@ class VerifyR2BindingClientTests(unittest.TestCase):
             "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "temporary-test-token",
         }
         def raise_http_error(*_args, **_kwargs):
-            raise urllib.error.HTTPError(VERIFY.ENDPOINT, 502, "Bad Gateway", {}, io.BytesIO(b'["unexpected"]'))
+            raise urllib.error.HTTPError(VERIFY.ENDPOINT, 502, "Bad Gateway", {"Content-Type": "text/html"}, io.BytesIO(b'["unexpected"]'))
 
         with patch.dict(os.environ, environment, clear=True), patch.object(VERIFY, "request_token", return_value="signed-test-oidc"), \
                 patch.object(VERIFY.urllib.request, "build_opener") as build_opener:
             build_opener.return_value.open.side_effect = raise_http_error
-            with self.assertRaisesRegex(RuntimeError, "HTTP 502$"):
+            with self.assertRaisesRegex(RuntimeError, r"HTTP 502 \(content-type: text/html\)"):
+                VERIFY.verify_remote_binding()
+
+    def test_edge_ray_is_reported_without_content_type(self):
+        environment = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REPOSITORY": "getpatched/platform",
+            "GITHUB_REF": "refs/heads/main",
+            "GITHUB_WORKFLOW_REF": VERIFY.WORKFLOW_REF,
+            "ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com/example",
+            "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "temporary-test-token",
+        }
+        def raise_http_error(*_args, **_kwargs):
+            raise urllib.error.HTTPError(VERIFY.ENDPOINT, 403, "Forbidden", {"CF-Ray": "edge-ray-only"}, io.BytesIO(b""))
+
+        with patch.dict(os.environ, environment, clear=True), patch.object(VERIFY, "request_token", return_value="signed-test-oidc"), \
+                patch.object(VERIFY.urllib.request, "build_opener") as build_opener:
+            build_opener.return_value.open.side_effect = raise_http_error
+            with self.assertRaisesRegex(RuntimeError, r"HTTP 403 \(cf-ray: edge-ray-only\)"):
                 VERIFY.verify_remote_binding()
 
 
