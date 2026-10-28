@@ -21,6 +21,12 @@ This index points to evidence for the pilot described in [`BUILD_SPEC.md`](../BU
 - Desktop and mobile catalogue captures are in [`evidence/ui/`](evidence/ui/), including `getpatched-catalogue-desktop.png` and `getpatched-catalogue-mobile-390.png`.
 - The responsive catalogue/account UI and its local tests verify presentation and interaction states; they do not prove a live sponsor transaction.
 
+## Secret scanning and private reporting
+
+- On 28 October 2026, GitHub's repository API reported secret scanning and push protection enabled for the public [`platform`](https://github.com/getpatched/platform), [`packaging-libxml2`](https://github.com/getpatched/packaging-libxml2), and [`packaging-libarchive`](https://github.com/getpatched/packaging-libarchive) repositories. Private vulnerability reporting was also enabled on all three. The API returned zero open and zero resolved secret-scanning alerts at the time of the check; alert counts are a point-in-time signal, not proof that every possible credential pattern is detectable. Sanitized counts and settings are retained in [`evidence/secret-scan-summary.json`](evidence/secret-scan-summary.json).
+- Local Trivy 0.70.0 filesystem secret scans completed on the current working trees of all three repositories with zero findings. The scan included plaintext tracked and untracked content such as checked-in evidence logs and JSON. Trivy's default filesystem exclusions omit `.git` and image files, so these results do not cover Git history, workflow logs/artifacts stored only on GitHub, or PNG screenshots. GitHub's secret scanning documentation states that it scans the full Git history; no separate completion status was captured for that historical scan. See [GitHub secret scanning](https://docs.github.com/en/code-security/concepts/secret-security/secret-scanning) and [Trivy secret scanning](https://www.trivy.dev/docs/latest/guide/scanner/secret/).
+- No secret values were read into the report. The repository alert API exposed counts only, and the local scanner output was reduced to finding metadata before review. The sanitized summary preserves the check time, tool version, counts, and exclusions without raw scanner output.
+
 ## Acceptance still requiring live evidence
 
 - Authentic Canonical Focal ESM package contents and upgrade/ABI compatibility, using a protected Ubuntu Pro entitlement.
@@ -28,5 +34,6 @@ This index points to evidence for the pilot described in [`BUILD_SPEC.md`](../BU
 - Successful protected production R2 self-test, then isolated private staging and byte-identical promotion to immutable GitHub Releases.
 - Production signed public and sponsor APT metadata, fresh-client anonymous and sponsor-authenticated installation/source retrieval, invalid/expired/revoked access tests, and the real 168-hour promotion schedule.
 - Fresh independent review of any subsequent code/configuration changes and completion of the remaining operational/key-custody acceptance gates in [`BUILD_SPEC.md`](../BUILD_SPEC.md).
+- Review retained GitHub Actions logs/artifacts and raster screenshots for secret exposure; the local scan above does not cover those hosted or image-only surfaces.
 
 The current checkpoint and exact next actions are in [`STATUS.md`](STATUS.md); operational steps and recovery guidance are in [`docs/operations-runbook.md`](docs/operations-runbook.md).
