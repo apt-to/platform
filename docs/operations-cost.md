@@ -1,6 +1,6 @@
 # GetPatched hosting cost model
 
-Checked 28 October 2026 against the official provider documentation linked below. This is a usage scenario, not an account-specific quote or billing approval. The Cloudflare Worker is not deployed and the R2 bucket is empty, so actual request counts and invoices are not yet available. The estimate assumes the three GetPatched repositories remain public and excludes any pre-existing account charges.
+Checked 28 October 2026 against the official provider documentation linked below. This is a usage scenario, not an account-specific quote or billing approval. The Cloudflare Worker and website are deployed; the R2 bucket is empty, and production package routes have no published metadata, so actual release traffic, request counts and invoices are not yet available. The estimate assumes the three GetPatched repositories remain public and excludes any pre-existing account charges.
 
 ## Current price and limit baseline
 
