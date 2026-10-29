@@ -228,3 +228,15 @@ The advisory scanner now treats an exact reviewed vulnerable baseline as affecte
 ## Next actions
 
 1. Complete GitHub Sponsors setup, retain independent signing review, and configure production OAuth/webhook credentials and signed APT release custody. Do not label candidates released or the repository operational until live APT client and promotion acceptance evidence exists.
+
+## Sponsor access and license policy alignment — 29 Oct 2026
+
+- Updated sponsor-first eligibility to every active individual GitHub Sponsors tier, with no tier allowlist. Organization sponsorships remain closed until a sponsor-to-user mapping is verified; organization membership alone never grants access. Entitlements continue to use GitHub's active-only sponsorship snapshot and fail closed on stale data.
+- Public GetPatched-authored code and recipes remain MIT. New versioned early-binary terms 1.2 permit private/commercial use and prohibit GetPatched redistribution of official early-channel binaries until public promotion, while retaining upstream and distribution license rights. Updated platform and both package recipes/manifests; retained 1.1 terms.
+- Target schema still models each distribution, release, and architecture independently; patch ranges do not establish support without per-target pins and successful build/regression evidence.
+- Checks: focused Python contracts 15/15 and Worker tests 44/44 passed. Full platform Python suite ran 101 tests; 99 passed and two temporary-key signing tests failed because local GPG-agent IPC could not start, including on retry. JS syntax, JSON parsing, and diff whitespace checks passed. Independent reviews found no policy, runtime, or schema defects; review-only wording and formatting findings were corrected.
+- No package was published and no deployment was triggered. Sponsor enrollment, live OAuth/entitlement credentials, signed APT publication, sponsor access, and timed promotion remain release gates.
+
+### Next actions
+
+1. Open/complete the platform and package-repository PR workflow for these local changes. Keep live package publication disabled until the outstanding sponsor and signing gates pass.

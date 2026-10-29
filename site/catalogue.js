@@ -13,7 +13,7 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 function packageRow(item) {
   const cves = item.cves.map((cve) => `<a href="https://ubuntu.com/security/${encodeURIComponent(cve)}">${escapeHtml(cve)}</a>`).join("<span class=\"cve-separator\"> / </span>");
   const policy = item.access === "sponsor"
-    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Active individual GitHub Sponsors sponsorship · public ${escapeHtml(item.delayHours)} hours later</span><small>Private and commercial use; no early-binary redistribution</small>`
+    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Any active individual GitHub Sponsors tier · public ${escapeHtml(item.delayHours)} hours later</span><small>Private and commercial use; no redistribution of official early binaries</small>`
     : `<span class="policy-dot policy-public"></span><span class="policy-main">Public immediately</span><span class="policy-detail">After release checks pass</span>`;
   const checks = item.verification
     ? `<a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Hosted verification passed<small>Build, CVE scans, regressions and signed APT client ↗</small></a>`
