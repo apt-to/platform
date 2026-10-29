@@ -32,7 +32,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["licenseId", "termsFile", "eligibility", "permittedUse", "redistributionAllowed", "accessRevokedWhen", "scope", "upstreamRights"],
           "properties": {
-            "licenseId": {"const": "LicenseRef-GetPatched-Early-Binary-1.0"},
+            "licenseId": {"const": "LicenseRef-GetPatched-Early-Binary-1.1"},
             "termsFile": {"type": "string"},
             "eligibility": {"const": "any-active-individual-github-sponsorship"},
             "permittedUse": {"const": ["private", "commercial"]},
@@ -68,13 +68,16 @@
     },
     "releaseAccess": {
       "type": "object", "additionalProperties": false,
-      "required": ["policy", "sponsorDelayHours", "sponsorEligibility", "earlyBinaryLicenseId", "publicContributionSpdx"],
+      "required": ["policy", "sponsorDelayHours", "sponsorEligibility", "earlyBinaryLicenseId", "publicContributionSpdx", "earlyUse", "earlyRedistributionAllowed", "publicBinaryLicenseSpdx"],
       "properties": {
         "policy": {"enum": ["sponsor-first", "public-after-checks"]},
         "sponsorDelayHours": {"enum": [0, 168]},
         "sponsorEligibility": {"enum": ["any-active-individual-github-sponsorship", null]},
-        "earlyBinaryLicenseId": {"enum": ["LicenseRef-GetPatched-Early-Binary-1.0", null]},
-        "publicContributionSpdx": {"const": "MIT"}
+        "earlyBinaryLicenseId": {"enum": ["LicenseRef-GetPatched-Early-Binary-1.1", null]},
+        "publicContributionSpdx": {"const": "MIT"},
+        "earlyUse": {"const": ["private", "commercial"]},
+        "earlyRedistributionAllowed": {"const": false},
+        "publicBinaryLicenseSpdx": {"const": "MIT"}
       }
     },
     "packageTarget": {

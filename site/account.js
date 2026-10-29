@@ -8,7 +8,7 @@ const deviceCount = document.querySelector("#device-count");
 const deviceError = document.querySelector("#device-error");
 const tokenReveal = document.querySelector("#one-time-token");
 const authLine = document.querySelector("#auth-line");
-const EARLY_BINARY_LICENSE_ID = "LicenseRef-GetPatched-Early-Binary-1.0";
+const EARLY_BINARY_LICENSE_ID = "LicenseRef-GetPatched-Early-Binary-1.1";
 
 function setMessage(text, kind = "info") {
   message.textContent = text;
@@ -155,7 +155,7 @@ async function start() {
   } else {
     statusCopy.textContent = "No active GitHub Sponsors sponsorship was found for this account.";
     document.querySelector("#eligibility-title").textContent = "Sponsor access is not active";
-    document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available under MIT for GetPatched-authored material. Any active individual sponsorship qualifies, regardless of tier; one-time sponsorships qualify only while GitHub reports them active.";
+    document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available under MIT for GetPatched-authored material. Any active individual GitHub Sponsors tier qualifies. Organization sponsorships are not currently supported because they cannot be securely mapped to one GitHub user; organization membership alone never grants access.";
     document.querySelector("#sponsor-link").hidden = false;
     setMessage("Signed in. Sponsor access is not active for this account.");
   }

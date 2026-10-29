@@ -53,7 +53,7 @@
       "scope": "GetPatched-authored platform code, schemas, recipes, patches, tests, and documentation; upstream source remains under its own license."
     },
     "earlyBinary": {
-      "licenseId": "LicenseRef-GetPatched-Early-Binary-1.0",
+      "licenseId": "LicenseRef-GetPatched-Early-Binary-1.1",
       "termsFile": "LICENSES/GETPATCHED-EARLY-ACCESS.md",
       "eligibility": "any-active-individual-github-sponsorship",
       "permittedUse": [
@@ -90,13 +90,16 @@
             "CVE-2025-49796"
           ],
           "advisory": "https://ubuntu.com/security/CVE-2025-49794",
-          "candidateStatus": "rebranded-package-build-pending-verification",
+          "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {
             "policy": "sponsor-first",
             "sponsorDelayHours": 168,
             "sponsorEligibility": "any-active-individual-github-sponsorship",
-            "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.0",
-            "publicContributionSpdx": "MIT"
+            "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.1",
+            "publicContributionSpdx": "MIT",
+            "earlyUse": ["private", "commercial"],
+            "earlyRedistributionAllowed": false,
+            "publicBinaryLicenseSpdx": "MIT"
           },
           "vendorFixedVersions": [
             "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
@@ -126,13 +129,16 @@
             "CVE-2026-4111"
           ],
           "advisory": "https://ubuntu.com/security/CVE-2026-4111",
-          "candidateStatus": "rebranded-package-build-pending-verification",
+          "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {
             "policy": "public-after-checks",
             "sponsorDelayHours": 0,
             "sponsorEligibility": null,
             "earlyBinaryLicenseId": null,
-            "publicContributionSpdx": "MIT"
+            "publicContributionSpdx": "MIT",
+            "earlyUse": ["private", "commercial"],
+            "earlyRedistributionAllowed": false,
+            "publicBinaryLicenseSpdx": "MIT"
           },
           "vendorFixedVersions": [
             "3.4.0-2ubuntu1.5+esm1"

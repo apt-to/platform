@@ -196,6 +196,9 @@ def load_recipe(root, platform_config, target_id=None):
             or configured_access.get("policy") != expected_policy
             or access.get("sponsorEligibility") != configured_access.get("sponsorEligibility")
             or access.get("earlyBinaryLicenseId") != configured_access.get("earlyBinaryLicenseId")
+            or access.get("earlyUse") != configured_access.get("earlyUse")
+            or access.get("earlyRedistributionAllowed") != configured_access.get("earlyRedistributionAllowed")
+            or access.get("publicBinaryLicenseSpdx") != configured_access.get("publicBinaryLicenseSpdx")
             or access.get("publicContributionSpdx") != configured_access.get("publicContributionSpdx")):
         raise RuntimeError("Recipe release access policy differs from platform configuration")
     license_policy = platform_config.get("licenses", {})
