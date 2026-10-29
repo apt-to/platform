@@ -1320,7 +1320,7 @@ async function issueDeviceToken(request, env) {
   let body;
   try { body = await readBoundedJson(request, 4096); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
-  if (body.earlyBinaryLicenseId !== "LicenseRef-GetPatched-Early-Binary-1.0") {
+  if (body.earlyBinaryLicenseId !== "LicenseRef-GetPatched-Early-Binary-1.1") {
     return json({ error: "accept the early-binary terms before creating a device credential" }, 400);
   }
   const label = typeof body.label === "string" ? body.label.trim() : "APT device";
@@ -1693,7 +1693,7 @@ function assertRelease(record) {
   if (!Number.isInteger(record.sponsor_delay_hours) || ![0, 168].includes(record.sponsor_delay_hours)) throw new Error("policy must be 0 or 168 hours");
   const expectedDelay = record.repository === "getpatched/packaging-libxml2" ? 168 : 0;
   if (record.sponsor_delay_hours !== expectedDelay) throw new Error("release policy does not match the approved pilot package");
-  if (expectedDelay === 168 && record.early_binary_license_id !== undefined && record.early_binary_license_id !== "LicenseRef-GetPatched-Early-Binary-1.0") throw new Error("sponsor-first release has an unsupported early-binary license");
+  if (expectedDelay === 168 && record.early_binary_license_id !== undefined && record.early_binary_license_id !== "LicenseRef-GetPatched-Early-Binary-1.1") throw new Error("sponsor-first release has an unsupported early-binary license");
   if (!Array.isArray(record.required_assets) || record.required_assets.length === 0) throw new Error("required assets missing");
   canonicalAssets(record.required_assets);
 }
@@ -1779,10 +1779,28 @@ async function registerRelease(request, env) {
     return json({ error: "unauthorized" }, 401);
   }
   const body = await readBoundedJson(request, MAX_REGISTRATION_BYTES);
-  const requiredDelay = body.repository === "getpatched/packaging-libxml2" ? 168 : 0;
+  if (!env.ASSETS) throw requestError("platform package policy is unavailable", 503);
+  const policyResponse = await env.ASSETS.fetch(new Request("https://getpatched.dev/packages.json"));
+  if (!policyResponse.ok) throw requestError("platform package policy is unavailable", 503);
+  const platformPolicy = await policyResponse.json();
+  const packageKey = typeof body.repository === "string" && body.repository.startsWith("getpatched/packaging-")
+    ? body.repository.slice("getpatched/packaging-".length) : "";
+  const configured = platformPolicy.packages?.[packageKey]?.targets?.[body.target_id]?.releaseAccess;
+  if (!configured) throw requestError("release package target is not configured", 422);
+  const requiredDelay = configured.sponsorDelayHours;
+  const expectedPolicy = requiredDelay === 168 ? "sponsor-first" : "public-after-checks";
+  if (![0, 168].includes(requiredDelay) || configured.policy !== expectedPolicy ||
+      configured.publicContributionSpdx !== "MIT" ||
+      JSON.stringify(configured.earlyUse) !== JSON.stringify(["private", "commercial"]) ||
+      configured.earlyRedistributionAllowed !== false || configured.publicBinaryLicenseSpdx !== "MIT" ||
+      (requiredDelay === 168 && (configured.sponsorEligibility !== "any-active-individual-github-sponsorship" ||
+        configured.earlyBinaryLicenseId !== "LicenseRef-GetPatched-Early-Binary-1.1")) ||
+      (requiredDelay === 0 && (configured.sponsorEligibility !== null || configured.earlyBinaryLicenseId !== null))) {
+    throw requestError("configured release access or license policy is invalid", 503);
+  }
   if (body.target_id !== "ubuntu-focal-amd64" || body.public_contribution_spdx !== "MIT" ||
       body.sponsor_delay_hours !== requiredDelay ||
-      body.early_binary_license_id !== (requiredDelay ? "LicenseRef-GetPatched-Early-Binary-1.0" : null)) {
+      body.early_binary_license_id !== (requiredDelay ? configured.earlyBinaryLicenseId : null)) {
     throw requestError("release target, sponsorship, or license policy is incomplete or unsupported", 422);
   }
   const record = {

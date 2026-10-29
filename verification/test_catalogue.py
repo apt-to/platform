@@ -70,16 +70,27 @@ class PublicCatalogueContract(unittest.TestCase):
                 entry = entries[source]["targets"][target_id]
                 access = policy["releaseAccess"]
                 self.assertEqual(entry["version"], policy["packageVersion"])
-                old_version = policy["baselineVersion"] + "+aptto1"
+                old_version = policy["baselineVersion"]
                 self.assertLess(debian_version_compare(old_version, entry["version"]), 0)
                 self.assertEqual(entry["cves"], policy["targetCves"])
                 self.assertEqual(entry["delayHours"], access["sponsorDelayHours"])
                 self.assertEqual(entry["access"], "sponsor" if access["sponsorDelayHours"] else "public")
                 self.assertEqual(entry["sponsorEligibility"], access["sponsorEligibility"])
                 self.assertEqual(entry["publicContributionSpdx"], "MIT")
+                self.assertEqual(access["earlyUse"], ["private", "commercial"])
+                self.assertFalse(access["earlyRedistributionAllowed"])
+                self.assertEqual(access["publicBinaryLicenseSpdx"], "MIT")
+                self.assertEqual(entry["earlyUse"], access["earlyUse"])
+                self.assertEqual(entry["earlyRedistributionAllowed"], access["earlyRedistributionAllowed"])
+                self.assertEqual(entry["earlyBinaryLicenseId"], access["earlyBinaryLicenseId"])
+                self.assertEqual(entry["publicBinaryLicenseSpdx"], access["publicBinaryLicenseSpdx"])
                 self.assertEqual(entry["earlyRedistributionAllowed"], False)
-                self.assertEqual(entry["status"], "verification-pending")
-                self.assertIsNone(entry["verification"])
+                self.assertEqual(entry["status"], "development-verified-production-release-pending")
+                expected_run = {
+                    "libxml2": "40879775502",
+                    "libarchive": "40879796382",
+                }[source]
+                self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
                 self.assertEqual(entry["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
                 self.assertNotIn("verificationUrl", entry)
                 self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/tree/"))
@@ -89,21 +100,25 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertEqual(entry["releaseStatus"], "No production release")
 
         page = (ROOT / "site/index.html").read_text()
-        self.assertIn("The protected signing key passed a disposable repository self-test", page)
-        self.assertIn("Fresh builds from the latest public Focal source versions", page)
-        self.assertIn("package publication and downloads remain disabled until release checks and access setup pass", page)
+        self.assertIn("Hosted verification passed.", page)
+        self.assertIn("Both Focal packages have fresh hosted builds", page)
+        self.assertIn("Sponsor sign-in and production repository access setup remain incomplete", page)
+        self.assertIn("no production package release has been published", page)
+        self.assertIn("Live package publication and downloads remain disabled until GitHub sponsor sign-in and production access setup are complete", page)
+        self.assertIn("Hosted verification has passed for both pilot builds", page)
         self.assertIn("Ubuntu Pro/ESM compatibility is not tested or supported", page)
         self.assertIn("Each row links to its source, patch, regression tests and release history", page)
-        self.assertIn("Any sponsor delay starts at sponsor publication", page)
+        self.assertIn("Any sponsor delay starts only after sponsor publication", page)
         self.assertIn("temporary signed APT client smoke test", page)
         app = (ROOT / "site/catalogue.js").read_text()
-        self.assertIn("Fresh public Focal build, installed regressions and signed-client checks required", app)
+        self.assertIn("Hosted build, CVE scans, installed regressions and signed-client checks required", app)
+        self.assertIn("Hosted verification passed", app)
         self.assertNotIn("item.verificationUrl", app)
         for label in ("Source", "Patch", "Tests", "Releases"):
             self.assertIn(f">{label} ↗</a>", app)
         for field in ("patchUrl", "testsUrl", "releasesUrl", "releaseStatus"):
             self.assertIn(f"item.{field}", app)
-        self.assertIn("Any active individual sponsorship · public ${escapeHtml(item.delayHours)} hours later", app)
+        self.assertIn("Active individual GitHub Sponsors sponsorship · public ${escapeHtml(item.delayHours)} hours later", app)
         self.assertNotIn("Public 168 hours after sponsor release", app)
         self.assertIn("open the public package source repositories on GitHub", page)
         self.assertNotIn("browse the public package repositories directly", page)
