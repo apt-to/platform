@@ -3,18 +3,21 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f4f3ee">
+    <meta name="theme-color" content="#fffefa">
     <meta name="description" content="Manage GetPatched sponsor access and per-device APT credentials.">
     <title>Sponsor access — GetPatched</title>
+    <script src="/theme-init.js"></script>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/account.css">
+    <script type="module" src="/theme.js"></script>
     <script type="module" src="/account.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#account-main">Skip to account</a>
     <header class="site-header">
-      <a class="wordmark" href="/" aria-label="GetPatched home"><span class="wordmark-text">getpatched</span></a>
+      <a class="wordmark" href="/" aria-label="GetPatched home"><img class="brand-mark" src="/brand-mark.svg" alt=""><span class="wordmark-copy"><span class="wordmark-get">get</span><span class="wordmark-patched">patched</span></span></a>
       <nav aria-label="Main navigation"><a href="/#catalogue">Packages</a><a class="nav-current" href="/account" aria-current="page">Sponsor access</a></nav>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.4A8.8 8.8 0 0 1 8.6 3.8 8.8 8.8 0 1 0 20.2 15.4Z"/></svg><span>Dark mode</span></button>
       <a class="github-link" href="https://github.com/getpatched/platform">Platform source ↗</a>
     </header>
 
@@ -80,7 +83,7 @@
     </main>
 
     <footer class="site-footer">
-      <a class="wordmark footer-wordmark" href="/" aria-label="GetPatched home"><span class="wordmark-text">getpatched</span></a>
+      <a class="wordmark footer-wordmark" href="/" aria-label="GetPatched home"><img class="brand-mark" src="/brand-mark.svg" alt=""><span class="wordmark-copy"><span class="wordmark-get">get</span><span class="wordmark-patched">patched</span></span></a>
       <p>Public source. Reproducible work. Carefully scoped maintenance.</p>
       <div><a href="https://github.com/getpatched/platform">Platform</a><a href="https://github.com/getpatched/packaging-libxml2">libxml2 source</a><a href="https://github.com/getpatched/packaging-libarchive">libarchive source</a></div>
       <span class="footer-year">GETPATCHED / 2026</span>
