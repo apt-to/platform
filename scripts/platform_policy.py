@@ -94,8 +94,8 @@ def package_target_policy(config, package, target_id):
             or (access.get("policy") == "sponsor-first") != (access.get("sponsorDelayHours") == 168)
             or access.get("publicContributionSpdx") != "MIT"
             or (access.get("sponsorDelayHours") == 168 and (
-                access.get("sponsorEligibility") != "any-active-individual-github-sponsorship"
-                or access.get("earlyBinaryLicenseId") != "LicenseRef-GetPatched-Early-Binary-1.1"
+                access.get("sponsorEligibility") != "any-active-individual-github-sponsorship-tier"
+                or access.get("earlyBinaryLicenseId") != "LicenseRef-GetPatched-Early-Binary-1.2"
                 or access.get("earlyUse") != ["private", "commercial"]
                 or access.get("earlyRedistributionAllowed") is not False
                 or access.get("publicBinaryLicenseSpdx") != "MIT"

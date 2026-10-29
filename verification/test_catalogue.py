@@ -76,6 +76,8 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertEqual(entry["delayHours"], access["sponsorDelayHours"])
                 self.assertEqual(entry["access"], "sponsor" if access["sponsorDelayHours"] else "public")
                 self.assertEqual(entry["sponsorEligibility"], access["sponsorEligibility"])
+                if access["sponsorDelayHours"] == 168:
+                    self.assertEqual(access["sponsorEligibility"], "any-active-individual-github-sponsorship-tier")
                 self.assertEqual(entry["publicContributionSpdx"], "MIT")
                 self.assertEqual(access["earlyUse"], ["private", "commercial"])
                 self.assertFalse(access["earlyRedistributionAllowed"])
@@ -118,7 +120,7 @@ class PublicCatalogueContract(unittest.TestCase):
             self.assertIn(f">{label} ↗</a>", app)
         for field in ("patchUrl", "testsUrl", "releasesUrl", "releaseStatus"):
             self.assertIn(f"item.{field}", app)
-        self.assertIn("Active individual GitHub Sponsors sponsorship · public ${escapeHtml(item.delayHours)} hours later", app)
+        self.assertIn("Any active individual GitHub Sponsors tier · public ${escapeHtml(item.delayHours)} hours later", app)
         self.assertNotIn("Public 168 hours after sponsor release", app)
         self.assertIn("open the public package source repositories on GitHub", page)
         self.assertNotIn("browse the public package repositories directly", page)

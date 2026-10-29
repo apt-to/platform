@@ -57,7 +57,7 @@ class PackageRecipeContract(unittest.TestCase):
         (self.root / "tests/fixtures/reference.c").write_bytes(self.reference_bytes)
         (self.root / "LICENSES/ubuntu-source-copyright").write_text("Copyright notice\n")
         (self.root / "LICENSE").write_text("MIT-authored materials only\n")
-        (self.root / "LICENSES/GETPATCHED-EARLY-ACCESS.md").write_text("Early binary terms\n")
+        (self.root / "LICENSES/GETPATCHED-EARLY-ACCESS-1.2.md").write_text("Early binary terms\n")
         (self.root / "README.md").write_text("Recipe test\n")
 
         central = PLATFORM_CONFIG["packages"]["libarchive"]["targets"]["ubuntu-focal-amd64"]
@@ -114,8 +114,8 @@ class PackageRecipeContract(unittest.TestCase):
             "licensing": {
                 "publicContributionsSpdx": "MIT",
                 "publicContributionsLicenseFile": "LICENSE",
-                "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.1",
-                "earlyBinaryTermsFile": "LICENSES/GETPATCHED-EARLY-ACCESS.md",
+                "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.2",
+                "earlyBinaryTermsFile": "LICENSES/GETPATCHED-EARLY-ACCESS-1.2.md",
                 "upstreamCopyrightFile": "LICENSES/ubuntu-source-copyright",
                 "upstreamLicenses": "preserve",
             },

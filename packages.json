@@ -53,9 +53,9 @@
       "scope": "GetPatched-authored platform code, schemas, recipes, patches, tests, and documentation; upstream source remains under its own license."
     },
     "earlyBinary": {
-      "licenseId": "LicenseRef-GetPatched-Early-Binary-1.1",
-      "termsFile": "LICENSES/GETPATCHED-EARLY-ACCESS.md",
-      "eligibility": "any-active-individual-github-sponsorship",
+      "licenseId": "LicenseRef-GetPatched-Early-Binary-1.2",
+      "termsFile": "LICENSES/GETPATCHED-EARLY-ACCESS-1.2.md",
+      "eligibility": "any-active-individual-github-sponsorship-tier",
       "permittedUse": [
         "private",
         "commercial"
@@ -94,8 +94,8 @@
           "releaseAccess": {
             "policy": "sponsor-first",
             "sponsorDelayHours": 168,
-            "sponsorEligibility": "any-active-individual-github-sponsorship",
-            "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.1",
+            "sponsorEligibility": "any-active-individual-github-sponsorship-tier",
+            "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.2",
             "publicContributionSpdx": "MIT",
             "earlyUse": ["private", "commercial"],
             "earlyRedistributionAllowed": false,

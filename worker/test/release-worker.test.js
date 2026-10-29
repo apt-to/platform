@@ -541,15 +541,15 @@ test("release registration fails closed on missing or invalid runtime access pol
     id: "libxml2-policy-test", repository: "getpatched/packaging-libxml2",
     tag: "getpatched/ubuntu-focal-amd64/1.2.3", target_id: "ubuntu-focal-amd64",
     source_commit: "a".repeat(40), sponsor_delay_hours: 168,
-    early_binary_license_id: "LicenseRef-GetPatched-Early-Binary-1.1",
+    early_binary_license_id: "LicenseRef-GetPatched-Early-Binary-1.2",
     public_contribution_spdx: "MIT", verification_run_id: 1,
     required_assets: [{ name: "libxml2.deb", sha256: "a".repeat(64) }],
     source_assets: [{ name: "libxml2.dsc", sha256: "b".repeat(64) }],
   };
   const valid = {
     policy: "sponsor-first", sponsorDelayHours: 168,
-    sponsorEligibility: "any-active-individual-github-sponsorship",
-    earlyBinaryLicenseId: "LicenseRef-GetPatched-Early-Binary-1.1",
+    sponsorEligibility: "any-active-individual-github-sponsorship-tier",
+    earlyBinaryLicenseId: "LicenseRef-GetPatched-Early-Binary-1.2",
     publicContributionSpdx: "MIT", earlyUse: ["private", "commercial"],
     earlyRedistributionAllowed: false, publicBinaryLicenseSpdx: "MIT",
   };
@@ -581,7 +581,7 @@ test("GitHub webhook signature uses the documented HMAC SHA-256 scheme", async (
   assert.equal(await verifyGithubSignature("wrong", body, "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"), false);
 });
 
-test("sponsor snapshot paginates all active individual sponsorships, including one-time sponsorships only while active", async () => {
+test("sponsor snapshot paginates all active sponsorship tiers, including one-time sponsorships only while active", async () => {
   const originalFetch = globalThis.fetch;
   const requests = [];
   globalThis.fetch = async (_url, options) => {
@@ -610,7 +610,7 @@ test("sponsor snapshot paginates all active individual sponsorships, including o
     assert.deepEqual(requests, [null, "cursor-1"]);
     assert.deepEqual(snapshot.sponsors.map((sponsor) => sponsor.github_user_id), [17, 18, 20]);
     assert.equal(snapshot.sponsors[2].has_one_time_sponsorship, true);
-    assert.equal(snapshot.tier_policy, "any-active-individual-sponsorship");
+    assert.equal(snapshot.tier_policy, "any-active-individual-github-sponsorship-tier");
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -650,7 +650,7 @@ test("failed sponsor refresh leaves the previous snapshot unchanged and unavaila
     sponsors: [{ github_user_id: 17, github_login: "alice", has_one_time_sponsorship: false }],
     reconciled_at: "2026-10-25T15:00:00.000Z", valid_until: "2026-10-25T15:30:00.000Z",
     authority: "github-sponsors-graphql-active-only",
-    tier_policy: "any-active-individual-sponsorship",
+    tier_policy: "any-active-individual-github-sponsorship-tier",
   };
   const bucket = new MemoryBucket({ "sponsor-entitlements/current.json": oldSnapshot });
   const originalFetch = globalThis.fetch;
@@ -1251,7 +1251,7 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
     assert.equal(missingLicenseResponse.status, 400);
     const tokenResponse = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
       method: "POST", headers: { origin: "https://getpatched.dev", cookie: legacySessionCookie, "content-type": "application/json" },
-      body: JSON.stringify({ label: "workstation", earlyBinaryLicenseId: "LicenseRef-GetPatched-Early-Binary-1.1" }),
+      body: JSON.stringify({ label: "workstation", earlyBinaryLicenseId: "LicenseRef-GetPatched-Early-Binary-1.2" }),
     }), env);
     assert.equal(tokenResponse.status, 201);
     const issued = await tokenResponse.json();
@@ -1259,7 +1259,7 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
     const tokenHash = createHash("sha256").update(issued.token).digest("hex");
     assert.ok(bucket.entries.has(`apt-device-tokens/${tokenHash}.json`));
     const tokenRecord = await (await bucket.get(`apt-device-tokens/${tokenHash}.json`)).json();
-    assert.equal(tokenRecord.early_binary_license_id, "LicenseRef-GetPatched-Early-Binary-1.1");
+    assert.equal(tokenRecord.early_binary_license_id, "LicenseRef-GetPatched-Early-Binary-1.2");
     assert.ok(tokenRecord.early_binary_terms_accepted_at);
     assert.equal(JSON.stringify([...bucket.entries.values()]).includes(issued.token), false);
     assert.equal(JSON.stringify([...bucket.entries.values()]).includes("transient-oauth-secret"), false);
