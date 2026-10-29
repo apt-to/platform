@@ -1,6 +1,13 @@
 # GetPatched evidence index
 
-This index points to evidence for the pilot described in [`BUILD_SPEC.md`](../BUILD_SPEC.md). Evidence is scoped to the check it records: candidate builds and local tests do not establish package publication, sponsor access, or a live seven-day promotion. The package candidates remain ineligible for release until the real Ubuntu Pro ESM compatibility gate passes.
+This index points to evidence for the pilot described in [`BUILD_SPEC.md`](../BUILD_SPEC.md). Evidence is scoped to the check it records: candidate builds and local tests do not establish package publication, sponsor access, or a live seven-day promotion. Ubuntu Pro/ESM is outside the pilot and is not a release gate.
+
+## Public-Focal scope update — 29 October 2026
+
+- Ubuntu Pro/ESM is explicitly out of scope. The public OSV ecosystem response and raw Trivy results are preserved as reference evidence; missing target records or Trivy findings on a patched distro package do not decide release eligibility. Installed baseline/patched regressions and exact-version GetPatched package-aware scans remain required.
+- Combined independent review found no actionable findings across the merged PRs: platform [#57](https://github.com/getpatched/platform/pull/57), libxml2 [#4](https://github.com/getpatched/packaging-libxml2/pull/4), and libarchive [#4](https://github.com/getpatched/packaging-libarchive/pull/4). Focused tests pass 23/23; the full local suite has two macOS GPG-agent IPC errors during temporary signing-key generation.
+- Fresh non-publishing hosted runs [libxml2 40790073304](https://github.com/getpatched/platform/actions/runs/40790073304) and [libarchive 40790075563](https://github.com/getpatched/platform/actions/runs/40790075563) built through regressions and scans, then failed because the audit rejected a successful empty OSV response `{}`. The retained libarchive response confirms there was no public target record; no vendor-clean or remediation inference is made. A focused parser fix is being tested. No package was published.
+- Deployed R2 binding self-test [40782312431](https://github.com/getpatched/platform/actions/runs/40782312431) passed the write/readback/delete round trip. Automatic Worker deployment after platform PR #57 passed.
 
 ## Candidate source, patches, builds, and scans
 
@@ -31,7 +38,7 @@ This index points to evidence for the pilot described in [`BUILD_SPEC.md`](../BU
 
 ## Acceptance still requiring live evidence
 
-- Authentic Canonical Focal ESM package contents and upgrade/ABI compatibility, using a protected Ubuntu Pro entitlement.
+- Successful fresh hosted build and verification for the merged public-Focal package commits.
 - GitHub Sponsors enrollment, actual eligible tier IDs, and live sponsor entitlement/revocation behavior.
 - Successful protected production R2 self-test, then isolated private staging and byte-identical promotion to immutable GitHub Releases.
 - Production signed public and sponsor APT metadata, fresh-client anonymous and sponsor-authenticated installation/source retrieval, invalid/expired/revoked access tests, and the real 168-hour promotion schedule.
