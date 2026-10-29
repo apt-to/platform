@@ -155,7 +155,7 @@ async function start() {
   } else {
     statusCopy.textContent = "No active GitHub Sponsors sponsorship was found for this account.";
     document.querySelector("#eligibility-title").textContent = "Sponsor access is not active";
-    document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available under MIT for GetPatched-authored material. Every active individual GitHub Sponsors tier qualifies. Organization sponsorships are not yet supported because they cannot be securely mapped to one GitHub user; organization membership alone never grants access.";
+    document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available under MIT for GetPatched-authored material. Every active individual GitHub Sponsors tier qualifies, with no tier allowlist or minimum amount. Organization sponsorships are not yet supported because they cannot be securely mapped to one GitHub user; organization membership alone never grants access.";
     document.querySelector("#sponsor-link").hidden = false;
     setMessage("Signed in. Sponsor access is not active for this account.");
   }

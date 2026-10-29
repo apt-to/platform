@@ -1,7 +1,13 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "targets": {
-    "ubuntu-focal-amd64": { "distribution": "Ubuntu", "releaseVersion": "20.04", "codename": "focal", "architecture": "amd64", "displayName": "Ubuntu 20.04 LTS (focal) · amd64" }
+    "ubuntu-focal-amd64": {
+      "distribution": "Ubuntu",
+      "releaseVersion": "20.04",
+      "codename": "focal",
+      "architecture": "amd64",
+      "displayName": "Ubuntu 20.04 LTS (focal) · amd64"
+    }
   },
   "packages": [
     {
@@ -15,9 +21,11 @@
           "sponsorEligibility": "any-active-individual-github-sponsorship-tier",
           "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.2",
           "publicContributionSpdx": "MIT",
-          "earlyUse": ["private", "commercial"],
+          "earlyUse": [
+            "private",
+            "commercial"
+          ],
           "earlyRedistributionAllowed": false,
-          "publicBinaryLicenseSpdx": "MIT",
           "status": "development-verified-production-release-pending",
           "verification": "https://github.com/getpatched/platform/actions/runs/40879775502",
           "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
@@ -25,7 +33,8 @@
           "patchUrl": "https://github.com/getpatched/packaging-libxml2/blob/getpatched/focal/patches/CVE-2025-49794-49796.patch",
           "testsUrl": "https://github.com/getpatched/packaging-libxml2/tree/getpatched/focal/tests",
           "releasesUrl": "https://github.com/getpatched/packaging-libxml2/releases",
-          "releaseStatus": "No production release"
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
         }
       }
     },
@@ -40,9 +49,11 @@
           "sponsorEligibility": null,
           "earlyBinaryLicenseId": null,
           "publicContributionSpdx": "MIT",
-          "earlyUse": ["private", "commercial"],
+          "earlyUse": [
+            "private",
+            "commercial"
+          ],
           "earlyRedistributionAllowed": false,
-          "publicBinaryLicenseSpdx": "MIT",
           "status": "development-verified-production-release-pending",
           "verification": "https://github.com/getpatched/platform/actions/runs/40879796382",
           "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
@@ -50,7 +61,8 @@
           "patchUrl": "https://github.com/getpatched/packaging-libarchive/blob/getpatched/focal/patches/CVE-2026-4111.patch",
           "testsUrl": "https://github.com/getpatched/packaging-libarchive/tree/getpatched/focal/tests",
           "releasesUrl": "https://github.com/getpatched/packaging-libarchive/releases",
-          "releaseStatus": "No production release"
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
         }
       }
     }

@@ -157,7 +157,7 @@ def load_recipe(root, platform_config, target_id=None):
     if manifest_schema == 3:
         target_path = recipe_path(root, target_ref.get("file"))
         target = load_json(target_path)
-        if target.get("schemaVersion") != 1 or target.get("id") != target_ref["id"]:
+        if target.get("schemaVersion") != 2 or target.get("id") != target_ref["id"]:
             raise RuntimeError("Referenced target file schema or identity does not match package manifest")
     else:
         target = target_ref
@@ -198,8 +198,8 @@ def load_recipe(root, platform_config, target_id=None):
             or access.get("earlyBinaryLicenseId") != configured_access.get("earlyBinaryLicenseId")
             or access.get("earlyUse") != configured_access.get("earlyUse")
             or access.get("earlyRedistributionAllowed") != configured_access.get("earlyRedistributionAllowed")
-            or access.get("publicBinaryLicenseSpdx") != configured_access.get("publicBinaryLicenseSpdx")
-            or access.get("publicContributionSpdx") != configured_access.get("publicContributionSpdx")):
+            or access.get("publicContributionSpdx") != configured_access.get("publicContributionSpdx")
+            or access.get("publicLicenseScope") != configured_access.get("publicLicenseScope")):
         raise RuntimeError("Recipe release access policy differs from platform configuration")
     license_policy = platform_config.get("licenses", {})
     public_license = license_policy.get("publicContributions", {})

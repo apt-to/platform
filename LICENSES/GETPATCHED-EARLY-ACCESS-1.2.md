@@ -7,7 +7,7 @@ GetPatched-authored files are MIT-licensed, so anyone may build from source
 and use or redistribute an independent build under that licence and any
 applicable third-party licences.
 
-Every active individual GitHub Sponsors tier qualifies. A one-time sponsorship
+Every active individual GitHub Sponsors tier qualifies, with no tier allowlist or minimum amount. A one-time sponsorship
 qualifies only while GitHub reports it active. Organization sponsorships are
 not yet supported because the service cannot securely map an organization
 sponsorship to a specific GitHub user; organization membership alone never
