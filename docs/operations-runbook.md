@@ -4,7 +4,7 @@ This runbook describes the release path implemented in `platform/`; website depl
 
 ## Local verification
 
-On macOS, GPG-agent IPC can fail when Python's temporary directory is the long default path. Use a short temporary path for the Python verification suite; `TMPDIR=/tmp python3 -B -m unittest discover -s verification -p 'test_*.py' -v` passed all 79 tests on this host. This is a local test-environment workaround; CI and production signing still require their own verification.
+On macOS, temporary-key tests can fail when GPG-agent IPC does not start, even with a short temporary path. The most recent local run with `TMPDIR=/tmp python3 -B -m unittest discover -s verification -p 'test_*.py' -v` ran 85 tests: 83 passed and two signature-generation tests errored because `gpg-agent` could not be reached (`IPC connect call failed; No agent running`). Do not count these as passing local signature checks. The GitHub-hosted Linux verification suite passed in [run 40793133586](https://github.com/getpatched/platform/actions/runs/40793133586). Use a functioning GPG-agent environment for local signing verification; do not weaken or skip the signature tests to hide this host limitation.
 
 ## Deployment gates
 
