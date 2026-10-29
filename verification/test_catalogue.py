@@ -89,8 +89,8 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertEqual(entry["earlyRedistributionAllowed"], False)
                 self.assertEqual(entry["status"], "development-verified-production-release-pending")
                 expected_run = {
-                    "libxml2": "40879775502",
-                    "libarchive": "40879796382",
+                    "libxml2": "40899705050",
+                    "libarchive": "40899709850",
                 }[source]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
                 self.assertEqual(entry["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
