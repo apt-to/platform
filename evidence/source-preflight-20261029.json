@@ -1,0 +1,243 @@
+{
+  "checked_at": "2026-10-29T00:07:45.286298+00:00",
+  "release": "focal",
+  "archive": "ubuntu/primary",
+  "source": "Launchpad public API",
+  "packages": {
+    "libxml2": [
+      {
+        "package": "libxml2",
+        "version": "2.9.10+dfsg-5ubuntu0.20.04.10",
+        "pocket": "Updates",
+        "published_at": "2025-04-28T14:11:49.338191+00:00",
+        "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17211645",
+        "source_files": [
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg.orig.tar.xz"
+        ],
+        "source_integrity": {
+          "descriptor": {
+            "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+            "sha256": "f6bdb548b3e50216dc0721738ba8125277395d5de9e9c9900741fda82d3a7c88",
+            "bytes": 3125
+          },
+          "archives": [
+            {
+              "name": "libxml2_2.9.10+dfsg.orig.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg.orig.tar.xz",
+              "sha256": "65ee7a2f5e100c64ddf7beb92297c9b2a30b994a76cd1fab67470cf22db6b7d0",
+              "bytes": 2503560
+            },
+            {
+              "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+              "sha256": "93996cc05c902fca661c0f4b5ccd2691e62cfda5e38b2556b68bafa51bf0b843",
+              "bytes": 46084
+            }
+          ],
+          "signature_verified": false,
+          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+        }
+      },
+      {
+        "package": "libxml2",
+        "version": "2.9.10+dfsg-5ubuntu0.20.04.10",
+        "pocket": "Security",
+        "published_at": "2025-04-28T12:20:08.269713+00:00",
+        "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17211576",
+        "source_files": [
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg.orig.tar.xz"
+        ],
+        "source_integrity": {
+          "descriptor": {
+            "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+            "sha256": "f6bdb548b3e50216dc0721738ba8125277395d5de9e9c9900741fda82d3a7c88",
+            "bytes": 3125
+          },
+          "archives": [
+            {
+              "name": "libxml2_2.9.10+dfsg.orig.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg.orig.tar.xz",
+              "sha256": "65ee7a2f5e100c64ddf7beb92297c9b2a30b994a76cd1fab67470cf22db6b7d0",
+              "bytes": 2503560
+            },
+            {
+              "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5ubuntu0.20.04.10/libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+              "sha256": "93996cc05c902fca661c0f4b5ccd2691e62cfda5e38b2556b68bafa51bf0b843",
+              "bytes": 46084
+            }
+          ],
+          "signature_verified": false,
+          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+        }
+      },
+      {
+        "package": "libxml2",
+        "version": "2.9.10+dfsg-5",
+        "pocket": "Release",
+        "published_at": "2020-04-13T15:23:23.668009+00:00",
+        "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/11182297",
+        "source_files": [
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5/libxml2_2.9.10+dfsg-5.dsc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5/libxml2_2.9.10+dfsg.orig.tar.xz",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5/libxml2_2.9.10+dfsg-5.debian.tar.xz"
+        ],
+        "source_integrity": {
+          "descriptor": {
+            "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5/libxml2_2.9.10+dfsg-5.dsc",
+            "sha256": "95f66df911ac4ff2b1d232b5f6613a968f91a55eb4554ed8aee65c4ae58ca42b",
+            "bytes": 2982
+          },
+          "archives": [
+            {
+              "name": "libxml2_2.9.10+dfsg.orig.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5/libxml2_2.9.10+dfsg.orig.tar.xz",
+              "sha256": "65ee7a2f5e100c64ddf7beb92297c9b2a30b994a76cd1fab67470cf22db6b7d0",
+              "bytes": 2503560
+            },
+            {
+              "name": "libxml2_2.9.10+dfsg-5.debian.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.10+dfsg-5/libxml2_2.9.10+dfsg-5.debian.tar.xz",
+              "sha256": "d2de33926b5f8093766050af3ad362a415f285c2339a675886f7b3aff3d220bf",
+              "bytes": 28736
+            }
+          ],
+          "signature_verified": false,
+          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+        }
+      }
+    ],
+    "libarchive": [
+      {
+        "package": "libarchive",
+        "version": "3.4.0-2ubuntu1.5",
+        "pocket": "Updates",
+        "published_at": "2025-04-23T19:22:36.480004+00:00",
+        "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17204996",
+        "source_files": [
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.dsc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz.asc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz"
+        ],
+        "source_integrity": {
+          "descriptor": {
+            "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.dsc",
+            "sha256": "7bdeaab28719c714aec49ba87f0e80bed1e3bb0a72aab3dcd3dec3dd0ecbe0ac",
+            "bytes": 2617
+          },
+          "archives": [
+            {
+              "name": "libarchive_3.4.0.orig.tar.gz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz",
+              "sha256": "8643d50ed40c759f5412a3af4e353cffbce4fdf3b5cf321cb72cacf06b2d825e",
+              "bytes": 6908093
+            },
+            {
+              "name": "libarchive_3.4.0.orig.tar.gz.asc",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz.asc",
+              "sha256": "5aa9d657d9d2f2481a8dce1bab4c733cfc18657b451f6551d60f37cce4ca2f57",
+              "bytes": 833
+            },
+            {
+              "name": "libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+              "sha256": "677bade6eeba5b5414d1ee48b8320e139d3ddb25f8d7b8728c04890571a491ed",
+              "bytes": 54556
+            }
+          ],
+          "signature_verified": false,
+          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+        }
+      },
+      {
+        "package": "libarchive",
+        "version": "3.4.0-2ubuntu1.5",
+        "pocket": "Security",
+        "published_at": "2025-04-23T17:49:48.879007+00:00",
+        "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/17204377",
+        "source_files": [
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.dsc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz.asc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz"
+        ],
+        "source_integrity": {
+          "descriptor": {
+            "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.dsc",
+            "sha256": "7bdeaab28719c714aec49ba87f0e80bed1e3bb0a72aab3dcd3dec3dd0ecbe0ac",
+            "bytes": 2617
+          },
+          "archives": [
+            {
+              "name": "libarchive_3.4.0.orig.tar.gz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz",
+              "sha256": "8643d50ed40c759f5412a3af4e353cffbce4fdf3b5cf321cb72cacf06b2d825e",
+              "bytes": 6908093
+            },
+            {
+              "name": "libarchive_3.4.0.orig.tar.gz.asc",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0.orig.tar.gz.asc",
+              "sha256": "5aa9d657d9d2f2481a8dce1bab4c733cfc18657b451f6551d60f37cce4ca2f57",
+              "bytes": 833
+            },
+            {
+              "name": "libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1.5/libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+              "sha256": "677bade6eeba5b5414d1ee48b8320e139d3ddb25f8d7b8728c04890571a491ed",
+              "bytes": 54556
+            }
+          ],
+          "signature_verified": false,
+          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+        }
+      },
+      {
+        "package": "libarchive",
+        "version": "3.4.0-2ubuntu1",
+        "pocket": "Release",
+        "published_at": "2020-04-06T13:18:28.444155+00:00",
+        "publication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/11167673",
+        "source_files": [
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0.orig.tar.gz",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0.orig.tar.gz.asc",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0-2ubuntu1.debian.tar.xz",
+          "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0-2ubuntu1.dsc"
+        ],
+        "source_integrity": {
+          "descriptor": {
+            "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0-2ubuntu1.dsc",
+            "sha256": "b622fcd254307c7d528102eb015a836786cd751fd0e5171cc49d46ef44883d61",
+            "bytes": 2530
+          },
+          "archives": [
+            {
+              "name": "libarchive_3.4.0.orig.tar.gz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0.orig.tar.gz",
+              "sha256": "8643d50ed40c759f5412a3af4e353cffbce4fdf3b5cf321cb72cacf06b2d825e",
+              "bytes": 6908093
+            },
+            {
+              "name": "libarchive_3.4.0.orig.tar.gz.asc",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0.orig.tar.gz.asc",
+              "sha256": "5aa9d657d9d2f2481a8dce1bab4c733cfc18657b451f6551d60f37cce4ca2f57",
+              "bytes": 833
+            },
+            {
+              "name": "libarchive_3.4.0-2ubuntu1.debian.tar.xz",
+              "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libarchive/3.4.0-2ubuntu1/libarchive_3.4.0-2ubuntu1.debian.tar.xz",
+              "sha256": "0754078b2183aee4f3cf88bdd3708f5c5ec983e0c1456643e88529be039d7e1b",
+              "bytes": 40444
+            }
+          ],
+          "signature_verified": false,
+          "verification_scope": "HTTPS publication and descriptor identity; archives must be checked against these hashes during import"
+        }
+      }
+    ]
+  }
+}
