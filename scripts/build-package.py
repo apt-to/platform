@@ -14,6 +14,8 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from package_recipe import download_source_assets, load_recipe
 
 
 def run(command, timeout=1200, **kwargs):
@@ -111,7 +113,7 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected)
     versions = report.get("scannedPackageVersions", {})
     if report.get("imageId") != image_id or not set(expected["binaryPackages"]).issubset(versions):
         raise RuntimeError("GetPatched scan did not identify every expected installed binary package and image")
-    expected_version = expected["baselineVersion"] if phase == "before" else expected["baselineVersion"] + "+getpatched1"
+    expected_version = expected["baselineVersion"] if phase == "before" else expected["packageVersion"]
     if any(versions[name] != expected_version for name in expected["binaryPackages"]):
         raise RuntimeError("GetPatched scan identified an unexpected installed package version")
     target_findings = set(report.get("findingsById", [])) & target_cves
@@ -128,9 +130,16 @@ def validate_release_policy(policy, config):
     package = policy["source"]
     expected = config["packages"][package]
     if (policy["baseVersion"] != expected["baselineVersion"] or
-        policy["sponsorDelayHours"] != expected["sponsorDelayHours"]):
+        policy["sponsorDelayHours"] != expected["sponsorDelayHours"] or
+        policy["version"] != expected["packageVersion"] or
+        policy["releaseSerial"] != expected["releaseSerial"]):
         raise RuntimeError("Packaging policy disagrees with project configuration")
-    if expected["targetCve"] not in policy["targetCves"] or policy["version"] != policy["baseVersion"] + "+getpatched1":
+    if (expected["targetCve"] not in policy["targetCves"]
+            or policy["targetCves"] != expected["targetCves"]
+            or policy["binaryPackages"] != expected["binaryPackages"]
+            or policy["architecture"] != config["architecture"]
+            or policy["release"] != config["release"]
+            or policy["version"] != expected["packageVersion"]):
         raise RuntimeError("Unexpected pilot backport identity")
     return package, expected
 
@@ -142,6 +151,7 @@ def release_eligibility(policy, verification_checks_passed=False):
         "schemaVersion": 1,
         "source": policy["source"],
         "sourceVersion": policy["version"],
+        "releaseSerial": policy["releaseSerial"],
         "supportScope": "latest-public-focal",
         "verificationChecksPassed": verification_checks_passed,
         "releaseEligible": True,
@@ -154,19 +164,24 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--target", help="exact target id from package-manifest.json; required for multi-target recipes")
     args = parser.parse_args()
     source = args.source.resolve()
     output = args.output.resolve()
     if output.exists() and any(output.iterdir()):
         parser.error("Use an empty output directory to avoid mixed evidence")
     output.mkdir(parents=True, exist_ok=True)
-    policy = json.loads((source / "debian/getpatched/release-policy.json").read_text())
-    provenance = json.loads((source / "debian/getpatched/source-provenance.json").read_text())
     config = json.loads((ROOT / "packages.json").read_text())
+    recipe = load_recipe(source, config, args.target)
+    policy = recipe["policy"]
     package, expected = validate_release_policy(policy, config)
     if run(["git", "-C", str(source), "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
         raise RuntimeError("Commit the reviewed packaging changes before recording build evidence")
     commit = run(["git", "-C", str(source), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise RuntimeError("Recipe checkout did not resolve to a full Git commit")
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "package-policy.json").write_text(json.dumps(policy, indent=2) + "\n")
     with tempfile.TemporaryDirectory(prefix="getpatched-build-inputs-") as directory:
         temp = Path(directory)
         name = "getpatched-build-" + package + "-" + uuid.uuid4().hex[:12]
@@ -178,17 +193,38 @@ def main():
         scan_images = []
         originals = temp / "originals"
         originals.mkdir()
-        for item in provenance["source_integrity"]["archives"]:
-            if ".orig.tar." not in item["name"]:
-                continue
-            if item["bytes"] > 128 * 1024 * 1024:
-                raise RuntimeError("Original archive exceeds pilot resource bound")
-            request = urllib.request.Request(item["url"], headers={"User-Agent": "getpatched.dev-build/0.1"})
-            with urllib.request.urlopen(request, timeout=60) as response:
-                content = response.read(item["bytes"] + 1)
-            if len(content) != item["bytes"] or hashlib.sha256(content).hexdigest() != item["sha256"]:
-                raise RuntimeError("Original archive size/hash mismatch")
-            (originals / item["name"]).write_bytes(content)
+        downloaded_sources = download_source_assets(recipe, originals)
+        source_provenance = {
+            "schemaVersion": 1,
+            "source": package,
+            "targetId": recipe["target"]["id"],
+            "baseVersion": policy["baseVersion"],
+            "packageVersion": policy["version"],
+            "releaseSerial": policy["releaseSerial"],
+            "recipeCommit": commit,
+            "recipeManifestSha256": sha256(source / "package-manifest.json"),
+            "patchMetadataSha256": sha256(source / recipe["manifest"]["patchMetadata"]),
+            "platformPolicySha256": sha256(ROOT / "packages.json"),
+            "sourcePublication": recipe["target"]["source"]["publication"],
+            "sourcePublishedAt": recipe["target"]["source"]["publishedAt"],
+            "sourceDescriptor": recipe["descriptor"],
+            "sourceFiles": recipe["sourceFiles"],
+            "downloadedSources": downloaded_sources,
+            "signatureVerification": recipe["target"]["source"]["signatureVerification"],
+            "patches": [
+                {
+                    "id": patch_id,
+                    "file": recipe["patchesById"][patch_id]["file"],
+                    "sha256": recipe["patchesById"][patch_id]["sha256"],
+                    "cves": recipe["patchesById"][patch_id]["cves"],
+                    "upstream": recipe["patchesById"][patch_id]["upstream"],
+                    "sourceVersion": policy["baseVersion"],
+                }
+                for patch_id in policy["patches"]
+            ],
+        }
+        provenance_path = temp / "source-provenance.json"
+        provenance_path.write_text(json.dumps(source_provenance, indent=2) + "\n")
         try:
             run([
                 "docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", name,
@@ -206,14 +242,25 @@ def main():
                 "docker", "run", "--name", container, "--platform", "linux/amd64",
                 "--network", "none", "--cpus", "2", "--memory", "4g", "--pids-limit", "512",
                 "--security-opt", "no-new-privileges:true",
-                "--mount", "type=bind,source=" + str(source) + ",target=/input,readonly",
+                "--mount", "type=bind,source=" + str(source) + ",target=/recipe,readonly",
                 "--mount", "type=bind,source=" + str(originals) + ",target=/originals,readonly",
                 "--mount", "type=bind,source=" + str(ROOT / "verification") + ",target=/verification,readonly",
                 "--mount", "type=bind,source=" + str(ROOT / "build/package.sh") + ",target=/recipe.sh,readonly",
+                "--mount", "type=bind,source=" + str(ROOT / "verification/materialize-package.py") + ",target=/materialize-package.py,readonly",
+                "--mount", "type=bind,source=" + str(output / "package-policy.json") + ",target=/package-policy.json,readonly",
+                "--mount", "type=bind,source=" + str(provenance_path) + ",target=/source-provenance.json,readonly",
                 "--mount", "type=bind,source=" + str(output) + ",target=/output",
                 name, "bash", "/recipe.sh", str(os.getuid()), str(os.getgid()),
             ], timeout=2400)
             result = {"source": package, "version": policy["version"], "sourceCommit": commit, "baseImage": config["baseImage"], "trustBundleImage": config["scannerImage"], "archiveSnapshot": config["archiveSnapshot"], "builderImageId": builder, "toolchainInventory": "build-toolchain.tsv", "publication": "none; binary outputs remained inside the disposable container"}
+            result.update({
+                "targetId": recipe["target"]["id"],
+                "releaseSerial": policy["releaseSerial"],
+                "sourceDescriptor": {"name": recipe["descriptor"]["name"], "sha256": recipe["descriptor"]["sha256"]},
+                "downloadedSourceAssets": downloaded_sources,
+                "patches": source_provenance["patches"],
+                "recipeManifestSha256": source_provenance["recipeManifestSha256"],
+            })
             (output / "build-provenance.json").write_text(json.dumps(result, indent=2) + "\n")
             (output / "build-container-id.txt").write_text(run(["docker", "container", "inspect", container, "--format", "{{.Id}}"], capture_output=True, text=True).stdout.strip() + "\n")
             debs = temp / "patched-debs"
@@ -309,7 +356,7 @@ def main():
                 "afterTrivy": str(output / (package + "-trivy-after.json")), "beforeOsv": osv_evidence["before"], "afterOsv": osv_evidence["after"],
                 "baselineRegression": str(output / "baseline-regression.json"), "patchedRegression": str(output / "patched-regression.json"),
                 "buildProvenance": str(output / "build-provenance.json"), "binaryManifest": str(output / "binary-manifest.json"),
-                "packagePolicy": str(source / "debian/getpatched/release-policy.json"), "databaseSha256": database_hash, "sourceCommit": commit,
+                "packagePolicy": str(output / "package-policy.json"), "databaseSha256": database_hash, "sourceCommit": commit,
                 "beforeScanMetadata": str(output / (package + "-trivy-before-metadata.json")),
                 "afterScanMetadata": str(output / (package + "-trivy-after-metadata.json")), "scanImages": str(output / "scan-images.json"),
                 "aptToFeed": str(ROOT / "advisories/getpatched-osv.json"),
@@ -319,7 +366,7 @@ def main():
             audit_input_path = temp / "audit-input.json"
             audit_input_path.write_text(json.dumps(audit_input))
             run(["python3", str(ROOT / "scripts/advisory-audit.py"), "--input", str(audit_input_path), "--output", str(output / "advisory-comparison.json")])
-            run(["python3", str(ROOT / "scripts/test-apt-repository.py"), "--source", str(source), "--output", str(output),
+            run(["python3", str(ROOT / "scripts/test-apt-repository.py"), "--recipe", str(source), "--policy", str(output / "package-policy.json"), "--output", str(output),
                  "--work", str(temp), "--builder-image", name, "--base-image", config["baseImage"],
                  "--trust-image", config["scannerImage"], "--archive-snapshot", config["archiveSnapshot"]])
             (output / "release-eligibility.json").write_text(json.dumps(release_eligibility(policy, verification_checks_passed=True), indent=2) + "\n")

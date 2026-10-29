@@ -71,16 +71,23 @@ def main():
         targets = data["targetCves"]
         if targets != package["targetCves"]:
             raise ValueError("target CVE list differs from reviewed platform configuration")
-        if data["baselineVersion"] != package["baselineVersion"] or data["patchedVersion"] != package["baselineVersion"] + "+getpatched1":
+        if data["baselineVersion"] != package["baselineVersion"] or data["patchedVersion"] != package["packageVersion"]:
             raise ValueError("package version identity does not match the configured backport")
         policy = load(data["packagePolicy"])
         provenance = load(data["buildProvenance"])
         manifest = load(data["binaryManifest"])
         baseline = load(data["baselineRegression"])
         patched = load(data["patchedRegression"])
-        if policy.get("source") != data["source"] or policy.get("targetCves") != targets or policy.get("baseVersion") != data["baselineVersion"] or policy.get("version") != data["patchedVersion"]:
+        if (policy.get("source") != data["source"] or policy.get("targetCves") != targets
+                or policy.get("baseVersion") != data["baselineVersion"]
+                or policy.get("version") != data["patchedVersion"]
+                or policy.get("releaseSerial") != package["releaseSerial"]):
             raise ValueError("Debian release policy identity mismatch")
-        if provenance.get("source") != data["source"] or provenance.get("version") != data["patchedVersion"] or provenance.get("sourceCommit") != data["sourceCommit"] or provenance.get("publication") != "none; binary outputs remained inside the disposable container":
+        if (provenance.get("source") != data["source"]
+                or provenance.get("version") != data["patchedVersion"]
+                or provenance.get("releaseSerial") != package["releaseSerial"]
+                or provenance.get("sourceCommit") != data["sourceCommit"]
+                or provenance.get("publication") != "none; binary outputs remained inside the disposable container"):
             raise ValueError("build provenance does not identify this unpublished source build")
         if baseline.get("phase") != "baseline" or baseline.get("source") != data["source"] or baseline.get("installedVersion") != data["baselineVersion"] or not baseline.get("passed"):
             raise ValueError("vulnerable baseline regression evidence is missing or failed")

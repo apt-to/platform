@@ -71,6 +71,7 @@ class AdvisoryAuditContract(unittest.TestCase):
                 "targetCves": ["CVE-2026-4111"],
                 "baseVersion": "3.4.0-2ubuntu1.5",
                 "version": "3.4.0-2ubuntu1.5+getpatched1",
+                "releaseSerial": 1,
             }))
             sidecars = {}
             for phase, report_path in (("before", before), ("after", after)):
@@ -83,6 +84,9 @@ class AdvisoryAuditContract(unittest.TestCase):
                 evidence_path = root / name
                 evidence_path.write_text((historical_evidence / name).read_text().replace("+aptto1", "+getpatched1"))
                 evidence_paths[name] = str(evidence_path)
+            build_provenance = json.loads(Path(evidence_paths["build-provenance.json"]).read_text())
+            build_provenance["releaseSerial"] = 1
+            Path(evidence_paths["build-provenance.json"]).write_text(json.dumps(build_provenance))
             input_data = {
                 "source": "libarchive",
                 "baselineVersion": "3.4.0-2ubuntu1.5",

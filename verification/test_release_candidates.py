@@ -20,9 +20,14 @@ class ReleaseCandidateOutput(unittest.TestCase):
             source_policy = {
                 "source": source,
                 "baseVersion": package["baselineVersion"],
-                "version": package["baselineVersion"] + "+getpatched1",
+                "version": package["packageVersion"],
+                "releaseSerial": package["releaseSerial"],
+                "targetCve": package["targetCve"],
                 "targetCves": package["targetCves"],
                 "sponsorDelayHours": package["sponsorDelayHours"],
+                "binaryPackages": package["binaryPackages"],
+                "architecture": policy["architecture"],
+                "release": policy["release"],
             }
             validated_source, expected = BUILD_PACKAGE.validate_release_policy(source_policy, policy)
             self.assertEqual(validated_source, source)
@@ -42,9 +47,14 @@ class ReleaseCandidateOutput(unittest.TestCase):
             source_policy = {
                 "source": source,
                 "baseVersion": package["baselineVersion"],
-                "version": package["baselineVersion"] + "+getpatched1",
+                "version": package["packageVersion"],
+                "releaseSerial": package["releaseSerial"],
+                "targetCve": package["targetCve"],
                 "targetCves": package["targetCves"],
                 "sponsorDelayHours": package["sponsorDelayHours"],
+                "binaryPackages": package["binaryPackages"],
+                "architecture": project["architecture"],
+                "release": project["release"],
             }
             mismatched = {**source_policy, "baseVersion": "unexpected"}
             with self.assertRaisesRegex(RuntimeError, "Packaging policy disagrees with project configuration"):
