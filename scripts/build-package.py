@@ -214,13 +214,14 @@ def main():
             "patches": [
                 {
                     "id": patch_id,
+                    "kind": recipe["patchesById"][patch_id].get("kind", "security"),
                     "file": recipe["patchesById"][patch_id]["file"],
                     "sha256": recipe["patchesById"][patch_id]["sha256"],
                     "cves": recipe["patchesById"][patch_id]["cves"],
-                    "upstream": recipe["patchesById"][patch_id]["upstream"],
+                    "upstream": recipe["patchesById"][patch_id].get("upstream"),
                     "sourceVersion": policy["baseVersion"],
                 }
-                for patch_id in policy["patches"]
+                for patch_id in policy["patches"] + policy.get("buildPatches", [])
             ],
         }
         provenance_path = temp / "source-provenance.json"

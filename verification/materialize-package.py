@@ -52,6 +52,7 @@ def main():
 
     metadata = read_json(recipe / manifest["patchMetadata"])
     patch_by_id = {item["id"]: item for item in metadata["patches"]}
+    selected_patch_ids = target["patches"] + target.get("buildPatches", [])
     patch_dir = source_root / "debian/patches"
     patch_dir.mkdir(parents=True, exist_ok=True)
     series_path = patch_dir / "series"
@@ -60,7 +61,7 @@ def main():
                       for line in existing_series.splitlines()
                       if line.split("#", 1)[0].strip()]
     appended = []
-    for patch_id in target["patches"]:
+    for patch_id in selected_patch_ids:
         item = patch_by_id[patch_id]
         patch_name = item["file"]
         if Path(patch_name).name != patch_name or "\n" in patch_name or "\t" in patch_name:
@@ -74,7 +75,7 @@ def main():
         series_path.write_text(existing_series + separator + "\n".join(appended) + "\n")
     fixture_root = recipe / manifest["regressionTests"]["fixturesDirectory"]
     for item in metadata["patches"]:
-        if item["id"] not in target["patches"]:
+        if item["id"] not in selected_patch_ids:
             continue
         for reference in item.get("referenceFiles", []):
             relative = Path(reference["path"])
@@ -89,7 +90,7 @@ def main():
                 source_root / "debian/tests/fixtures" / relative.relative_to(fixture_root.relative_to(recipe)),
             )
         for test in item["tests"]:
-            for fixture in test["fixtures"]:
+            for fixture in test.get("fixtures", []):
                 relative = Path(fixture["path"])
                 if relative.is_absolute() or ".." in relative.parts:
                     raise RuntimeError("Regression fixture path escapes the recipe")
@@ -106,8 +107,10 @@ def main():
     provenance = read_json(args.provenance)
     if (policy.get("source") != package or policy.get("baseVersion") != base_version
             or policy.get("version") != package_version
+            or policy.get("patches") != target["patches"]
             or policy.get("releaseSerial") != target["releaseSerial"]
-            or policy.get("targetId") != target["id"]):
+            or policy.get("targetId") != target["id"]
+            or policy.get("buildPatches", []) != target.get("buildPatches", [])):
         raise RuntimeError("Derived policy does not match the recipe target")
 
     getpatched = source_root / "debian/getpatched"
@@ -122,6 +125,9 @@ def main():
     for patch_id in target["patches"]:
         item = patch_by_id[patch_id]
         patch_lines.append(f"  * Backport {', '.join(item['cves'])}: {item['title']}.")
+    for patch_id in target.get("buildPatches", []):
+        item = patch_by_id[patch_id]
+        patch_lines.append(f"  * Apply test-only build compatibility patch: {item['title']}.")
     patch_summary = "\n".join(patch_lines)
     changelog_data = target["changelog"]
     parsed_date = parsedate_to_datetime(changelog_data["date"])
@@ -137,7 +143,7 @@ def main():
 
     args.source_provenance.parent.mkdir(parents=True, exist_ok=True)
     args.source_provenance.write_text(json.dumps(provenance, indent=2) + "\n")
-    print(f"{package}: materialized target {target['id']} with patches {', '.join(target['patches'])}")
+    print(f"{package}: materialized target {target['id']} with patches {', '.join(selected_patch_ids)}")
 
 
 if __name__ == "__main__":

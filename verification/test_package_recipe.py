@@ -32,9 +32,11 @@ class PackageRecipeContract(unittest.TestCase):
         (self.root / "tests/fixtures").mkdir(parents=True)
         (self.root / "LICENSES").mkdir()
         self.patch_bytes = b"diff --git a/libarchive/fix.c b/libarchive/fix.c\n"
+        self.build_patch_bytes = b"diff --git a/libarchive/test.c b/libarchive/test.c\n"
         self.fixture_bytes = b"bounded regression input\n"
         self.reference_bytes = b"upstream-style regression source\n"
         (self.root / "patches/fix.patch").write_bytes(self.patch_bytes)
+        (self.root / "patches/build-test.patch").write_bytes(self.build_patch_bytes)
         (self.root / "tests/fixtures/input.bin").write_bytes(self.fixture_bytes)
         (self.root / "tests/fixtures/reference.c").write_bytes(self.reference_bytes)
         (self.root / "LICENSES/ubuntu-source-copyright").write_text("Copyright notice\n")
@@ -83,6 +85,7 @@ class PackageRecipeContract(unittest.TestCase):
                 "changelog": {"distribution": "focal", "urgency": "medium", "maintainer": "GetPatched <packages@getpatched.dev>", "date": "Thu, 29 Oct 2026 00:00:00 +0000"},
                 "binaryPackages": central["binaryPackages"],
                 "patches": ["cve-2026-4111"],
+                "buildPatches": ["test-zstd-size-tolerance"],
                 "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0},
             }],
             "patchMetadata": "patches/metadata.json",
@@ -90,6 +93,7 @@ class PackageRecipeContract(unittest.TestCase):
         }
         self.metadata = {"schemaVersion": 1, "patches": [{
             "id": "cve-2026-4111",
+            "kind": "security",
             "file": "fix.patch",
             "sha256": digest(self.patch_bytes),
             "title": "Reject oversized RAR5 filter blocks",
@@ -99,6 +103,15 @@ class PackageRecipeContract(unittest.TestCase):
             "dep3": {"origin": "upstream", "forwarded": "not-needed", "lastUpdate": "2026-10-29"},
             "referenceFiles": [{"path": "tests/fixtures/reference.c", "sha256": digest(self.reference_bytes), "purpose": "review context"}],
             "tests": [{"id": "fixture-regression", "runner": "getpatched/platform:verification/regression.py", "fixtures": [{"path": "tests/fixtures/input.bin", "sha256": digest(self.fixture_bytes)}]}],
+        }, {
+            "id": "test-zstd-size-tolerance",
+            "kind": "build-compatibility",
+            "file": "build-test.patch",
+            "sha256": digest(self.build_patch_bytes),
+            "title": "Allow a two-byte Zstandard output variation in a tiny-input test",
+            "cves": [],
+            "appliesTo": [{"target": "ubuntu-focal-amd64", "sourceVersion": source_version}],
+            "tests": [{"id": "upstream-test-suite", "runner": "debian/rules check", "expectation": "All upstream tests complete with the bounded output-size exception."}],
         }]}
         self._write_json(self.root / "package-manifest.json", self.manifest)
         self._write_json(self.root / "patches/metadata.json", self.metadata)
@@ -112,6 +125,13 @@ class PackageRecipeContract(unittest.TestCase):
         self.assertEqual(recipe["policy"]["source"], "libarchive")
         self.assertEqual(recipe["policy"]["version"], "3.4.0-2ubuntu1.5+getpatched1")
         self.assertEqual(recipe["policy"]["patches"], ["cve-2026-4111"])
+        self.assertEqual(recipe["policy"]["buildPatches"], ["test-zstd-size-tolerance"])
+
+    def test_build_compatibility_patch_cannot_claim_cves(self):
+        self.metadata["patches"][1]["cves"] = ["CVE-2026-4111"]
+        self._write_json(self.root / "patches/metadata.json", self.metadata)
+        with self.assertRaisesRegex(RuntimeError, "Build patch .* list no CVEs"):
+            RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
 
     def test_patch_and_fixture_checksums_are_enforced(self):
         (self.root / "patches/fix.patch").write_bytes(self.patch_bytes + b"changed")
@@ -181,8 +201,9 @@ class PackageRecipeContract(unittest.TestCase):
             MATERIALIZER.main()
 
         series = (source / "debian/patches/series").read_text()
-        self.assertEqual(series, "# Ubuntu patches\nvendor.patch -p1\nfix.patch\n")
+        self.assertEqual(series, "# Ubuntu patches\nvendor.patch -p1\nfix.patch\nbuild-test.patch\n")
         self.assertEqual((source / "debian/patches/fix.patch").read_bytes(), self.patch_bytes)
+        self.assertEqual((source / "debian/patches/build-test.patch").read_bytes(), self.build_patch_bytes)
         self.assertEqual((source / "debian/tests/fixtures/input.bin").read_bytes(), self.fixture_bytes)
         self.assertEqual((source / "debian/tests/fixtures/reference.c").read_bytes(), self.reference_bytes)
         self.assertTrue((source / "debian/getpatched/package-manifest.json").is_file())
@@ -192,6 +213,7 @@ class PackageRecipeContract(unittest.TestCase):
         changelog = (source / "debian/changelog").read_text()
         self.assertTrue(changelog.startswith("libarchive (3.4.0-2ubuntu1.5+getpatched1) focal; urgency=medium\n"))
         self.assertIn("CVE-2026-4111", changelog)
+        self.assertIn("test-only build compatibility patch", changelog)
         self.assertIn("Existing Ubuntu changelog entry.", changelog)
 
 

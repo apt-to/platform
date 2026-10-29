@@ -159,13 +159,19 @@ def load_recipe(root, platform_config, target_id=None):
     patches = metadata["patches"]
     patch_by_id = {item.get("id"): item for item in patches if isinstance(item, dict)}
     patch_ids = target.get("patches")
-    if (not isinstance(patch_ids, list) or not patch_ids or len(set(patch_ids)) != len(patch_ids)
-            or not set(patch_ids).issubset(patch_by_id) or len(patch_by_id) != len(patches)):
-        raise RuntimeError("Target patch list must refer to unique patch metadata IDs")
+    build_patch_ids = target.get("buildPatches", [])
+    all_patch_ids = patch_ids + build_patch_ids if isinstance(patch_ids, list) and isinstance(build_patch_ids, list) else []
+    if (not isinstance(patch_ids, list) or not patch_ids
+            or not isinstance(build_patch_ids, list)
+            or any(not isinstance(item, str) for item in all_patch_ids)
+            or len(set(all_patch_ids)) != len(all_patch_ids)
+            or not set(all_patch_ids).issubset(patch_by_id)
+            or len(patch_by_id) != len(patches)):
+        raise RuntimeError("Target security and build patch lists must refer to unique patch metadata IDs")
     cves = set()
     fixture_entries = {}
     reference_entries = {}
-    for patch_id in patch_ids:
+    for patch_id in all_patch_ids:
         item = patch_by_id[patch_id]
         patch_path = f"patches/{item.get('file', '')}"
         if not item.get("file") or PurePosixPath(item["file"]).name != item["file"]:
@@ -175,10 +181,18 @@ def load_recipe(root, platform_config, target_id=None):
                       if entry.get("target") == target["id"] and entry.get("sourceVersion") == version]
         if len(applicable) != 1:
             raise RuntimeError(f"Patch {patch_id} is not pinned to exactly this target and source version")
+        patch_kind = item.get("kind", "security")
         patch_cves = item.get("cves")
-        if not isinstance(patch_cves, list) or not patch_cves or len(set(patch_cves)) != len(patch_cves):
+        if (not isinstance(patch_cves, list)
+                or any(not isinstance(cve, str) or not cve for cve in patch_cves)
+                or len(set(patch_cves)) != len(patch_cves)):
             raise RuntimeError(f"Patch {patch_id} must list unique CVE identifiers")
-        cves.update(patch_cves)
+        if patch_id in patch_ids:
+            if patch_kind != "security" or not patch_cves:
+                raise RuntimeError(f"Security patch {patch_id} must be typed as security and list CVEs")
+            cves.update(patch_cves)
+        elif patch_kind != "build-compatibility" or patch_cves:
+            raise RuntimeError(f"Build patch {patch_id} must be build-compatibility-only and list no CVEs")
         tests = item.get("tests")
         if not isinstance(tests, list) or not tests:
             raise RuntimeError(f"Patch {patch_id} must declare regression tests")
@@ -223,6 +237,7 @@ def load_recipe(root, platform_config, target_id=None):
         "binaryPackages": target["binaryPackages"],
         "ubuntuProEsmCompatibility": central["ubuntuProEsmCompatibility"],
         "patches": patch_ids,
+        "buildPatches": build_patch_ids,
     }
     return {"manifest": manifest, "target": target, "metadata": metadata,
             "patchesById": patch_by_id, "policy": policy, "central": central,
