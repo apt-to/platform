@@ -22,7 +22,14 @@ def osv_targets(path, package, ecosystem, version, targets, *, required):
     wanted = {"package": {"name": package, "ecosystem": ecosystem}, "version": version}
     if request != wanted:
         raise ValueError(f"OSV request identity mismatch in {path}")
-    records = wrapper.get("response", {}).get("vulns")
+    response = wrapper.get("response")
+    if not isinstance(response, dict) or set(response) - {"vulns", "next_page_token"}:
+        raise ValueError(f"OSV response malformed in {path}")
+    if "next_page_token" in response:
+        raise ValueError(f"OSV response is paginated and incomplete in {path}")
+    # OSV uses protobuf JSON encoding and may omit an empty repeated `vulns`
+    # field entirely. A successful `{}` response therefore means no matches.
+    records = response.get("vulns", [])
     if not isinstance(records, list):
         raise ValueError(f"OSV response missing vulnerability list in {path}")
     hits = {}

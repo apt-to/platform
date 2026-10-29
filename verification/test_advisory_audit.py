@@ -41,7 +41,7 @@ class AdvisoryAuditContract(unittest.TestCase):
             request_before = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5"}
             request_after = {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"}
             record = {"id": "UBUNTU-CVE-2026-4111", "upstream": ["CVE-2026-4111"]}
-            osv_before.write_text(json.dumps({"request": request_before, "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": []}}))
+            osv_before.write_text(json.dumps({"request": request_before, "endpoint": "https://api.osv.dev/v1/query", "response": {}}))
             osv_after.write_text(json.dumps({"request": request_after, "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": [record]}}))
             image_ids = {"baselineImageId": "sha256:baseline", "patchedImageId": "sha256:patched"}
             image_path = root / "images.json"
@@ -154,7 +154,7 @@ class AdvisoryAuditContract(unittest.TestCase):
             response = root / "osv.json"
             response.write_text(json.dumps({
                 "request": {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5+getpatched1"},
-                "endpoint": "https://api.osv.dev/v1/query", "response": {"vulns": []},
+                "endpoint": "https://api.osv.dev/v1/query", "response": {},
             }))
             hits, records = module.osv_targets(response, "libarchive", "Ubuntu:20.04:LTS", "3.4.0-2ubuntu1.5+getpatched1", ["CVE-2026-4111"], required=False)
             self.assertEqual(hits, {"CVE-2026-4111": []})
@@ -176,6 +176,13 @@ class AdvisoryAuditContract(unittest.TestCase):
             hits, records = audit.osv_targets(response, "libarchive", "Ubuntu:20.04:LTS", "3.4.0-2ubuntu1.5", ["CVE-2026-4111"], required=False)
             self.assertEqual(hits, {"CVE-2026-4111": []})
             self.assertEqual(records, [])
+            for token in ("more", ""):
+                response.write_text(json.dumps({
+                    "request": {"package": {"name": "libarchive", "ecosystem": "Ubuntu:20.04:LTS"}, "version": "3.4.0-2ubuntu1.5"},
+                    "endpoint": "https://api.osv.dev/v1/query", "response": {"next_page_token": token},
+                }))
+                with self.assertRaisesRegex(ValueError, "paginated and incomplete"):
+                    audit.osv_targets(response, "libarchive", "Ubuntu:20.04:LTS", "3.4.0-2ubuntu1.5", ["CVE-2026-4111"], required=False)
 
 
 if __name__ == "__main__":
