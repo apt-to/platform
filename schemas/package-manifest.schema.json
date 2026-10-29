@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://getpatched.dev/schemas/package-manifest.schema.json",
+  "title": "GetPatched package recipe index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "project", "package", "targets", "patchMetadata", "regressionTests", "licensing"],
+  "properties": {
+    "schemaVersion": {"const": 3},
+    "project": {"type": "object", "required": ["name", "repository", "description"], "properties": {"name": {"const": "GetPatched"}, "repository": {"type": "string", "pattern": "^getpatched/packaging-"}, "description": {"type": "string"}}},
+    "package": {"type": "object", "required": ["source", "description", "copyrightFile"], "properties": {"source": {"type": "string", "pattern": "^[a-z0-9][a-z0-9+.-]*$"}, "description": {"type": "string"}, "upstreamProject": {"type": "string"}, "upstreamRepository": {"type": "string", "format": "uri"}, "copyrightFile": {"type": "string"}}},
+    "targets": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["id", "file"], "properties": {"id": {"type": "string", "pattern": "^(ubuntu|debian)-[a-z0-9-]+-(amd64|arm64)$"}, "file": {"type": "string", "pattern": "^targets/(ubuntu|debian)/[a-z0-9-]+-(amd64|arm64)\\.json$"}}}},
+    "patchMetadata": {"type": "string"},
+    "regressionTests": {"type": "object", "required": ["fixturesDirectory", "runner"], "properties": {"fixturesDirectory": {"type": "string"}, "runner": {"type": "string"}}},
+    "licensing": {"type": "object", "additionalProperties": false, "required": ["publicContributionsSpdx", "publicContributionsLicenseFile", "earlyBinaryLicenseId", "earlyBinaryTermsFile", "upstreamCopyrightFile", "upstreamLicenses"], "properties": {"publicContributionsSpdx": {"const": "MIT"}, "publicContributionsLicenseFile": {"type": "string"}, "earlyBinaryLicenseId": {"const": "LicenseRef-GetPatched-Early-Binary-1.0"}, "earlyBinaryTermsFile": {"type": "string"}, "upstreamCopyrightFile": {"type": "string"}, "upstreamLicenses": {"const": "preserve"}}}
+  }
+}

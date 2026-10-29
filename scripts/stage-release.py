@@ -10,6 +10,9 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "scripts"))
+from platform_policy import package_target_policy, target_profile
 
 
 def validate_endpoint(value):
@@ -55,9 +58,18 @@ def main():
     manifest = json.loads(Path(os.environ["CANDIDATE_MANIFEST"]).read_text())
     config = json.loads((ROOT / "packages.json").read_text())
     package = manifest["source"]
-    policy = config["packages"].get(package)
-    if not policy or manifest["distribution"] != "focal" or manifest["architecture"] != "amd64":
-        raise RuntimeError("candidate is outside the configured focal amd64 pilot")
+    target_id = manifest.get("targetId")
+    try:
+        profile = target_profile(config, target_id)
+        policy = package_target_policy(config, package, target_id)
+    except (KeyError, ValueError) as error:
+        raise RuntimeError(f"candidate target is not configured: {error}") from error
+    if (not profile["repository"]["enabled"]
+            or manifest["distribution"] != profile["codename"]
+            or manifest["architecture"] != profile["architecture"]):
+        raise RuntimeError("candidate target is configured for builds but not enabled for repository publication")
+    if target_id != "ubuntu-focal-amd64":
+        raise RuntimeError("the release Worker currently routes only the verified Ubuntu Focal amd64 target")
     if manifest["sourceCommit"] != os.environ.get("SOURCE_COMMIT", manifest["sourceCommit"]):
         raise RuntimeError("candidate source commit does not match the completed build")
     candidates = manifest["packages"]
@@ -67,9 +79,9 @@ def main():
     if not candidates or {item["package"] for item in candidates} != set(policy["binaryPackages"]):
         raise RuntimeError("candidate binary package set does not match the approved package policy")
     for item in candidates:
-        if not re.fullmatch(r"[a-z0-9][a-z0-9+.-]*_[A-Za-z0-9.+:~+-]+_amd64\.deb", item["name"]):
+        if not re.fullmatch(r"[a-z0-9][a-z0-9+.-]*_[A-Za-z0-9.+:~+-]+_" + re.escape(profile["architecture"]) + r"\.deb", item["name"]):
             raise RuntimeError("candidate contains an unsafe or unexpected binary filename")
-        if item["architecture"] != "amd64" or item["version"] != manifest["sourceVersion"]:
+        if item["architecture"] != profile["architecture"] or item["version"] != manifest["sourceVersion"]:
             raise RuntimeError("candidate binary version or architecture is inconsistent")
         binary = Path(os.environ["BINARY_DIRECTORY"]) / item["name"]
         digest = hashlib.sha256(binary.read_bytes()).hexdigest()
@@ -86,15 +98,18 @@ def main():
 
     endpoint = validate_endpoint(os.environ["GETPATCHED_RELEASE_ENDPOINT"])
     source_repo = f"getpatched/packaging-{package}"
-    release_id = f"{package}-{manifest['sourceVersion'].lower()}"
+    release_id = f"{package}-{target_id}-{manifest['sourceVersion'].lower()}"
     release_id = "-".join(filter(None, re.split(r"[^a-z0-9]+", release_id)))
     assets = [{"name": item["name"], "sha256": item["sha256"]} for item in candidates]
     registration = {
         "id": release_id,
         "repository": source_repo,
-        "tag": f"getpatched/{manifest['sourceVersion']}",
+        "tag": f"getpatched/{target_id}/{manifest['sourceVersion']}",
+        "target_id": target_id,
         "source_commit": manifest["sourceCommit"],
-        "sponsor_delay_hours": policy["sponsorDelayHours"],
+        "sponsor_delay_hours": policy["releaseAccess"]["sponsorDelayHours"],
+        "early_binary_license_id": policy["releaseAccess"]["earlyBinaryLicenseId"],
+        "public_contribution_spdx": policy["releaseAccess"]["publicContributionSpdx"],
         "verification_run_id": int(os.environ["VERIFICATION_RUN_ID"]),
         "required_assets": assets,
         "source_assets": [{"name": item["name"], "sha256": item["sha256"]} for item in source_candidates],
@@ -119,12 +134,12 @@ def main():
     status, source_publication = call(f"{endpoint}/internal/releases/{release_id}/publish-sources", "POST", body={})
     if status != 200 or not isinstance(source_publication, dict) or not source_publication.get("source_release_tag"):
         raise RuntimeError(f"public source release returned unexpected HTTP {status}")
-    if policy["sponsorDelayHours"] == 168 and saved.get("state") == "prepared":
+    if policy["releaseAccess"]["sponsorDelayHours"] == 168 and saved.get("state") == "prepared":
         status, publication = call(f"{endpoint}/internal/releases/{release_id}/publish-sponsor", "POST", body={})
         if status not in (200, 201):
             raise RuntimeError(f"sponsor publication returned unexpected HTTP {status}")
         publication_state = publication.get("state")
-    elif policy["sponsorDelayHours"] == 0 and saved.get("state") == "prepared":
+    elif policy["releaseAccess"]["sponsorDelayHours"] == 0 and saved.get("state") == "prepared":
         status, published = call(f"{endpoint}/internal/releases/{release_id}/publish-now", "POST", body={})
         if status != 200 or not isinstance(published, dict) or published.get("state") != "public":
             raise RuntimeError(f"immediate public release returned unexpected HTTP {status}")

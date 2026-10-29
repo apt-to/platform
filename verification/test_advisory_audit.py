@@ -56,7 +56,7 @@ class AdvisoryAuditContract(unittest.TestCase):
                 status_path.write_text("verified status inventory " + phase)
                 scan_path = root / (phase + "-getpatched-scan.json")
                 scan_path.write_text(json.dumps({
-                    "scanner": "getpatched-dpkg-osv/1", "release": "focal", "architecture": "amd64", "imageId": image_id,
+                    "scanner": "getpatched-dpkg-osv/1", "targetId": "ubuntu-focal-amd64", "release": "focal", "architecture": "amd64", "imageId": image_id,
                     "advisoryFeedSha256": hashlib.sha256(getpatched_feed.read_bytes()).hexdigest(),
                     "packagePolicySha256": hashlib.sha256((ROOT / "packages.json").read_bytes()).hexdigest(),
                     "statusFileSha256": hashlib.sha256(status_path.read_bytes()).hexdigest(),
@@ -68,6 +68,7 @@ class AdvisoryAuditContract(unittest.TestCase):
             package_policy = root / "release-policy.json"
             package_policy.write_text(json.dumps({
                 "source": "libarchive",
+                "targetId": "ubuntu-focal-amd64",
                 "targetCves": ["CVE-2026-4111"],
                 "baseVersion": "3.4.0-2ubuntu1.5",
                 "version": "3.4.0-2ubuntu1.5+getpatched1",
@@ -82,13 +83,21 @@ class AdvisoryAuditContract(unittest.TestCase):
             evidence_paths = {}
             for name in ("baseline-regression.json", "patched-regression.json", "build-provenance.json", "binary-manifest.json"):
                 evidence_path = root / name
-                evidence_path.write_text((historical_evidence / name).read_text().replace("+aptto1", "+getpatched1"))
+                evidence = json.loads((historical_evidence / name).read_text().replace("+aptto1", "+getpatched1"))
+                evidence["targetId"] = "ubuntu-focal-amd64"
+                if name in ("baseline-regression.json", "patched-regression.json"):
+                    evidence.update(distribution="Ubuntu", release="focal", architecture="amd64")
+                elif name == "binary-manifest.json":
+                    evidence.update(source="libarchive", sourceVersion="3.4.0-2ubuntu1.5",
+                                    version="3.4.0-2ubuntu1.5+getpatched1", architecture="amd64")
+                evidence_path.write_text(json.dumps(evidence))
                 evidence_paths[name] = str(evidence_path)
             build_provenance = json.loads(Path(evidence_paths["build-provenance.json"]).read_text())
             build_provenance["releaseSerial"] = 1
             Path(evidence_paths["build-provenance.json"]).write_text(json.dumps(build_provenance))
             input_data = {
                 "source": "libarchive",
+                "targetId": "ubuntu-focal-amd64",
                 "baselineVersion": "3.4.0-2ubuntu1.5",
                 "patchedVersion": "3.4.0-2ubuntu1.5+getpatched1",
                 "targetCves": ["CVE-2026-4111"],
@@ -126,8 +135,8 @@ class AdvisoryAuditContract(unittest.TestCase):
             self.assertEqual(report["aptToAdvisoryIntegration"]["findings"][0]["patched"], "resolved by GetPatched backport; exact installed version and target regression passed")
             self.assertEqual(report["canonicalOsv"]["after"]["missingTargetIds"], [])
             self.assertEqual(report["canonicalOsv"]["before"]["missingTargetIds"], ["CVE-2026-4111"])
-            self.assertIn("absence is not interpreted", report["assessment"]["ubuntuPublishedVersionStatus"]["interpretation"])
-            self.assertEqual(report["assessment"]["ubuntuPublishedVersionStatus"]["missingTargetIds"], ["CVE-2026-4111"])
+            self.assertIn("absence is not interpreted", report["assessment"]["vendorPublishedVersionStatus"]["interpretation"])
+            self.assertEqual(report["assessment"]["vendorPublishedVersionStatus"]["missingTargetIds"], ["CVE-2026-4111"])
             self.assertEqual(hashlib.sha256(before.read_bytes()).hexdigest(), original_before)
             self.assertEqual(hashlib.sha256(after.read_bytes()).hexdigest(), original_after)
             contradictory = json.loads(getpatched_scan_paths["after"][0].read_text())

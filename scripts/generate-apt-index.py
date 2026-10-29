@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate deterministic focal Packages/Sources indexes and by-hash copies."""
+"""Generate deterministic target-specific Packages/Sources indexes and by-hash copies."""
 import argparse
 import gzip
 import hashlib
@@ -35,10 +35,11 @@ def release_sha256_entries(release_text):
     return entries
 
 
-def rewrite_release_checksums(release_path, dist):
+def rewrite_release_checksums(release_path, dist, architecture="amd64"):
     original = release_path.read_text()
-    if "Architectures: amd64\n" not in original:
-        raise ValueError("APT Release metadata is missing the expected amd64 architecture")
+    architecture_line = f"Architectures: {architecture}\n"
+    if architecture_line not in original:
+        raise ValueError(f"APT Release metadata is missing the expected {architecture} architecture")
     entries = release_sha256_entries(original)
     if not entries:
         raise ValueError("APT Release metadata has no index checksums")
@@ -53,7 +54,7 @@ def rewrite_release_checksums(release_path, dist):
         content = path.read_bytes()
         if len(content) != expected_size or hashlib.sha256(content).hexdigest() != expected_hash:
             raise ValueError(f"APT Release checksum mismatch for {relative}")
-    text = original.replace("Architectures: amd64\n", "Architectures: amd64\nAcquire-By-Hash: yes\n", 1)
+    text = original.replace(architecture_line, architecture_line + "Acquire-By-Hash: yes\n", 1)
     lines = text.splitlines()
     rebuilt = []
     in_sha256 = False
@@ -169,7 +170,7 @@ def generate(repo, suite, architecture, component, description):
     ]
     with release_path.open("wb") as output:
         run(command, cwd=repo, stdout=output)
-    entries = rewrite_release_checksums(release_path, dist)
+    entries = rewrite_release_checksums(release_path, dist, architecture)
     write_by_hash(dist, entries)
     return {"suite": suite, "architecture": architecture, "component": component,
             "indexes": sorted(entries), "release": str(release_path.relative_to(repo))}

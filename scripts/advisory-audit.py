@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Compare raw Trivy and Ubuntu OSV reference evidence without suppressing findings."""
+"""Compare raw Trivy and distribution OSV reference evidence without suppressing findings."""
 import argparse
 import hashlib
 import json
 from pathlib import Path
 import re
 import sys
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from platform_policy import package_target_policy, scanner_config, target_profile
 
 
 def load(path):
@@ -62,12 +65,14 @@ def main():
     args = parser.parse_args()
     try:
         data = load(args.input)
-        required = ("source", "baselineVersion", "patchedVersion", "targetCves", "beforeTrivy", "afterTrivy", "beforeOsv", "afterOsv", "baselineRegression", "patchedRegression", "buildProvenance", "binaryManifest", "packagePolicy", "databaseSha256", "sourceCommit", "beforeScanMetadata", "afterScanMetadata", "scanImages", "aptToFeed", "beforeAptToScan", "afterAptToScan", "beforeAptToStatus", "afterAptToStatus")
+        required = ("source", "targetId", "baselineVersion", "patchedVersion", "targetCves", "beforeTrivy", "afterTrivy", "beforeOsv", "afterOsv", "baselineRegression", "patchedRegression", "buildProvenance", "binaryManifest", "packagePolicy", "databaseSha256", "sourceCommit", "beforeScanMetadata", "afterScanMetadata", "scanImages", "aptToFeed", "beforeAptToScan", "afterAptToScan", "beforeAptToStatus", "afterAptToStatus")
         missing = [key for key in required if key not in data]
         if missing:
             raise ValueError("required evidence fields missing: " + ", ".join(missing))
-        config = load(Path(__file__).resolve().parents[1] / "packages.json")
-        package = config["packages"][data["source"]]
+        config = load(ROOT / "packages.json")
+        profile = target_profile(config, data["targetId"])
+        package = package_target_policy(config, data["source"], data["targetId"])
+        scanner = scanner_config(config)
         targets = data["targetCves"]
         if targets != package["targetCves"]:
             raise ValueError("target CVE list differs from reviewed platform configuration")
@@ -78,26 +83,31 @@ def main():
         manifest = load(data["binaryManifest"])
         baseline = load(data["baselineRegression"])
         patched = load(data["patchedRegression"])
-        if (policy.get("source") != data["source"] or policy.get("targetCves") != targets
+        if (policy.get("source") != data["source"] or policy.get("targetId") != data["targetId"] or policy.get("targetCves") != targets
                 or policy.get("baseVersion") != data["baselineVersion"]
                 or policy.get("version") != data["patchedVersion"]
                 or policy.get("releaseSerial") != package["releaseSerial"]):
             raise ValueError("Debian release policy identity mismatch")
-        if (provenance.get("source") != data["source"]
+        if (provenance.get("source") != data["source"] or provenance.get("targetId") != data["targetId"]
                 or provenance.get("version") != data["patchedVersion"]
                 or provenance.get("releaseSerial") != package["releaseSerial"]
                 or provenance.get("sourceCommit") != data["sourceCommit"]
                 or provenance.get("publication") != "none; binary outputs remained inside the disposable container"):
             raise ValueError("build provenance does not identify this unpublished source build")
-        if baseline.get("phase") != "baseline" or baseline.get("source") != data["source"] or baseline.get("installedVersion") != data["baselineVersion"] or not baseline.get("passed"):
+        if baseline.get("phase") != "baseline" or baseline.get("source") != data["source"] or baseline.get("targetId") != data["targetId"] or baseline.get("installedVersion") != data["baselineVersion"] or not baseline.get("passed"):
             raise ValueError("vulnerable baseline regression evidence is missing or failed")
-        if patched.get("phase") != "patched" or patched.get("source") != data["source"] or patched.get("installedVersion") != data["patchedVersion"] or not patched.get("passed"):
+        if patched.get("phase") != "patched" or patched.get("source") != data["source"] or patched.get("targetId") != data["targetId"] or patched.get("installedVersion") != data["patchedVersion"] or not patched.get("passed"):
             raise ValueError("installed patched regression evidence is missing or failed")
         baseline_cves = {check.get("cve") for check in baseline.get("checks", []) if check.get("passed")}
         patched_cves = {check.get("cve") for check in patched.get("checks", []) if check.get("passed")}
         if not set(targets).issubset(baseline_cves) or not set(targets).issubset(patched_cves):
             raise ValueError("a configured target CVE lacks passing baseline or installed patched regression evidence")
         expected_binary_names = package["binaryPackages"]
+        if (manifest.get("source") != data["source"] or manifest.get("targetId") != data["targetId"]
+                or manifest.get("sourceVersion") != data["baselineVersion"]
+                or manifest.get("version") != data["patchedVersion"]
+                or manifest.get("architecture") != profile["architecture"]):
+            raise ValueError("binary manifest does not identify this package target and version")
         manifest_packages = manifest.get("packages", [])
         for binary in expected_binary_names:
             candidates = [p for p in manifest_packages if p.get("control", "").startswith("Package: " + binary + "\n")]
@@ -105,13 +115,12 @@ def main():
                 raise ValueError("binary manifest lacks exact version and SHA-256 for " + binary)
         if not re.fullmatch(r"[0-9a-f]{64}", data["databaseSha256"]):
             raise ValueError("invalid pinned scanner database digest")
-        # Ubuntu OSV is an unmodified public-vendor reference. Some OSV records
-        # cover only Pro/ESM packages; public-Focal eligibility is independently
-        # established by installed regressions and the exact-version GetPatched scan.
-        before_osv, baseline_records = osv_targets(data["beforeOsv"], data["source"], config["advisoryEcosystem"], data["baselineVersion"], targets, required=False)
+        # The distribution OSV query is an unmodified public-vendor reference.
+        # Keep its result separate from installed regressions and the exact-version GetPatched scan.
+        before_osv, baseline_records = osv_targets(data["beforeOsv"], data["source"], profile["advisoryEcosystem"], data["baselineVersion"], targets, required=False)
         # OSV may omit a downstream +getpatched version or keep the vendor CVE
         # classification. Preserve either response without treating it as a fix.
-        after_osv, patched_records = osv_targets(data["afterOsv"], data["source"], config["advisoryEcosystem"], data["patchedVersion"], targets, required=False)
+        after_osv, patched_records = osv_targets(data["afterOsv"], data["source"], profile["advisoryEcosystem"], data["patchedVersion"], targets, required=False)
         before_raw, before_vulns, before_pkgs = trivy_findings(data["beforeTrivy"])
         after_raw, after_vulns, after_pkgs = trivy_findings(data["afterTrivy"])
         scan_images = load(data["scanImages"])
@@ -119,7 +128,7 @@ def main():
         scan_metadata = {}
         for phase, report_path, packages_in_report in (("before", data["beforeTrivy"], before_pkgs), ("after", data["afterTrivy"], after_pkgs)):
             sidecar = load(data[phase + "ScanMetadata"])
-            if sidecar.get("phase") != phase or sidecar.get("scannerImage") != config["scannerImage"] or sidecar.get("imageId") != expected_ids[phase] or sidecar.get("databaseSha256") != data["databaseSha256"] or sidecar.get("reportSha256") != sha256(report_path):
+            if sidecar.get("phase") != phase or sidecar.get("scannerImage") != scanner["image"] or sidecar.get("imageId") != expected_ids[phase] or sidecar.get("databaseSha256") != data["databaseSha256"] or sidecar.get("reportSha256") != sha256(report_path):
                 raise ValueError(f"{phase} Trivy scan metadata does not bind the exact image, scanner, DB and raw report")
             for binary in package["binaryPackages"]:
                 matches = [p for p in packages_in_report if p.get("Name") == binary]
@@ -138,8 +147,8 @@ def main():
             scan = load(data[phase + "AptToScan"])
             expected_version = data["baselineVersion"] if phase == "before" else data["patchedVersion"]
             package_versions = scan.get("scannedPackageVersions")
-            if (scan.get("scanner") != "getpatched-dpkg-osv/1" or scan.get("release") != config["release"] or
-                    scan.get("architecture") != config["architecture"] or scan.get("imageId") != expected_ids[phase] or
+            if (scan.get("scanner") != "getpatched-dpkg-osv/1" or scan.get("targetId") != data["targetId"] or
+                    scan.get("release") != profile["codename"] or scan.get("architecture") != profile["architecture"] or scan.get("imageId") != expected_ids[phase] or
                     scan.get("advisoryFeedSha256") != sha256(data["aptToFeed"]) or
                     scan.get("packagePolicySha256") != sha256(Path(__file__).resolve().parents[1] / "packages.json") or
                     scan.get("statusFileSha256") != sha256(data[phase + "AptToStatus"]) or
@@ -173,20 +182,20 @@ def main():
         unrelated = sorted({v.get("VulnerabilityID", "") for v in all_vulns if v.get("VulnerabilityID") not in targets})
         integrated_findings = [{
             "id": target,
-            "baseline": "public Ubuntu OSV target record recorded when present; vulnerable baseline regression reproduced",
+            "baseline": "public distribution OSV target record recorded when present; vulnerable baseline regression reproduced",
             "patched": "resolved by GetPatched backport; exact installed version and target regression passed",
-            "vendorFeedAfter": "Ubuntu OSV may continue to classify +getpatched builds within the Ubuntu vendor affected range; see unmodified raw response",
+            "vendorFeedAfter": "Distribution OSV may continue to classify +getpatched builds within the vendor affected range; see unmodified raw response",
             "evidence": {"baselineOsvSha256": sha256(data["beforeOsv"]), "patchedOsvSha256": sha256(data["afterOsv"]), "baselineRegression": str(data["baselineRegression"]), "patchedRegression": str(data["patchedRegression"]), "sourceCommit": data["sourceCommit"]},
         } for target in targets]
         report = {
-            "schemaVersion": 1, "source": data["source"], "release": config["release"], "architecture": config["architecture"],
+            "schemaVersion": 1, "source": data["source"], "targetId": data["targetId"], "distribution": profile["distribution"], "release": profile["codename"], "architecture": profile["architecture"],
             "baselineVersion": data["baselineVersion"], "patchedVersion": data["patchedVersion"], "sourceCommit": data["sourceCommit"],
-            "scanner": {"image": config["scannerImage"], "databaseReference": config["scannerDatabaseReference"], "databaseSha256": data["databaseSha256"], "before": scan_metadata["before"], "after": scan_metadata["after"]},
-            "canonicalOsv": {"ecosystem": config["advisoryEcosystem"], "before": {"responseSha256": sha256(data["beforeOsv"]), "targetRecords": before_osv, "missingTargetIds": missing_osv_targets(before_osv), "allRecordIds": baseline_records}, "after": {"responseSha256": sha256(data["afterOsv"]), "targetRecords": after_osv, "missingTargetIds": missing_osv_targets(after_osv), "allRecordIds": patched_records}},
+            "scanner": {"image": scanner["image"], "databaseReference": scanner["databaseReference"], "databaseSha256": data["databaseSha256"], "before": scan_metadata["before"], "after": scan_metadata["after"]},
+            "canonicalOsv": {"ecosystem": profile["advisoryEcosystem"], "before": {"responseSha256": sha256(data["beforeOsv"]), "targetRecords": before_osv, "missingTargetIds": missing_osv_targets(before_osv), "allRecordIds": baseline_records}, "after": {"responseSha256": sha256(data["afterOsv"]), "targetRecords": after_osv, "missingTargetIds": missing_osv_targets(after_osv), "allRecordIds": patched_records}},
             "trivy": {"before": {"sha256": sha256(data["beforeTrivy"]), "packageCount": len(before_pkgs), "findingCount": len(before_vulns), "targetFindings": [v for v in before_vulns if v.get("VulnerabilityID") in targets]}, "after": {"sha256": sha256(data["afterTrivy"]), "packageCount": len(after_pkgs), "findingCount": len(after_vulns), "targetFindings": [v for v in after_vulns if v.get("VulnerabilityID") in targets]}, "unrelatedFindings": unrelated},
-            "aptToAdvisoryIntegration": {"source": "GetPatched OSV-format feed scan of installed dpkg status plus Ubuntu OSV vendor-reference queries and installed regression evidence", "scanner": "getpatched-dpkg-osv/1", "feedSha256": sha256(data["aptToFeed"]), "before": getpatched_scans["before"], "after": getpatched_scans["after"], "baselineTargetFindingIds": getpatched_scans["before"]["targetFindingIds"], "patchedTargetFindingIds": getpatched_scans["after"]["targetFindingIds"], "unrelatedFindingIds": sorted(set(getpatched_scans["before"]["unrelatedFindingIds"]) | set(getpatched_scans["after"]["unrelatedFindingIds"])), "rawTrivyBaselineTargetFindingIds": sorted(before_target_hits), "rawTrivyPatchedTargetFindingIds": sorted(after_target_hits), "findings": integrated_findings, "claim": "custom GetPatched advisory scan; raw vendor Trivy findings, including any target findings, remain separately preserved and do not determine backport eligibility"},
+            "aptToAdvisoryIntegration": {"source": "GetPatched OSV-format feed scan of installed dpkg status plus distribution OSV vendor-reference queries and installed regression evidence", "scanner": "getpatched-dpkg-osv/1", "feedSha256": sha256(data["aptToFeed"]), "before": getpatched_scans["before"], "after": getpatched_scans["after"], "baselineTargetFindingIds": getpatched_scans["before"]["targetFindingIds"], "patchedTargetFindingIds": getpatched_scans["after"]["targetFindingIds"], "unrelatedFindingIds": sorted(set(getpatched_scans["before"]["unrelatedFindingIds"]) | set(getpatched_scans["after"]["unrelatedFindingIds"])), "rawTrivyBaselineTargetFindingIds": sorted(before_target_hits), "rawTrivyPatchedTargetFindingIds": sorted(after_target_hits), "findings": integrated_findings, "claim": "custom GetPatched advisory scan; raw vendor Trivy findings, including any target findings, remain separately preserved and do not determine backport eligibility"},
             "regression": {"baseline": str(data["baselineRegression"]), "patched": str(data["patchedRegression"]), "targetCves": targets},
-            "assessment": {"ubuntuPublishedVersionStatus": {"targetRecords": before_osv, "missingTargetIds": missing_osv_targets(before_osv), "interpretation": "public Ubuntu OSV response preserved as vendor-reference evidence; target-record absence is not interpreted as clean or affected status"}, "aptToStatus": "backport regression and exact installed-package scan verified for configured target CVEs", "rawTrivyTargetFindingsAfter": sorted(after_target_hits), "unrelatedTrivyFindingsPreserved": True},
+            "assessment": {"vendorPublishedVersionStatus": {"targetRecords": before_osv, "missingTargetIds": missing_osv_targets(before_osv), "interpretation": "public distribution OSV response preserved as vendor-reference evidence; target-record absence is not interpreted as clean or affected status"}, "aptToStatus": "backport regression and exact installed-package scan verified for configured target CVEs", "rawTrivyTargetFindingsAfter": sorted(after_target_hits), "unrelatedTrivyFindingsPreserved": True},
             "passed": True,
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)

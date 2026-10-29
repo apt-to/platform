@@ -1,36 +1,56 @@
 {
-  "schemaVersion": 1,
-  "target": { "distribution": "Ubuntu 20.04 LTS", "suite": "focal", "architecture": "amd64" },
+  "schemaVersion": 2,
+  "targets": {
+    "ubuntu-focal-amd64": { "distribution": "Ubuntu", "releaseVersion": "20.04", "codename": "focal", "architecture": "amd64", "displayName": "Ubuntu 20.04 LTS (focal) · amd64" }
+  },
   "packages": [
     {
       "source": "libxml2",
-      "version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
-      "cves": ["CVE-2025-49794", "CVE-2025-49796"],
-      "access": "sponsor",
-      "delayHours": 168,
-      "status": "verification-pending",
-      "verification": null,
-      "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
-      "sourceUrl": "https://github.com/getpatched/packaging-libxml2/tree/getpatched/focal",
-      "patchUrl": "https://github.com/getpatched/packaging-libxml2/blob/getpatched/focal/debian/patches/CVE-2025-49794-49796-getpatched.patch",
-      "testsUrl": "https://github.com/getpatched/packaging-libxml2/tree/getpatched/focal/debian/tests",
-      "releasesUrl": "https://github.com/getpatched/packaging-libxml2/releases",
-      "releaseStatus": "No production release"
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+          "cves": ["CVE-2025-49794", "CVE-2025-49796"],
+          "access": "sponsor",
+          "delayHours": 168,
+          "sponsorEligibility": "any-active-individual-github-sponsorship",
+          "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.0",
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "verification-pending",
+          "verification": null,
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "sourceUrl": "https://github.com/getpatched/packaging-libxml2/tree/getpatched/focal",
+          "patchUrl": "https://github.com/getpatched/packaging-libxml2/blob/getpatched/focal/patches/CVE-2025-49794-49796.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-libxml2/tree/getpatched/focal/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-libxml2/releases",
+          "releaseStatus": "No production release"
+        }
+      }
     },
     {
       "source": "libarchive",
-      "version": "3.4.0-2ubuntu1.5+getpatched1",
-      "cves": ["CVE-2026-4111"],
-      "access": "public",
-      "delayHours": 0,
-      "status": "verification-pending",
-      "verification": null,
-      "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
-      "sourceUrl": "https://github.com/getpatched/packaging-libarchive/tree/getpatched/focal",
-      "patchUrl": "https://github.com/getpatched/packaging-libarchive/blob/getpatched/focal/debian/patches/CVE-2026-4111-getpatched.patch",
-      "testsUrl": "https://github.com/getpatched/packaging-libarchive/tree/getpatched/focal/debian/tests",
-      "releasesUrl": "https://github.com/getpatched/packaging-libarchive/releases",
-      "releaseStatus": "No production release"
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "version": "3.4.0-2ubuntu1.5+getpatched1",
+          "cves": ["CVE-2026-4111"],
+          "access": "public",
+          "delayHours": 0,
+          "sponsorEligibility": null,
+          "earlyBinaryLicenseId": null,
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "verification-pending",
+          "verification": null,
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "sourceUrl": "https://github.com/getpatched/packaging-libarchive/tree/getpatched/focal",
+          "patchUrl": "https://github.com/getpatched/packaging-libarchive/blob/getpatched/focal/patches/CVE-2026-4111.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-libarchive/tree/getpatched/focal/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-libarchive/releases",
+          "releaseStatus": "No production release"
+        }
+      }
     }
   ]
 }

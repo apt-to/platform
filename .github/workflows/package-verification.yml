@@ -1,5 +1,5 @@
 name: Package build and installed regressions
-run-name: Verify ${{ inputs.package }} at ${{ inputs.source_commit }}
+run-name: Verify ${{ inputs.package }} on ${{ inputs.target_id }} at ${{ inputs.source_commit }}
 
 on:
   workflow_dispatch:
@@ -9,8 +9,13 @@ on:
         type: choice
         required: true
         options: [libxml2, libarchive]
+      target_id:
+        description: Exact target ID from the package recipe and platform policy
+        type: string
+        required: true
+        default: ubuntu-focal-amd64
       source_commit:
-        description: Full commit SHA on the package's getpatched/focal branch
+        description: Full commit SHA on the source branch declared for the selected package target
         type: string
         required: true
 
@@ -18,8 +23,28 @@ permissions:
   contents: read
 
 jobs:
-  package:
+  resolve-target:
     runs-on: ubuntu-24.04
+    outputs:
+      runner: ${{ steps.target.outputs.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Resolve target runner
+        id: target
+        env:
+          TARGET_ID: ${{ inputs.target_id }}
+        run: |
+          runner="$(python3 -c 'import json,os; p=json.load(open("packages.json"))["targets"].get(os.environ["TARGET_ID"]); print(p["build"]["runner"] if p else "")')"
+          case "$runner" in
+            ubuntu-24.04|ubuntu-24.04-arm) ;;
+            *) echo "target runner is missing or unsupported" >&2; exit 1 ;;
+          esac
+          echo "runner=$runner" >> "$GITHUB_OUTPUT"
+  package:
+    needs: resolve-target
+    runs-on: ${{ needs.resolve-target.outputs.runner }}
     timeout-minutes: 110
     strategy:
       fail-fast: false
@@ -36,25 +61,29 @@ jobs:
           ref: ${{ inputs.source_commit }}
           path: packaging
           persist-credentials: false
-      - name: Verify source commit is pinned and on getpatched/focal
-        working-directory: packaging
+      - name: Verify source commit is pinned and on the target's declared branch
         env:
           SOURCE_COMMIT: ${{ inputs.source_commit }}
+          TARGET_ID: ${{ inputs.target_id }}
         run: |
+          set -euo pipefail
           if [[ ! "$SOURCE_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
             echo "source_commit must be a full 40-character commit SHA" >&2
             exit 1
           fi
-          test "$(git rev-parse HEAD)" = "${SOURCE_COMMIT,,}"
-          git fetch --no-tags origin refs/heads/getpatched/focal
-          git merge-base --is-ancestor "$SOURCE_COMMIT" FETCH_HEAD
+          test "$(git -C packaging rev-parse HEAD)" = "${SOURCE_COMMIT,,}"
+          source_branch="$(python3 scripts/resolve-target-branch.py --target "$TARGET_ID")"
+          git -C packaging fetch --no-tags origin "refs/heads/$source_branch"
+          git -C packaging merge-base --is-ancestor "$SOURCE_COMMIT" FETCH_HEAD
       - name: Build and verify without publishing binaries
-        run: python3 scripts/build-package.py --source packaging --output build/output
+        env:
+          TARGET_ID: ${{ inputs.target_id }}
+        run: python3 scripts/build-package.py --source packaging --target "$TARGET_ID" --output build/output
       - name: Retain reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: verification-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: verification-${{ matrix.package }}-${{ inputs.target_id }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             build/output/*.json
             build/output/*.txt
@@ -66,7 +95,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: source-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: source-${{ matrix.package }}-${{ inputs.target_id }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/output/source/*
           if-no-files-found: warn
           retention-days: 30

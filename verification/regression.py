@@ -98,7 +98,12 @@ def main():
                 checks.extend([create, extract])
         else:
             raise RuntimeError("Unsupported source package")
-    report = {"source": package, "phase": args.phase, "installedVersion": installed, "expectedVersion": expected, "checks": checks, "passed": bool(checks) and all(c["passed"] for c in checks)}
+    report = {
+        "source": package, "targetId": policy["targetId"], "distribution": policy["distribution"],
+        "release": policy["release"], "architecture": policy["architecture"],
+        "phase": args.phase, "installedVersion": installed, "expectedVersion": expected,
+        "checks": checks, "passed": bool(checks) and all(c["passed"] for c in checks),
+    }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(package, args.phase, "PASS" if report["passed"] else "FAIL")

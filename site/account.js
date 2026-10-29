@@ -8,6 +8,7 @@ const deviceCount = document.querySelector("#device-count");
 const deviceError = document.querySelector("#device-error");
 const tokenReveal = document.querySelector("#one-time-token");
 const authLine = document.querySelector("#auth-line");
+const EARLY_BINARY_LICENSE_ID = "LicenseRef-GetPatched-Early-Binary-1.0";
 
 function setMessage(text, kind = "info") {
   message.textContent = text;
@@ -136,7 +137,7 @@ async function start() {
   if (user.sponsorship === "eligible") {
     notEligiblePanel.hidden = true;
     document.querySelector("#device-form").hidden = false;
-    document.querySelector("#sponsor-status").textContent = "An active eligible sponsorship is confirmed. Device credentials are checked against current sponsor status when used.";
+    document.querySelector("#sponsor-status").textContent = "An active GitHub Sponsors sponsorship is confirmed. Every tier is eligible, and device credentials are checked against current sponsor status when used.";
     setMessage("Sponsor status verified. Manage credentials for your machines below.", "success");
     return;
   }
@@ -152,9 +153,9 @@ async function start() {
     document.querySelector("#sponsor-link").hidden = true;
     setMessage("Sponsor eligibility is temporarily unavailable.", "error");
   } else {
-    statusCopy.textContent = "No active eligible sponsorship was found for this GitHub account.";
+    statusCopy.textContent = "No active GitHub Sponsors sponsorship was found for this account.";
     document.querySelector("#eligibility-title").textContent = "Sponsor access is not active";
-    document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available. An eligible sponsorship is required only for binaries during their seven-day early window.";
+    document.querySelector("#eligibility-copy").textContent = "Public source and build instructions remain available under MIT for GetPatched-authored material. Any active individual sponsorship qualifies, regardless of tier; one-time sponsorships qualify only while GitHub reports them active.";
     document.querySelector("#sponsor-link").hidden = false;
     setMessage("Signed in. Sponsor access is not active for this account.");
   }
@@ -167,7 +168,7 @@ document.querySelector("#device-form").addEventListener("submit", async (event) 
   button.disabled = true;
   deviceError.hidden = true;
   try {
-    const result = await api("/api/device-tokens", { method: "POST", body: JSON.stringify({ label }) });
+    const result = await api("/api/device-tokens", { method: "POST", body: JSON.stringify({ label, earlyBinaryLicenseId: EARLY_BINARY_LICENSE_ID }) });
     showTokenOnce(result.token);
     document.querySelector("#device-label").value = "";
     await loadDevices();

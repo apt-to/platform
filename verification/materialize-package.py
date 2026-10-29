@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply a validated recipe to an extracted Ubuntu source package."""
+"""Apply a validated target recipe to an extracted Debian source package."""
 import argparse
 from email.utils import parsedate_to_datetime
 import json
@@ -35,10 +35,21 @@ def main():
     recipe = args.recipe.resolve()
     source_root = args.source.resolve()
     manifest = read_json(recipe / "package-manifest.json")
-    targets = [item for item in manifest["targets"] if item["id"] == args.target]
+    targets = [item for item in manifest["targets"] if item.get("id") == args.target]
     if len(targets) != 1:
         raise RuntimeError("Build target is missing or duplicated in package recipe")
-    target = targets[0]
+    target_ref = targets[0]
+    if manifest.get("schemaVersion") == 3:
+        target_candidate = recipe / target_ref["file"]
+        target_path = target_candidate.resolve()
+        if (target_candidate.is_symlink() or not target_path.is_file()
+                or os.path.commonpath((str(target_path), str(recipe)) ) != str(recipe)):
+            raise RuntimeError("Target recipe file is missing, linked, or escapes the package checkout")
+        target = read_json(target_path)
+        if target.get("schemaVersion") != 1 or target.get("id") != args.target:
+            raise RuntimeError("Target recipe file schema or identity is invalid")
+    else:
+        target = target_ref
     package = manifest["package"]["source"]
     base_version = target["source"]["version"]
     package_version = target["packageVersion"]
@@ -46,7 +57,7 @@ def main():
     changelog = changelog_path.read_text()
     current_entry = re.match(r"^([^\s]+) \(([^)]+)\) ([^;]+); urgency=([^\n]+)\n", changelog)
     if not current_entry or current_entry.group(1) != package or current_entry.group(2) != base_version:
-        raise RuntimeError("Extracted Ubuntu changelog does not match the recipe's pinned source package")
+        raise RuntimeError("Extracted source changelog does not match the recipe's pinned source package")
     if (source_root / "debian/source/format").read_text().strip() != "3.0 (quilt)":
         raise RuntimeError("Extracted Ubuntu source package is not in 3.0 (quilt) format")
 

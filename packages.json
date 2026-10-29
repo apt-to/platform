@@ -1,44 +1,144 @@
 {
-  "schemaVersion": 1,
-  "release": "focal",
-  "releaseVersion": "20.04",
-  "architecture": "amd64",
-  "archiveSnapshot": "20261025T000000Z",
-  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
-  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
-  "scannerDatabaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
-  "scannerDatabaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
-  "advisoryEcosystem": "Ubuntu:20.04:LTS",
+  "schemaVersion": 2,
+  "schema": "schemas/platform-policy.schema.json",
+  "targets": {
+    "ubuntu-focal-amd64": {
+      "distribution": "Ubuntu",
+      "releaseVersion": "20.04",
+      "codename": "focal",
+      "architecture": "amd64",
+      "sourceBranch": "getpatched/focal",
+      "advisoryEcosystem": "Ubuntu:20.04:LTS",
+      "build": {
+        "runner": "ubuntu-24.04",
+        "containerPlatform": "linux/amd64"
+      },
+      "repository": {
+        "enabled": false,
+        "suite": "focal",
+        "architecture": "amd64"
+      },
+      "archiveSnapshot": "20261025T000000Z",
+      "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+      "aptSources": [
+        {
+          "type": "both",
+          "uri": "https://snapshot.ubuntu.com/ubuntu/20261025T000000Z/",
+          "suites": [
+            "focal",
+            "focal-updates",
+            "focal-security"
+          ],
+          "components": [
+            "main",
+            "universe",
+            "restricted",
+            "multiverse"
+          ]
+        }
+      ],
+      "packageEcosystem": "Ubuntu:Pro:20.04:LTS"
+    }
+  },
+  "scanner": {
+    "image": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+    "databaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+    "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31"
+  },
+  "licenses": {
+    "schemaVersion": 1,
+    "publicContributions": {
+      "spdx": "MIT",
+      "licenseFile": "LICENSE",
+      "scope": "GetPatched-authored platform code, schemas, recipes, patches, tests, and documentation; upstream source remains under its own license."
+    },
+    "earlyBinary": {
+      "licenseId": "LicenseRef-GetPatched-Early-Binary-1.0",
+      "termsFile": "LICENSES/GETPATCHED-EARLY-ACCESS.md",
+      "eligibility": "any-active-individual-github-sponsorship",
+      "permittedUse": [
+        "private",
+        "commercial"
+      ],
+      "redistributionAllowed": false,
+      "accessRevokedWhen": "sponsorship-inactive",
+      "scope": "official early-channel binary artifacts only",
+      "upstreamRights": "third-party licenses and copyright notices remain in force"
+    }
+  },
   "packages": {
     "libxml2": {
-      "baselineVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
-      "sourcePocket": "updates",
-      "packageVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
-      "releaseSerial": 1,
-      "futureEsmVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+esm6",
-      "esmPockets": ["focal-infra-security", "focal-infra-updates"],
-      "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
-      "binaryPackages": ["libxml2", "libxml2-utils"],
-      "targetCve": "CVE-2025-49794",
-      "targetCves": ["CVE-2025-49794", "CVE-2025-49796"],
-      "sponsorDelayHours": 168,
-      "advisory": "https://ubuntu.com/security/CVE-2025-49794",
-      "candidateStatus": "rebranded-package-build-pending-verification"
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baselineVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+          "sourcePocket": "updates",
+          "packageVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+          "releaseSerial": 1,
+          "futureEsmVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+esm6",
+          "esmPockets": [
+            "focal-infra-security",
+            "focal-infra-updates"
+          ],
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "binaryPackages": [
+            "libxml2",
+            "libxml2-utils"
+          ],
+          "targetCve": "CVE-2025-49794",
+          "targetCves": [
+            "CVE-2025-49794",
+            "CVE-2025-49796"
+          ],
+          "advisory": "https://ubuntu.com/security/CVE-2025-49794",
+          "candidateStatus": "rebranded-package-build-pending-verification",
+          "releaseAccess": {
+            "policy": "sponsor-first",
+            "sponsorDelayHours": 168,
+            "sponsorEligibility": "any-active-individual-github-sponsorship",
+            "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.0",
+            "publicContributionSpdx": "MIT"
+          },
+          "vendorFixedVersions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+          ]
+        }
+      }
     },
     "libarchive": {
-      "baselineVersion": "3.4.0-2ubuntu1.5",
-      "sourcePocket": "updates",
-      "packageVersion": "3.4.0-2ubuntu1.5+getpatched1",
-      "releaseSerial": 1,
-      "futureEsmVersion": "3.4.0-2ubuntu1.5+esm3",
-      "esmPockets": ["focal-infra-security", "focal-infra-updates"],
-      "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
-      "binaryPackages": ["libarchive13", "libarchive-tools"],
-      "targetCve": "CVE-2026-4111",
-      "targetCves": ["CVE-2026-4111"],
-      "sponsorDelayHours": 0,
-      "advisory": "https://ubuntu.com/security/CVE-2026-4111",
-      "candidateStatus": "rebranded-package-build-pending-verification"
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baselineVersion": "3.4.0-2ubuntu1.5",
+          "sourcePocket": "updates",
+          "packageVersion": "3.4.0-2ubuntu1.5+getpatched1",
+          "releaseSerial": 1,
+          "futureEsmVersion": "3.4.0-2ubuntu1.5+esm3",
+          "esmPockets": [
+            "focal-infra-security",
+            "focal-infra-updates"
+          ],
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "binaryPackages": [
+            "libarchive13",
+            "libarchive-tools"
+          ],
+          "targetCve": "CVE-2026-4111",
+          "targetCves": [
+            "CVE-2026-4111"
+          ],
+          "advisory": "https://ubuntu.com/security/CVE-2026-4111",
+          "candidateStatus": "rebranded-package-build-pending-verification",
+          "releaseAccess": {
+            "policy": "public-after-checks",
+            "sponsorDelayHours": 0,
+            "sponsorEligibility": null,
+            "earlyBinaryLicenseId": null,
+            "publicContributionSpdx": "MIT"
+          },
+          "vendorFixedVersions": [
+            "3.4.0-2ubuntu1.5+esm1"
+          ]
+        }
+      }
     }
   }
 }

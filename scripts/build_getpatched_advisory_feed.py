@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Build the deterministic OSV-format feed for tested GetPatched focal backports."""
+"""Build the deterministic OSV-format feed for tested GetPatched target backports."""
 import argparse
 import json
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from platform_policy import package_target_policy, target_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ROOT / "packages.json"
 OUTPUT = ROOT / "advisories" / "getpatched-osv.json"
-UBUNTU_FIXED = {
-    "libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
-    "libarchive": "3.4.0-2ubuntu1.5+esm1",
-}
 SUMMARIES = {
     "CVE-2025-49794": "libxml2 XPath Schematron use-after-free in Ubuntu Focal packages",
     "CVE-2025-49796": "libxml2 Schematron name-element memory corruption in Ubuntu Focal packages",
@@ -19,34 +19,41 @@ SUMMARIES = {
 
 
 def build_feed(config):
-    advisories = []
-    for source, package in sorted(config["packages"].items()):
+    grouped = {}
+    for source, package_record in sorted(config["packages"].items()):
+      for target_id in sorted(package_record["targets"]):
+        package = package_target_policy(config, source, target_id)
+        profile = target_profile(config, target_id)
         baseline = package["baselineVersion"]
         fixed = package["packageVersion"]
+        vendor_fixed = package.get("vendorFixedVersions", [])
         for cve in sorted(package["targetCves"]):
             if cve not in SUMMARIES:
                 raise ValueError(f"no reviewed advisory summary for {cve}")
-            advisories.append({
-                "schema_version": "1.6.0",
-                "id": cve,
-                "modified": "2026-10-28T16:09:38Z",
+            advisory = grouped.setdefault(cve, {
+                "schema_version": "1.6.0", "id": cve, "modified": "2026-10-28T16:09:38Z",
                 "summary": SUMMARIES[cve],
-                "details": "GetPatched tracks the focal amd64 binary package identities below. The exact reviewed baseline is affected. The exact GetPatched fixed version and the Canonical Ubuntu Pro fixed version are clean; later Ubuntu Pro versions are also accepted as fixed. Other GetPatched revisions must be added as exact reviewed fixed versions before the scanner will accept them. This rebranded GetPatched package revision is pending a fresh hosted build, installed regression, and before/after scan.",
-                "affected": [{
-                    "package": {"ecosystem": "Ubuntu:Pro:20.04:LTS", "name": binary},
-                    "versions": [baseline],
-                    "ecosystem_specific": {"release": "focal", "architecture": "amd64", "source_package": source},
-                    "database_specific": {"fixed_versions": [fixed, UBUNTU_FIXED[source]]},
-                } for binary in sorted(package["binaryPackages"])],
-                "references": [{"type": "ADVISORY", "url": f"https://ubuntu.com/security/{cve}"}],
-                "database_specific": {
-                    "ecosystem": "GetPatched:focal", "source_package": source,
-                    "baseline_version": baseline, "getpatched_fixed_version": fixed,
-                    "ubuntu_pro_fixed_version": UBUNTU_FIXED[source], "severity": "MEDIUM",
-                    "verification_status": "rebranded-package-build-pending",
-                },
+                "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
+                "affected": [], "references": [],
+                "database_specific": {"severity": "MEDIUM", "verification_status": "rebranded-package-build-pending"},
             })
-    return {"schema_version": "1.6.0", "vulns": advisories}
+            advisory["affected"].extend({
+                "package": {"ecosystem": profile["packageEcosystem"], "name": binary},
+                "versions": [baseline],
+                "ecosystem_specific": {
+                    "distribution": profile["distribution"], "release": profile["codename"],
+                    "architecture": profile["architecture"], "target_id": target_id, "source_package": source,
+                },
+                "database_specific": {
+                    "target_id": target_id, "source_package": source,
+                    "getpatched_fixed_version": fixed, "vendor_fixed_versions": vendor_fixed,
+                    "fixed_versions": [fixed, *vendor_fixed],
+                },
+            } for binary in sorted(package["binaryPackages"]))
+            reference = {"type": "ADVISORY", "url": package["advisory"]}
+            if reference not in advisory["references"]:
+                advisory["references"].append(reference)
+    return {"schema_version": "1.6.0", "vulns": [grouped[key] for key in sorted(grouped)]}
 
 
 def main():

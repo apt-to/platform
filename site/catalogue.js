@@ -13,13 +13,13 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 function packageRow(item) {
   const cves = item.cves.map((cve) => `<a href="https://ubuntu.com/security/${encodeURIComponent(cve)}">${escapeHtml(cve)}</a>`).join("<span class=\"cve-separator\"> / </span>");
   const policy = item.access === "sponsor"
-    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Public ${escapeHtml(item.delayHours)} hours after sponsor release</span>`
+    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Any active individual sponsorship · public ${escapeHtml(item.delayHours)} hours later</span><small>Private and commercial use; no early-binary redistribution</small>`
     : `<span class="policy-dot policy-public"></span><span class="policy-main">Public immediately</span><span class="policy-detail">After release checks pass</span>`;
   const checks = item.verification
     ? `<a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Development checks passed<small>Hosted build and regressions ↗</small></a>`
     : `<span class="verification-pending">Verification pending<small>Fresh public Focal build, installed regressions and signed-client checks required</small></span>`;
   return `<tr data-source="${escapeHtml(item.source)}">
-    <th scope="row" class="package-name"><span>${escapeHtml(item.source)}</span><small>source package</small></th>
+    <th scope="row" class="package-name"><span>${escapeHtml(item.source)}</span><small>${escapeHtml(item.targetName)} source package</small></th>
     <td class="version-cell" data-label="PACKAGE VERSION"><code>${escapeHtml(item.version)}</code><span class="unpublished-mark">NOT PUBLISHED</span></td>
     <td class="cve-cell" data-label="PATCH FOCUS">${cves}<small>Patch and regression details</small></td>
     <td class="policy-cell" data-label="BINARY ACCESS">${policy}</td>
@@ -92,8 +92,12 @@ fetch("/catalogue.json", { headers: { Accept: "application/json" } })
     return response.json();
   })
   .then((catalogue) => {
-    if (catalogue.schemaVersion !== 1 || !Array.isArray(catalogue.packages)) throw new Error("Unsupported catalogue schema");
-    packages = catalogue.packages;
+    if (catalogue.schemaVersion !== 2 || !catalogue.targets || !Array.isArray(catalogue.packages)) throw new Error("Unsupported catalogue schema");
+    packages = catalogue.packages.flatMap((item) => Object.entries(item.targets || {}).map(([targetId, targetPolicy]) => {
+      const target = catalogue.targets[targetId];
+      if (!target) throw new Error("Package target is missing from catalogue target matrix");
+      return { ...item, ...targetPolicy, targetId, targetName: target.displayName };
+    }));
     render();
   })
   .catch(() => {
