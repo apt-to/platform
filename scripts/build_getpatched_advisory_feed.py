@@ -7,7 +7,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ROOT / "packages.json"
 OUTPUT = ROOT / "advisories" / "getpatched-osv.json"
-PATCHED_VERSION_SUFFIX = "+getpatched1"
 UBUNTU_FIXED = {
     "libxml2": "2.9.10+dfsg-5ubuntu0.20.04.10+esm1",
     "libarchive": "3.4.0-2ubuntu1.5+esm1",
@@ -23,7 +22,7 @@ def build_feed(config):
     advisories = []
     for source, package in sorted(config["packages"].items()):
         baseline = package["baselineVersion"]
-        fixed = baseline + PATCHED_VERSION_SUFFIX
+        fixed = package["packageVersion"]
         for cve in sorted(package["targetCves"]):
             if cve not in SUMMARIES:
                 raise ValueError(f"no reviewed advisory summary for {cve}")

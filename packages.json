@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "release": "focal",
+  "releaseVersion": "20.04",
   "architecture": "amd64",
   "archiveSnapshot": "20261025T000000Z",
   "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
@@ -11,6 +12,9 @@
   "packages": {
     "libxml2": {
       "baselineVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
+      "sourcePocket": "updates",
+      "packageVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+      "releaseSerial": 1,
       "futureEsmVersion": "2.9.10+dfsg-5ubuntu0.20.04.10+esm6",
       "esmPockets": ["focal-infra-security", "focal-infra-updates"],
       "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
@@ -23,6 +27,9 @@
     },
     "libarchive": {
       "baselineVersion": "3.4.0-2ubuntu1.5",
+      "sourcePocket": "updates",
+      "packageVersion": "3.4.0-2ubuntu1.5+getpatched1",
+      "releaseSerial": 1,
       "futureEsmVersion": "3.4.0-2ubuntu1.5+esm3",
       "esmPockets": ["focal-infra-security", "focal-infra-updates"],
       "ubuntuProEsmCompatibility": "not-tested-out-of-scope",

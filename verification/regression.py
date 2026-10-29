@@ -30,13 +30,15 @@ def schematron_baseline_reproduced(check):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--recipe", type=Path, required=True)
+    parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--phase", choices=("baseline", "patched"), required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    policy = json.loads((args.source / "debian/getpatched/release-policy.json").read_text())
+    manifest = json.loads((args.recipe / "package-manifest.json").read_text())
+    policy = json.loads(args.policy.read_text())
     package = policy["source"]
-    fixtures = args.source / "debian/tests/fixtures"
+    fixtures = args.recipe / manifest["regressionTests"]["fixturesDirectory"]
     expected = policy["baseVersion"] if args.phase == "baseline" else policy["version"]
     installed_name = "libxml2" if package == "libxml2" else "libarchive13"
     installed = subprocess.check_output(["dpkg-query", "-W", "-f=${Version}", installed_name], text=True)

@@ -17,7 +17,8 @@ def run(command, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", required=True, type=Path, help="committed packaging source checkout")
+    parser.add_argument("--recipe", required=True, type=Path, help="committed package recipe checkout")
+    parser.add_argument("--policy", required=True, type=Path, help="validated package policy from the recipe")
     parser.add_argument("--output", required=True, type=Path, help="build output directory")
     parser.add_argument("--work", required=True, type=Path, help="private build temp directory")
     parser.add_argument("--builder-image", required=True)
@@ -26,12 +27,16 @@ def main():
     parser.add_argument("--archive-snapshot", required=True)
     args = parser.parse_args()
 
-    policy = json.loads((args.source / "debian/getpatched/release-policy.json").read_text())
+    policy = json.loads(args.policy.read_text())
+    recipe = json.loads((args.recipe / "package-manifest.json").read_text())
     platform = json.loads((Path(__file__).resolve().parents[1] / "packages.json").read_text())
     candidate = platform["packages"][policy["source"]]
-    binary_packages = candidate["binaryPackages"]
-    if (policy["version"] != policy["baseVersion"] + "+getpatched1"
+    binary_packages = policy["binaryPackages"]
+    if (policy["version"] != candidate["packageVersion"]
             or policy["baseVersion"] != candidate["baselineVersion"]
+            or binary_packages != candidate["binaryPackages"]
+            or policy["releaseSerial"] != candidate["releaseSerial"]
+            or not any(target.get("id") == policy["targetId"] for target in recipe["targets"])
             or policy["architecture"] != platform["architecture"]
             or policy["release"] != platform["release"]):
         raise RuntimeError("source package policy does not match the reviewed focal candidate")
@@ -108,6 +113,8 @@ for binary in $BINARY_PACKAGES; do
 done
 apt-get source "$SOURCE_PACKAGE"
 test -f "$SOURCE_PACKAGE"*/debian/getpatched/release-policy.json
+test -f "$SOURCE_PACKAGE"*/debian/getpatched/package-manifest.json
+test -f "$SOURCE_PACKAGE"*/debian/getpatched/patches.json
 """)
     (client_context / "Dockerfile").write_text("""ARG TRUST_IMAGE
 ARG BASE_IMAGE
