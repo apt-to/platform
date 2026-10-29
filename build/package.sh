@@ -5,7 +5,7 @@ trap 'chown -R "$1:$2" /output' EXIT
 mkdir -p /build /output/source
 descriptors=(/originals/*.dsc)
 if [[ ${#descriptors[@]} -ne 1 || ! -f "${descriptors[0]}" ]]; then
-  echo "Expected exactly one pinned Ubuntu source descriptor" >&2
+  echo "Expected exactly one pinned Debian source descriptor" >&2
   exit 1
 fi
 cd /originals
@@ -38,10 +38,21 @@ cp /build/*.dsc /build/*.orig.tar.* /build/*.debian.tar.* /output/source/
 python3 - <<'PY'
 from pathlib import Path
 import hashlib, json, subprocess
+policy=json.loads(Path('/output/package-policy.json').read_text())
 files = []
 for path in sorted(Path('/build').glob('*.deb')):
     identity = subprocess.check_output(['dpkg-deb','-f',str(path),'Package','Version','Architecture','Depends'],text=True)
     files.append({'name':path.name,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':path.stat().st_size,'control':identity})
 if not files: raise RuntimeError('No binary outputs')
-Path('/output/binary-manifest.json').write_text(json.dumps({'purpose':'unpublished build verification; binaries not exported','packages':files},indent=2)+'\n')
+manifest={
+    'schemaVersion': 2,
+    'purpose': 'unpublished build verification; binaries not exported',
+    'source': policy['source'],
+    'targetId': policy['targetId'],
+    'sourceVersion': policy['baseVersion'],
+    'version': policy['version'],
+    'architecture': policy['architecture'],
+    'packages': files,
+}
+Path('/output/binary-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 PY

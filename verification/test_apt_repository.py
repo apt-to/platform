@@ -11,6 +11,24 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("generate_apt_index", ROOT / "scripts" / "generate-apt-index.py")
 GENERATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GENERATOR)
+SMOKE_SPEC = importlib.util.spec_from_file_location("test_apt_repository", ROOT / "scripts" / "test-apt-repository.py")
+SMOKE = importlib.util.module_from_spec(SMOKE_SPEC)
+SMOKE_SPEC.loader.exec_module(SMOKE)
+
+
+class AptRepositorySmokeEvidence(unittest.TestCase):
+    def test_signing_fingerprint_is_parsed_from_exported_public_key(self):
+        fingerprint = "0123456789ABCDEF0123456789ABCDEF01234567"
+        listing = "pub:u:2048:1:ABCD:20261029::::::sc::::::\nfpr:::::::::" + fingerprint.lower() + ":\n"
+        self.assertEqual(SMOKE.fingerprint_from_colons(listing), fingerprint)
+
+    def test_missing_or_ambiguous_signing_fingerprint_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "exactly one valid fingerprint"):
+            SMOKE.fingerprint_from_colons("pub:u:2048:1:ABCD::::::sc::::::\n")
+        with self.assertRaisesRegex(RuntimeError, "exactly one valid fingerprint"):
+            SMOKE.fingerprint_from_colons(
+                "fpr:::::::::" + "A" * 40 + ":\nfpr:::::::::" + "B" * 40 + ":\n"
+            )
 
 
 class AptRepositoryIndex(unittest.TestCase):

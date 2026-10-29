@@ -910,7 +910,7 @@ async function verifyGithubSignature(secret, rawBody, signature) {
   return constantTimeEqual(expected, signature);
 }
 
-async function acceptSponsorWebhook(request, env) {
+async function acceptSponsorWebhook(request, env, context) {
   if (!env.SPONSOR_WEBHOOK_SECRET) return json({ error: "sponsor webhook is not configured" }, 503);
   if (request.headers.get("x-github-event") !== "sponsorship") return json({ error: "unsupported webhook event" }, 400);
   const delivery = request.headers.get("x-github-delivery");
@@ -946,35 +946,79 @@ async function acceptSponsorWebhook(request, env) {
     let payload;
     try { payload = JSON.parse(new TextDecoder().decode(bytes)); }
     catch { throw requestError("webhook body must be valid JSON", 400); }
-    if (payload.action !== "cancelled" || !Number.isSafeInteger(payload.sponsorship?.sponsor?.id)) {
+    const supportedActions = new Set(["created", "cancelled", "pending_cancellation", "tier_changed"]);
+    if (!supportedActions.has(payload.action) || !Number.isSafeInteger(payload.sponsorship?.sponsor?.id)) {
       return json({ error: "unsupported or incomplete sponsorship event" }, 422);
+    }
+    const receivedAt = new Date().toISOString();
+    // GitHub emits `cancelled` after a recurring sponsorship's final billing
+    // cycle ends. Persist a deny marker before acknowledging the event so a
+    // cached sponsor snapshot cannot keep early binary access alive if the
+    // follow-up GraphQL reconciliation fails.
+    if (payload.action === "cancelled") {
+      try {
+        await recordSponsorRevocation(env.RELEASES, payload.sponsorship.sponsor.id, delivery, receivedAt);
+      } catch {
+        return json({ error: "sponsor access revocation could not be persisted; retry delivery" }, 503);
+      }
     }
     const key = `sponsor-deliveries/${delivery}.json`;
     const result = await env.RELEASES.put(key, JSON.stringify({
       delivery_id: delivery,
-      action: "cancelled",
+      action: payload.action,
       sponsor_id: payload.sponsorship.sponsor.id,
-      received_at: new Date().toISOString(),
-      effect: "reconciliation-required",
+      received_at: receivedAt,
+      effect: payload.action === "cancelled" ? "early-access-revoked" : "reconciliation-required",
     }), { onlyIf: { etagDoesNotMatch: "*" }, httpMetadata: { contentType: "application/json" } });
-    if (!result) return json({ accepted: true, duplicate: true, reconciliation_required: true }, 200);
-    return json({ accepted: true, reconciliation_required: true }, 202);
+    if (!result) return json({ accepted: true, duplicate: true, reconciliation_required: true, access_revoked: payload.action === "cancelled" }, 200);
+    if (context?.waitUntil) {
+      context.waitUntil(reconcileSponsors(env).catch((error) => {
+        console.error("immediate sponsor reconciliation failed", String(error?.message || error));
+      }));
+    }
+    return json({ accepted: true, reconciliation_required: true, access_revoked: payload.action === "cancelled" }, 202);
   } catch (error) {
     return json({ error: String(error.message || error) }, error.status || 400);
   }
 }
 
-function configuredSponsorTiers(value) {
-  const tiers = typeof value === "string" ? value.split(",").map((tier) => tier.trim()).filter(Boolean) : [];
-  if (tiers.length === 0 || tiers.some((tier) => tier.length > 200)) {
-    throw new Error("SPONSOR_ALLOWED_TIER_IDS must list the approved GitHub Sponsors tier IDs");
+async function recordSponsorRevocation(bucket, githubUserId, deliveryId, revokedAt) {
+  const key = `sponsor-revocations/${githubUserId}.json`;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
+    const previous = await bucket.get(key);
+    if (previous) {
+      const current = await previous.json();
+      if (current.delivery_id === deliveryId || Date.parse(current.revoked_at) >= Date.parse(revokedAt)) return current;
+    }
+    const record = {
+      github_user_id: githubUserId,
+      delivery_id: deliveryId,
+      revoked_at: revokedAt,
+      reason: "github-sponsorship-cancelled",
+    };
+    const options = {
+      onlyIf: previous ? { etagMatches: previous.etag } : { etagDoesNotMatch: "*" },
+      httpMetadata: { contentType: "application/json", cacheControl: "no-store" },
+    };
+    const saved = await bucket.put(key, JSON.stringify(record), options);
+    if (saved) return record;
   }
-  return new Set(tiers);
+  throw new Error("sponsor access revocation changed concurrently; retry webhook delivery");
+}
+
+async function hasActiveSponsorship(bucket, snapshot, githubUserId) {
+  if (!snapshot || !snapshot.sponsors.some((sponsor) => sponsor.github_user_id === githubUserId)) return false;
+  const revocation = await readRecord(bucket, `sponsor-revocations/${githubUserId}.json`);
+  if (!revocation) return true;
+  const snapshotAt = Date.parse(snapshot.reconciled_at);
+  const revokedAt = Date.parse(revocation.record.revoked_at);
+  // Fail closed on malformed markers. A later authoritative active-only
+  // snapshot may re-enable a sponsor who starts a new sponsorship.
+  return Number.isFinite(snapshotAt) && Number.isFinite(revokedAt) && snapshotAt > revokedAt;
 }
 
 async function fetchSponsorSnapshot(env, now) {
   if (!env.SPONSOR_GRAPHQL_TOKEN) throw new Error("GitHub Sponsors reconciliation token is not configured");
-  const allowedTiers = configuredSponsorTiers(env.SPONSOR_ALLOWED_TIER_IDS);
   let after = null;
   const sponsors = new Map();
   let pages = 0;
@@ -1001,7 +1045,6 @@ async function fetchSponsorSnapshot(env, now) {
                   ... on User { databaseId login }
                   ... on Organization { databaseId login }
                 }
-                tier { id name isOneTime }
               }
               pageInfo { hasNextPage endCursor }
             }
@@ -1021,18 +1064,13 @@ async function fetchSponsorSnapshot(env, now) {
     if (!connection || !Array.isArray(connection.nodes) || !connection.pageInfo) throw new Error("GitHub Sponsors response is incomplete");
     for (const sponsorship of connection.nodes) {
       const sponsor = sponsorship?.sponsorEntity;
-      const tier = sponsorship?.tier;
       // Organization sponsors do not grant access to every member. Device entitlements
       // are mapped only to the individual user's immutable GitHub database ID.
-      if (sponsorship.isActive === true && sponsor?.__typename === "User" && Number.isSafeInteger(sponsor.databaseId) &&
-          tier && allowedTiers.has(tier.id)) {
+      if (sponsorship.isActive === true && sponsor?.__typename === "User" && Number.isSafeInteger(sponsor.databaseId)) {
         const current = sponsors.get(sponsor.databaseId);
-        const tierIds = new Set(current?.tier_ids || []);
-        tierIds.add(tier.id);
         sponsors.set(sponsor.databaseId, {
           github_user_id: sponsor.databaseId,
           github_login: sponsor.login,
-          tier_ids: [...tierIds].sort(),
           has_one_time_sponsorship: current?.has_one_time_sponsorship === true || sponsorship.isOneTimePayment === true,
         });
       }
@@ -1042,11 +1080,11 @@ async function fetchSponsorSnapshot(env, now) {
   } while (after);
   return {
     organization: "getpatched",
-    tier_ids: [...allowedTiers].sort(),
     sponsors: [...sponsors.values()].sort((a, b) => a.github_user_id - b.github_user_id),
     reconciled_at: now.toISOString(),
     valid_until: new Date(now.getTime() + SPONSOR_SNAPSHOT_MAX_AGE_MS).toISOString(),
     authority: "github-sponsors-graphql-active-only",
+    tier_policy: "any-active-individual-sponsorship",
   };
 }
 
@@ -1245,7 +1283,7 @@ async function accountStatus(request, env) {
   const user = await sessionUser(request, env);
   if (!user) return json({ error: "sign-in required" }, 401);
   const snapshot = await readFreshSponsorSnapshot(env.RELEASES);
-  const eligible = snapshot?.sponsors.some((sponsor) => sponsor.github_user_id === user.github_user_id) === true;
+  const eligible = await hasActiveSponsorship(env.RELEASES, snapshot, user.github_user_id);
   return json({
     github_login: user.github_login,
     sponsorship: snapshot ? (eligible ? "eligible" : "not-eligible") : "unavailable",
@@ -1278,10 +1316,13 @@ async function issueDeviceToken(request, env) {
   if (!user) return json({ error: "sign-in required" }, 401);
   const snapshot = await readFreshSponsorSnapshot(env.RELEASES);
   if (!snapshot) return json({ error: "sponsor status is temporarily unavailable" }, 503);
-  if (!snapshot.sponsors.some((sponsor) => sponsor.github_user_id === user.github_user_id)) return json({ error: "active eligible sponsorship required" }, 403);
+  if (!await hasActiveSponsorship(env.RELEASES, snapshot, user.github_user_id)) return json({ error: "active GitHub sponsorship at any tier required" }, 403);
   let body;
   try { body = await readBoundedJson(request, 4096); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  if (body.earlyBinaryLicenseId !== "LicenseRef-GetPatched-Early-Binary-1.0") {
+    return json({ error: "accept the early-binary terms before creating a device credential" }, 400);
+  }
   const label = typeof body.label === "string" ? body.label.trim() : "APT device";
   if (!label || label.length > 80) return json({ error: "device label must be 1 to 80 characters" }, 400);
   const token = `getpatched_${randomToken()}`;
@@ -1292,6 +1333,8 @@ async function issueDeviceToken(request, env) {
     created_at: now.toISOString(),
     expires_at: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString(),
     device_label: label,
+    early_binary_license_id: body.earlyBinaryLicenseId,
+    early_binary_terms_accepted_at: now.toISOString(),
   };
   const saved = await env.RELEASES.put(`apt-device-tokens/${tokenHash}.json`, JSON.stringify(record), {
     onlyIf: { etagDoesNotMatch: "*" }, httpMetadata: { contentType: "application/json" },
@@ -1354,7 +1397,7 @@ async function deviceTokenUser(request, env, now = new Date()) {
   const loaded = await readRecord(env.RELEASES, `apt-device-tokens/${tokenHash}.json`);
   if (!loaded || loaded.record.revoked_at || !Number.isSafeInteger(loaded.record.github_user_id) || now.getTime() > Date.parse(loaded.record.expires_at)) return null;
   const snapshot = await readFreshSponsorSnapshot(env.RELEASES, now);
-  if (!snapshot?.sponsors.some((sponsor) => sponsor.github_user_id === loaded.record.github_user_id)) return null;
+  if (!await hasActiveSponsorship(env.RELEASES, snapshot, loaded.record.github_user_id)) return null;
   return loaded.record;
 }
 
@@ -1643,10 +1686,14 @@ function stateKey(id) {
 function assertRelease(record) {
   if (!record || !["prepared", "sponsor-period", "public"].includes(record.state)) throw new Error("invalid release state");
   if (!["getpatched/packaging-libxml2", "getpatched/packaging-libarchive"].includes(record.repository)) throw new Error("repository is not an approved pilot package");
-  if (typeof record.tag !== "string" || !/^getpatched\/[A-Za-z0-9.+~-]+$/.test(record.tag)) throw new Error("invalid immutable release tag");
+  if (typeof record.tag !== "string" || !/^getpatched\/(?:[a-z0-9-]+\/)?[A-Za-z0-9.+~-]+$/.test(record.tag)) throw new Error("invalid immutable release tag");
+  const targetId = record.target_id || "ubuntu-focal-amd64";
+  if (targetId !== "ubuntu-focal-amd64") throw new Error("release Worker only routes the verified Ubuntu Focal amd64 target");
+  if (record.public_contribution_spdx !== undefined && record.public_contribution_spdx !== "MIT") throw new Error("public GetPatched contributions must use the configured MIT license");
   if (!Number.isInteger(record.sponsor_delay_hours) || ![0, 168].includes(record.sponsor_delay_hours)) throw new Error("policy must be 0 or 168 hours");
   const expectedDelay = record.repository === "getpatched/packaging-libxml2" ? 168 : 0;
   if (record.sponsor_delay_hours !== expectedDelay) throw new Error("release policy does not match the approved pilot package");
+  if (expectedDelay === 168 && record.early_binary_license_id !== undefined && record.early_binary_license_id !== "LicenseRef-GetPatched-Early-Binary-1.0") throw new Error("sponsor-first release has an unsupported early-binary license");
   if (!Array.isArray(record.required_assets) || record.required_assets.length === 0) throw new Error("required assets missing");
   canonicalAssets(record.required_assets);
 }
@@ -1655,13 +1702,13 @@ function packageName(repository) {
   return repository.slice("getpatched/packaging-".length);
 }
 
-async function verifyPackageRun(env, repository, sourceCommit, tag, runId) {
+async function verifyPackageRun(env, repository, sourceCommit, tag, runId, targetId = "ubuntu-focal-amd64") {
   if (!Number.isSafeInteger(runId) || runId <= 0) throw new Error("verification_run_id must be a positive integer");
   if (typeof sourceCommit !== "string" || !/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error("source_commit must be a full Git commit SHA");
   const runResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}`);
   const run = await runResponse.json();
   const expectedPath = ".github/workflows/package-verification.yml";
-  const expectedTitle = `Verify ${packageName(repository)} at ${sourceCommit}`;
+  const expectedTitle = `Verify ${packageName(repository)} on ${targetId} at ${sourceCommit}`;
   if (run.event !== "workflow_dispatch" || run.conclusion !== "success" || run.head_branch !== "main" || run.path !== expectedPath || run.display_title !== expectedTitle) {
     throw new Error("verification run must be a successful package-verification dispatch from main");
   }
@@ -1732,13 +1779,22 @@ async function registerRelease(request, env) {
     return json({ error: "unauthorized" }, 401);
   }
   const body = await readBoundedJson(request, MAX_REGISTRATION_BYTES);
+  const requiredDelay = body.repository === "getpatched/packaging-libxml2" ? 168 : 0;
+  if (body.target_id !== "ubuntu-focal-amd64" || body.public_contribution_spdx !== "MIT" ||
+      body.sponsor_delay_hours !== requiredDelay ||
+      body.early_binary_license_id !== (requiredDelay ? "LicenseRef-GetPatched-Early-Binary-1.0" : null)) {
+    throw requestError("release target, sponsorship, or license policy is incomplete or unsupported", 422);
+  }
   const record = {
     id: body.id,
     state: "prepared",
     repository: body.repository,
     tag: body.tag,
+    target_id: body.target_id || "ubuntu-focal-amd64",
     source_commit: body.source_commit,
     sponsor_delay_hours: body.sponsor_delay_hours,
+    early_binary_license_id: body.early_binary_license_id,
+    public_contribution_spdx: body.public_contribution_spdx,
     release_checks_passed: false,
     required_assets: releaseAssets(body.required_assets, body.id),
     source_assets: releaseAssets(body.source_assets, body.id).map((asset) => ({ ...asset, r2_key: `staging/${body.id}/source/${asset.sha256}` })),
@@ -1746,7 +1802,7 @@ async function registerRelease(request, env) {
     ...(identity.type === "github-actions" ? { staging_run_id: identity.run_id } : {}),
   };
   assertRelease(record);
-  const verifiedRun = await verifyPackageRun(env, record.repository, record.source_commit, record.tag, body.verification_run_id);
+  const verifiedRun = await verifyPackageRun(env, record.repository, record.source_commit, record.tag, body.verification_run_id, record.target_id);
   record.release_checks_passed = true;
   record.verification = verifiedRun;
   const existing = await readRecord(env.RELEASES, stateKey(record.id));
@@ -2104,7 +2160,7 @@ async function reconcile(env, now = new Date()) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, context) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/account") {
       if (!env.ASSETS) return new Response("account page is not configured", { status: 503 });
@@ -2262,7 +2318,7 @@ export default {
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
     }
     if (request.method === "POST" && url.pathname === "/webhooks/github/sponsorship") {
-      return acceptSponsorWebhook(request, env);
+      return acceptSponsorWebhook(request, env, context);
     }
     const assetRoute = url.pathname.match(/^\/internal\/releases\/([^/]+)\/assets\/([^/]+)$/);
     if (request.method === "PUT" && assetRoute) {
@@ -2295,4 +2351,4 @@ export default {
   },
 };
 
-export { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishImmediateRelease, publishOne, publishPublicSources, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };
+export { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, hasActiveSponsorship, parseUtc, publishImmediateRelease, publishOne, publishPublicSources, readFreshSponsorSnapshot, reconcile, reconcileSponsors, recordSponsorRevocation, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag };

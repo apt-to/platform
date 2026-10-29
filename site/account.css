@@ -36,6 +36,9 @@
 .dismiss-button { margin-top: 12px; padding: 0; border: 0; background: none; color: var(--success-link); text-decoration: underline; font-size: 10px; cursor: pointer; }
 .create-device { margin-top: 26px; padding: 18px 0 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .create-device label { display: block; margin-bottom: 7px; color: var(--copy-secondary); font-size: 11px; font-weight: 600; }
+.create-device label.license-acceptance { display: flex; align-items: flex-start; gap: 9px; max-width: 680px; margin: 15px 0 0; color: var(--copy-secondary); font-size: 11px; font-weight: 400; line-height: 1.6; }
+.license-acceptance input { flex: 0 0 auto; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--accent); }
+.license-acceptance a { color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .create-controls { display: flex; gap: 9px; }
 .create-controls input { width: min(100%, 360px); min-height: 42px; padding: 9px 11px; border: 1px solid var(--line-dark); border-radius: 2px; background: var(--paper-raised); color: var(--ink); font-size: 12px; }
 .create-device > p { margin: 8px 0 0; color: var(--muted); font-size: 10px; }

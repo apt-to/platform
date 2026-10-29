@@ -645,3 +645,7 @@ tbody tr:hover { background: var(--surface-hover); }
 :root[data-theme="dark"] .search-box input::placeholder { color: var(--muted); }
 :root[data-theme="dark"] .flow-knockout { stroke: var(--paper-raised); }
 :root[data-theme="dark"] .policy-sponsor { background: #f3b74d; }
+.legal-main { max-width: 860px; padding-top: 76px; padding-bottom: 120px; }
+.legal-main h1 { max-width: 720px; }
+.legal-main h2 { margin: 38px 0 10px; font-size: 19px; letter-spacing: -.02em; }
+.legal-main p:not(.eyebrow) { max-width: 720px; color: var(--copy-secondary); }

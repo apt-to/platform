@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and test a reviewed focal packaging checkout without publishing binaries."""
+"""Build and test a reviewed target-specific packaging checkout without publishing binaries."""
 import argparse
 import hashlib
 import json
@@ -16,6 +16,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from package_recipe import download_source_assets, load_recipe
+from platform_policy import apt_source_list_b64, package_target_policy, scanner_config, target_profile
 
 
 def run(command, timeout=1200, **kwargs):
@@ -30,7 +31,11 @@ def sha256(path):
     return result.hexdigest()
 
 
-def persist_release_candidates(selected, binary_manifest, output, package, version, source_commit):
+def persist_release_candidates(selected, binary_manifest, output, package, version, source_commit, target_id, profile):
+    if (binary_manifest.get("source") != package or binary_manifest.get("targetId") != target_id
+            or binary_manifest.get("version") != version
+            or binary_manifest.get("architecture") != profile["architecture"]):
+        raise RuntimeError("Binary manifest does not match the selected package target and version")
     entries = {item["name"]: item for item in binary_manifest["packages"]}
     binary_output = output / "binary"
     binary_output.mkdir()
@@ -86,8 +91,9 @@ def persist_release_candidates(selected, binary_manifest, output, package, versi
         "source": package,
         "sourceVersion": version,
         "sourceCommit": source_commit,
-        "distribution": "focal",
-        "architecture": "amd64",
+        "targetId": target_id,
+        "distribution": profile["codename"],
+        "architecture": profile["architecture"],
         "publication": "not published; runner-local candidates for a protected staging job",
         "packages": release_candidates,
         "sourceFiles": source_candidates,
@@ -102,7 +108,8 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected)
     status_path.write_text(status_result.stdout)
     scan = subprocess.run([
         sys.executable, str(ROOT / "scripts/getpatched-scan.py"), "--feed", str(ROOT / "advisories/getpatched-osv.json"),
-        "--status-file", str(status_path), "--release", "focal", "--architecture", "amd64", "--image-id", image_id,
+        "--status-file", str(status_path), "--release", expected["codename"],
+        "--architecture", expected["architecture"], "--target-id", expected["targetId"], "--image-id", image_id,
     ], capture_output=True, text=True, timeout=60, check=False)
     if scan.returncode not in (0, 1):
         raise RuntimeError("GetPatched advisory scan failed: " + scan.stderr[-2000:])
@@ -128,35 +135,40 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected)
 
 def validate_release_policy(policy, config):
     package = policy["source"]
-    expected = config["packages"][package]
+    profile = target_profile(config, policy["targetId"])
+    expected = package_target_policy(config, package, policy["targetId"])
+    expected = dict(expected, targetId=policy["targetId"], codename=profile["codename"], architecture=profile["architecture"])
     if (policy["baseVersion"] != expected["baselineVersion"] or
-        policy["sponsorDelayHours"] != expected["sponsorDelayHours"] or
+        policy["sponsorDelayHours"] != expected["releaseAccess"]["sponsorDelayHours"] or
         policy["version"] != expected["packageVersion"] or
         policy["releaseSerial"] != expected["releaseSerial"]):
         raise RuntimeError("Packaging policy disagrees with project configuration")
     if (expected["targetCve"] not in policy["targetCves"]
             or policy["targetCves"] != expected["targetCves"]
             or policy["binaryPackages"] != expected["binaryPackages"]
-            or policy["architecture"] != config["architecture"]
-            or policy["release"] != config["release"]
+            or policy["architecture"] != profile["architecture"]
+            or policy["release"] != profile["codename"]
+            or policy["distribution"] != profile["distribution"]
+            or policy["releaseVersion"] != profile["releaseVersion"]
             or policy["version"] != expected["packageVersion"]):
         raise RuntimeError("Unexpected pilot backport identity")
-    return package, expected
+    return package, expected, profile
 
 
-def release_eligibility(policy, verification_checks_passed=False):
+def release_eligibility(policy, verification_checks_passed=False, publication_enabled=False):
     if verification_checks_passed is not True:
-        raise RuntimeError("Release candidate is unavailable until all public Focal verification checks pass")
+        raise RuntimeError("Release candidate is unavailable until all public target verification checks pass")
     return {
         "schemaVersion": 1,
         "source": policy["source"],
+        "targetId": policy["targetId"],
         "sourceVersion": policy["version"],
         "releaseSerial": policy["releaseSerial"],
-        "supportScope": "latest-public-focal",
+        "supportScope": policy["targetId"],
         "verificationChecksPassed": verification_checks_passed,
-        "releaseEligible": True,
-        "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
-        "reason": None,
+        "releaseEligible": publication_enabled,
+        "ubuntuProEsmCompatibility": policy.get("ubuntuProEsmCompatibility", "not-applicable"),
+        "reason": None if publication_enabled else "repository publication is disabled for this target",
     }
 
 
@@ -174,7 +186,11 @@ def main():
     config = json.loads((ROOT / "packages.json").read_text())
     recipe = load_recipe(source, config, args.target)
     policy = recipe["policy"]
-    package, expected = validate_release_policy(policy, config)
+    package, expected, profile = validate_release_policy(policy, config)
+    scanner = scanner_config(config)
+    container_platform = profile["build"]["containerPlatform"]
+    build_sources = apt_source_list_b64(profile)
+    binary_sources = apt_source_list_b64(profile, include_sources=False)
     if run(["git", "-C", str(source), "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
         raise RuntimeError("Commit the reviewed packaging changes before recording build evidence")
     commit = run(["git", "-C", str(source), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
@@ -228,11 +244,11 @@ def main():
         provenance_path.write_text(json.dumps(source_provenance, indent=2) + "\n")
         try:
             run([
-                "docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", name,
+                "docker", "build", "--no-cache", "--platform", container_platform, "--tag", name,
                 "--file", str(ROOT / "build/packaging.Containerfile"),
-                "--build-arg", "BASE_IMAGE=" + config["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + config["scannerImage"],
-                "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
+                "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
+                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
+                "--build-arg", "APT_SOURCES_B64=" + build_sources,
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"], str(ROOT),
             ], timeout=2700)
@@ -240,7 +256,7 @@ def main():
             builder = run(["docker", "image", "inspect", name, "--format", "{{.Id}}"], capture_output=True, text=True).stdout.strip()
             started = True
             run([
-                "docker", "run", "--name", container, "--platform", "linux/amd64",
+                "docker", "run", "--name", container, "--platform", container_platform,
                 "--network", "none", "--cpus", "2", "--memory", "4g", "--pids-limit", "512",
                 "--security-opt", "no-new-privileges:true",
                 "--mount", "type=bind,source=" + str(source) + ",target=/recipe,readonly",
@@ -253,7 +269,7 @@ def main():
                 "--mount", "type=bind,source=" + str(output) + ",target=/output",
                 name, "bash", "/recipe.sh", str(os.getuid()), str(os.getgid()),
             ], timeout=2400)
-            result = {"source": package, "version": policy["version"], "sourceCommit": commit, "baseImage": config["baseImage"], "trustBundleImage": config["scannerImage"], "archiveSnapshot": config["archiveSnapshot"], "builderImageId": builder, "toolchainInventory": "build-toolchain.tsv", "publication": "none; binary outputs remained inside the disposable container"}
+            result = {"source": package, "version": policy["version"], "sourceCommit": commit, "targetId": policy["targetId"], "baseImage": profile["baseImage"], "trustBundleImage": scanner["image"], "archiveSnapshot": profile["archiveSnapshot"], "builderImageId": builder, "toolchainInventory": "build-toolchain.tsv", "publication": "none; binary outputs remained inside the disposable container"}
             result.update({
                 "targetId": recipe["target"]["id"],
                 "releaseSerial": policy["releaseSerial"],
@@ -286,27 +302,27 @@ def main():
                 shutil.copyfile(deb, patched_context / "getpatched" / deb.name)
             shutil.copyfile(ROOT / "build/patched-scan.Containerfile", patched_context / "Dockerfile")
             scan_args = [
-                "docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", scan_patched,
+                "docker", "build", "--no-cache", "--platform", container_platform, "--tag", scan_patched,
                 "--file", str(patched_context / "Dockerfile"),
-                "--build-arg", "BASE_IMAGE=" + config["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + config["scannerImage"],
+                "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
+                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "BASELINE_VERSION=" + policy["baseVersion"],
                 "--build-arg", "EXPECTED_VERSION=" + policy["version"],
-                "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
+                "--build-arg", "APT_SOURCES_B64=" + binary_sources,
                 "--build-arg", "BINARY_PACKAGES=" + " ".join(expected["binaryPackages"]),
                 str(patched_context),
             ]
             run(scan_args)
             scan_images.append(scan_patched)
             run([
-                "docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", scan_base,
+                "docker", "build", "--no-cache", "--platform", container_platform, "--tag", scan_base,
                 "--file", str(ROOT / "build/baseline.Containerfile"),
-                "--build-arg", "BASE_IMAGE=" + config["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + config["scannerImage"],
+                "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
+                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"],
-                "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
+                "--build-arg", "APT_SOURCES_B64=" + binary_sources,
                 str(ROOT),
             ])
             scan_images.append(scan_base)
@@ -319,11 +335,11 @@ def main():
                 image_tar = temp / (phase + ".tar")
                 run(["docker", "save", "--output", str(image_tar), image])
                 command = [
-                    "docker", "run", "--rm", "--platform", "linux/amd64",
+                    "docker", "run", "--rm", "--platform", container_platform,
                     "--mount", "type=bind,source=" + str(temp) + ",target=/work",
-                    "--user", str(os.getuid()) + ":" + str(os.getgid()), config["scannerImage"],
+                    "--user", str(os.getuid()) + ":" + str(os.getgid()), scanner["image"],
                     "image", "--input", "/work/" + image_tar.name,
-                    "--cache-dir", "/work/trivy-cache", "--db-repository", config["scannerDatabaseReference"],
+                    "--cache-dir", "/work/trivy-cache", "--db-repository", scanner["databaseReference"],
                     "--scanners", "vuln", "--list-all-pkgs", "--format", "json", "--output", "/work/" + phase + "-trivy.json",
                 ]
                 if phase == "after":
@@ -332,27 +348,27 @@ def main():
                 shutil.copyfile(temp / (phase + "-trivy.json"), output / (package + "-trivy-" + phase + ".json"))
                 image_tar.unlink()
             db_files = list((temp / "trivy-cache/db").glob("trivy.db"))
-            if len(db_files) != 1 or sha256(db_files[0]) != config["scannerDatabaseSha256"]:
+            if len(db_files) != 1 or sha256(db_files[0]) != scanner["databaseSha256"]:
                 raise RuntimeError("Paired scans did not use the configured pinned Trivy database digest")
             database_hash = sha256(db_files[0])
-            (output / "trivy-database.json").write_text(json.dumps({"reference": config["scannerDatabaseReference"], "sha256": database_hash}, indent=2) + "\n")
+            (output / "trivy-database.json").write_text(json.dumps({"reference": scanner["databaseReference"], "sha256": database_hash}, indent=2) + "\n")
             for phase in ("before", "after"):
                 report_path = output / (package + "-trivy-" + phase + ".json")
                 image_id = scan_identity["baselineImageId" if phase == "before" else "patchedImageId"]
-                (output / (package + "-trivy-" + phase + "-metadata.json")).write_text(json.dumps({"phase": phase, "scannerImage": config["scannerImage"], "imageId": image_id, "databaseReference": config["scannerDatabaseReference"], "databaseSha256": database_hash, "reportSha256": sha256(report_path)}, indent=2) + "\n")
+                (output / (package + "-trivy-" + phase + "-metadata.json")).write_text(json.dumps({"phase": phase, "scannerImage": scanner["image"], "imageId": image_id, "databaseReference": scanner["databaseReference"], "databaseSha256": database_hash, "reportSha256": sha256(report_path)}, indent=2) + "\n")
             osv_evidence = {}
             for phase, version in (("before", policy["baseVersion"]), ("after", policy["version"])):
-                request_body = {"package": {"name": package, "ecosystem": config["advisoryEcosystem"]}, "version": version}
+                request_body = {"package": {"name": package, "ecosystem": policy["advisoryEcosystem"]}, "version": version}
                 request = urllib.request.Request("https://api.osv.dev/v1/query", data=json.dumps(request_body).encode(), headers={"Content-Type": "application/json", "User-Agent": "getpatched.dev-advisory-audit/0.1"})
                 with urllib.request.urlopen(request, timeout=45) as response:
                     response_body = response.read(16 * 1024 * 1024 + 1)
                 if len(response_body) > 16 * 1024 * 1024:
-                    raise RuntimeError("Ubuntu OSV response exceeds evidence size bound")
+                    raise RuntimeError("OSV response exceeds evidence size bound")
                 path = output / (package + "-osv-" + phase + ".json")
                 path.write_text(json.dumps({"request": request_body, "endpoint": "https://api.osv.dev/v1/query", "response": json.loads(response_body)}, indent=2) + "\n")
                 osv_evidence[phase] = str(path)
             audit_input = {
-                "source": package, "baselineVersion": policy["baseVersion"], "patchedVersion": policy["version"],
+                "source": package, "targetId": policy["targetId"], "baselineVersion": policy["baseVersion"], "patchedVersion": policy["version"],
                 "targetCves": policy["targetCves"], "beforeTrivy": str(output / (package + "-trivy-before.json")),
                 "afterTrivy": str(output / (package + "-trivy-after.json")), "beforeOsv": osv_evidence["before"], "afterOsv": osv_evidence["after"],
                 "baselineRegression": str(output / "baseline-regression.json"), "patchedRegression": str(output / "patched-regression.json"),
@@ -368,11 +384,13 @@ def main():
             audit_input_path.write_text(json.dumps(audit_input))
             run(["python3", str(ROOT / "scripts/advisory-audit.py"), "--input", str(audit_input_path), "--output", str(output / "advisory-comparison.json")])
             run(["python3", str(ROOT / "scripts/test-apt-repository.py"), "--recipe", str(source), "--policy", str(output / "package-policy.json"), "--output", str(output),
-                 "--work", str(temp), "--builder-image", name, "--base-image", config["baseImage"],
-                 "--trust-image", config["scannerImage"], "--archive-snapshot", config["archiveSnapshot"]])
-            (output / "release-eligibility.json").write_text(json.dumps(release_eligibility(policy, verification_checks_passed=True), indent=2) + "\n")
-            persist_release_candidates(selected, binary_manifest, output, package, policy["version"], commit)
-            print(package + ": public Focal build, installed regressions, advisory comparison, consumer checks, and signed APT binary/source install passed; Ubuntu Pro ESM compatibility is not tested or claimed")
+                 "--work", str(temp), "--builder-image", name, "--base-image", profile["baseImage"],
+                 "--trust-image", scanner["image"], "--apt-sources-b64", build_sources])
+            (output / "release-eligibility.json").write_text(json.dumps(release_eligibility(
+                policy, verification_checks_passed=True, publication_enabled=profile["repository"]["enabled"]
+            ), indent=2) + "\n")
+            persist_release_candidates(selected, binary_manifest, output, package, policy["version"], commit, policy["targetId"], profile)
+            print(package + ": target " + policy["targetId"] + " build, installed regressions, advisory comparison, consumer checks, and signed APT binary/source install passed; repository publication enabled=" + str(profile["repository"]["enabled"]).lower())
         finally:
             try:
                 if started:

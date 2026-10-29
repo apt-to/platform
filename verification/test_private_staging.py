@@ -60,8 +60,11 @@ class PrivateStagingManifest(unittest.TestCase):
     def test_staging_downloads_the_complete_source_artifact_into_the_manifest_source_directory(self):
         producer = (ROOT / ".github/workflows/package-verification.yml").read_text()
         staging = (ROOT / ".github/workflows/private-staging.yml").read_text()
-        self.assertIn('name: source-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}', producer)
-        self.assertIn('gh run download "$RUN_ID" --repo getpatched/platform --name "source-${package}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
+        self.assertIn('name: source-${{ matrix.package }}-${{ inputs.target_id }}-${{ github.run_id }}-${{ github.run_attempt }}', producer)
+        self.assertIn('source_branch="$(python3 scripts/resolve-target-branch.py --target "$TARGET_ID")"', producer)
+        self.assertIn('source_branch="$(python3 scripts/resolve-target-branch.py --target "$target_id")"', staging)
+        self.assertIn('"refs/heads/$source_branch"', producer + staging)
+        self.assertIn('gh run download "$RUN_ID" --repo getpatched/platform --name "source-${package}-${target_id}-${RUN_ID}-${RUN_ATTEMPT}" --dir "$RUNNER_TEMP/candidate/source"', staging)
         self.assertIn('SOURCE_DIRECTORY: ${{ runner.temp }}/candidate/source', staging)
         self.assertIn('GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev', staging)
         self.assertRegex(

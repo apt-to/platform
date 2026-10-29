@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a clean public focal baseline and retain an unfiltered pinned Trivy report.
+"""Build a clean package target and retain an unfiltered pinned Trivy report.
 
 This is a candidate selection check, not proof of remediation. It deliberately
 uploads no package binary to GitHub artifacts. Run on a disposable Linux runner.
@@ -17,6 +17,9 @@ import tempfile
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "scripts"))
+from platform_policy import apt_source_list_b64, package_target_policy, scanner_config, target_profile
 
 
 def run(arguments, **kwargs):
@@ -34,11 +37,14 @@ def digest(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--package", required=True, choices=("libxml2", "libarchive"))
+    parser.add_argument("--target", default="ubuntu-focal-amd64")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--database-snapshot", type=Path, help="Reuse an earlier scanner-db directory without updating it")
     args = parser.parse_args()
     config = json.loads((ROOT / "packages.json").read_text())
-    package = config["packages"][args.package]
+    profile = target_profile(config, args.target)
+    package = package_target_policy(config, args.package, args.target)
+    scanner = scanner_config(config)
     args.output.mkdir(parents=True, exist_ok=True)
     output = args.output.resolve()
     if (output / "scanner-db").exists():
@@ -57,27 +63,27 @@ def main():
                 shutil.copytree(args.database_snapshot, temp / "cache/db")
                 database_flags = ["--skip-db-update"]
             run([
-                "docker", "build", "--no-cache", "--platform", "linux/amd64", "--tag", name,
+                "docker", "build", "--no-cache", "--platform", profile["build"]["containerPlatform"], "--tag", name,
                 "--file", str(ROOT / "build/baseline.Containerfile"),
-                "--build-arg", "BASE_IMAGE=" + config["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + config["scannerImage"],
+                "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
+                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
                 "--build-arg", "SOURCE_PACKAGE=" + args.package,
                 "--build-arg", "EXPECTED_VERSION=" + package["baselineVersion"],
-                "--build-arg", "ARCHIVE_SNAPSHOT=" + config["archiveSnapshot"],
+                "--build-arg", "APT_SOURCES_B64=" + apt_source_list_b64(profile, include_sources=False),
                 str(ROOT),
             ])
             built = True
             run(["docker", "save", "--output", str(temp / "baseline.tar"), name])
             scan_started = True
             run([
-                "docker", "run", "--rm", "--platform", "linux/amd64",
+                "docker", "run", "--rm", "--platform", profile["build"]["containerPlatform"],
                 "--name", scanner_name,
                 "--user", str(os.getuid()) + ":" + str(os.getgid()),
                 "--mount", "type=bind,source=" + str(temp) + ",target=/work",
-                config["scannerImage"], "image", "--input", "/work/baseline.tar",
+                scanner["image"], "image", "--input", "/work/baseline.tar",
                 "--cache-dir", "/work/cache", "--scanners", "vuln",
                 "--list-all-pkgs", "--format", "json", "--output", "/work/report.json",
-                "--db-repository", config["scannerDatabaseReference"],
+                "--db-repository", scanner["databaseReference"],
                 *database_flags,
             ])
             report = json.loads((temp / "report.json").read_text())
@@ -91,10 +97,14 @@ def main():
                 "checkedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "purpose": "baseline candidate selection; no remediation claimed",
                 "sourcePackage": args.package,
+                "targetId": args.target,
+                "distribution": profile["distribution"],
+                "release": profile["codename"],
+                "architecture": profile["architecture"],
                 "baselineVersion": package["baselineVersion"],
                 "targetCve": package["targetCve"],
-                "baseImage": config["baseImage"],
-                "scannerImage": config["scannerImage"],
+                "baseImage": profile["baseImage"],
+                "scannerImage": scanner["image"],
                 "identifiedPackages": [{k: p.get(k) for k in ("Name", "Version", "SrcName", "SrcVersion")} for p in packages],
                 "findings": [{k: v.get(k) for k in ("VulnerabilityID", "PkgName", "InstalledVersion", "FixedVersion", "Severity", "Status", "DataSource")} for v in findings],
                 "databaseFiles": {},
@@ -109,7 +119,7 @@ def main():
             (output / (args.package + "-baseline.json")).write_text(json.dumps(metadata, indent=2) + "\n")
             if not packages:
                 raise RuntimeError("Scanner did not identify candidate packages; report preserved")
-            if not args.database_snapshot and metadata["databaseFiles"]["trivy.db"]["sha256"] != config["scannerDatabaseSha256"]:
+            if not args.database_snapshot and metadata["databaseFiles"]["trivy.db"]["sha256"] != scanner["databaseSha256"]:
                 raise RuntimeError("Scanner database digest differs from the pinned reference")
             if not findings:
                 raise RuntimeError("Target CVE absent from raw baseline Trivy report; preserve report but do not treat this baseline scan as a passing recognition check")

@@ -4,12 +4,14 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("package_recipe", ROOT / "scripts/package_recipe.py")
 RECIPE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RECIPE)
@@ -24,6 +26,20 @@ def digest(data):
 
 
 class PackageRecipeContract(unittest.TestCase):
+    def test_patch_applicability_supports_target_scoped_exact_and_debian_version_ranges(self):
+        exact = {"target": "ubuntu-focal-amd64", "sourceVersion": "1.0-2"}
+        self.assertTrue(RECIPE.patch_applies_to_version(exact, "ubuntu-focal-amd64", "1.0-2"))
+        self.assertFalse(RECIPE.patch_applies_to_version(exact, "ubuntu-focal-arm64", "1.0-2"))
+        self.assertFalse(RECIPE.patch_applies_to_version(exact, "ubuntu-focal-amd64", "1.0-3"))
+        ranged = {"target": "debian-bookworm-arm64", "sourceVersionRange": {
+            "minimum": "1.0-1", "minimumInclusive": True,
+            "maximum": "1.0-3", "maximumInclusive": False,
+        }}
+        self.assertTrue(RECIPE.patch_applies_to_version(ranged, "debian-bookworm-arm64", "1.0-1"))
+        self.assertTrue(RECIPE.patch_applies_to_version(ranged, "debian-bookworm-arm64", "1.0-2"))
+        self.assertFalse(RECIPE.patch_applies_to_version(ranged, "debian-bookworm-arm64", "1.0-3"))
+        self.assertFalse(RECIPE.patch_applies_to_version(ranged, "ubuntu-focal-amd64", "1.0-2"))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="getpatched-recipe-test-")
         self.addCleanup(self.temp.cleanup)
@@ -40,9 +56,11 @@ class PackageRecipeContract(unittest.TestCase):
         (self.root / "tests/fixtures/input.bin").write_bytes(self.fixture_bytes)
         (self.root / "tests/fixtures/reference.c").write_bytes(self.reference_bytes)
         (self.root / "LICENSES/ubuntu-source-copyright").write_text("Copyright notice\n")
+        (self.root / "LICENSE").write_text("MIT-authored materials only\n")
+        (self.root / "LICENSES/GETPATCHED-EARLY-ACCESS.md").write_text("Early binary terms\n")
         (self.root / "README.md").write_text("Recipe test\n")
 
-        central = PLATFORM_CONFIG["packages"]["libarchive"]
+        central = PLATFORM_CONFIG["packages"]["libarchive"]["targets"]["ubuntu-focal-amd64"]
         source_version = central["baselineVersion"]
         descriptor_bytes = b"pinned descriptor fixture\n"
         orig_bytes = b"pinned original source fixture\n"
@@ -86,11 +104,26 @@ class PackageRecipeContract(unittest.TestCase):
                 "binaryPackages": central["binaryPackages"],
                 "patches": ["cve-2026-4111"],
                 "buildPatches": ["test-zstd-size-tolerance"],
-                "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0},
+                "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0,
+                                  "sponsorEligibility": None, "earlyBinaryLicenseId": None,
+                                  "publicContributionSpdx": "MIT"},
             }],
             "patchMetadata": "patches/metadata.json",
             "regressionTests": {"fixturesDirectory": "tests/fixtures", "runner": "getpatched/platform:verification/regression.py"},
+            "licensing": {
+                "publicContributionsSpdx": "MIT",
+                "publicContributionsLicenseFile": "LICENSE",
+                "earlyBinaryLicenseId": "LicenseRef-GetPatched-Early-Binary-1.0",
+                "earlyBinaryTermsFile": "LICENSES/GETPATCHED-EARLY-ACCESS.md",
+                "upstreamCopyrightFile": "LICENSES/ubuntu-source-copyright",
+                "upstreamLicenses": "preserve",
+            },
         }
+        self.target = self.manifest["targets"][0]
+        self.target["schemaVersion"] = 1
+        (self.root / "targets/ubuntu").mkdir(parents=True)
+        self.manifest["schemaVersion"] = 3
+        self.manifest["targets"] = [{"id": self.target["id"], "file": "targets/ubuntu/focal-amd64.json"}]
         self.metadata = {"schemaVersion": 2, "patches": [{
             "id": "cve-2026-4111",
             "kind": "security",
@@ -113,6 +146,7 @@ class PackageRecipeContract(unittest.TestCase):
             "appliesTo": [{"target": "ubuntu-focal-amd64", "sourceVersion": source_version}],
             "tests": [{"id": "upstream-test-suite", "runner": "debian/rules check", "expectation": "All upstream tests complete with the bounded output-size exception."}],
         }]}
+        self._write_json(self.root / "targets/ubuntu/focal-amd64.json", self.target)
         self._write_json(self.root / "package-manifest.json", self.manifest)
         self._write_json(self.root / "patches/metadata.json", self.metadata)
 
@@ -133,10 +167,10 @@ class PackageRecipeContract(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Build patch .* list no CVEs"):
             RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
 
-    def test_build_compatibility_patch_requires_versioned_recipe_schema(self):
-        self.manifest["schemaVersion"] = 1
-        self._write_json(self.root / "package-manifest.json", self.manifest)
-        with self.assertRaisesRegex(RuntimeError, "Build patches require package manifest schemaVersion 2"):
+    def test_build_compatibility_patch_requires_versioned_patch_metadata(self):
+        self.metadata["schemaVersion"] = 1
+        self._write_json(self.root / "patches/metadata.json", self.metadata)
+        with self.assertRaisesRegex(RuntimeError, "Build-compatibility patches require patch metadata schemaVersion 2"):
             RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
 
     def test_patch_and_fixture_checksums_are_enforced(self):
@@ -149,8 +183,8 @@ class PackageRecipeContract(unittest.TestCase):
             RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
 
     def test_source_version_must_match_the_public_candidate_exactly(self):
-        self.manifest["targets"][0]["source"]["version"] += "1"
-        self._write_json(self.root / "package-manifest.json", self.manifest)
+        self.target["source"]["version"] += "1"
+        self._write_json(self.root / "targets/ubuntu/focal-amd64.json", self.target)
         with self.assertRaisesRegex(RuntimeError, "exact source version"):
             RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
 

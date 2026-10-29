@@ -26,7 +26,7 @@
         <div>
           <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>GETPATCHED / ACCOUNT</p>
           <h1 id="account-title">Sponsor <span>access.</span></h1>
-          <p class="lede">Manage the credentials used by your own Ubuntu machines to retrieve sponsor-period packages.</p>
+          <p class="lede">Manage the credentials used by your own machines to retrieve sponsor-first packages.</p>
         </div>
         <aside class="account-scope"><span>ACCESS WINDOW</span><strong>7 days</strong><small>Public source stays available from day one.</small></aside>
       </section>
@@ -35,7 +35,7 @@
 
       <section id="signed-out" class="account-panel sign-in-panel" hidden aria-labelledby="signin-title">
         <div class="panel-index">01 / IDENTITY</div>
-        <div><h2 id="signin-title">Sign in with GitHub</h2><p>Sign-in confirms your GitHub identity. GetPatched checks sponsor eligibility separately before allowing early package access.</p></div>
+        <div><h2 id="signin-title">Sign in with GitHub</h2><p>Sign-in confirms your GitHub identity. Any active GitHub Sponsors tier grants the same early-binary access.</p></div>
         <a class="action-button" href="/auth/github">Continue with GitHub <span aria-hidden="true">↗</span></a>
       </section>
 
@@ -62,6 +62,7 @@
           <form id="device-form" class="create-device">
             <label for="device-label">Machine label</label>
             <div class="create-controls"><input id="device-label" name="label" maxlength="80" placeholder="e.g. build-server-01" required><button id="create-device" class="action-button" type="submit">Create credential <span aria-hidden="true">＋</span></button></div>
+            <label class="license-acceptance"><input id="accept-early-license" type="checkbox" required><span>I accept the <a href="/early-binary-license.html" target="_blank" rel="noopener">early-binary terms</a>: private and commercial use are allowed; redistribution of official early binaries is not.</span></label>
             <p>Each credential expires after 90 days. Never paste it into a public URL or repository.</p>
           </form>
 

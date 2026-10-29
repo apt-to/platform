@@ -5,17 +5,13 @@ FROM ${BASE_IMAGE}
 COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG SOURCE_PACKAGE
 ARG EXPECTED_VERSION
-ARG ARCHIVE_SNAPSHOT
+ARG APT_SOURCES_B64
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eu; \
-    test -n "$ARCHIVE_SNAPSHOT"; \
+    test -n "$APT_SOURCES_B64"; \
     apt_get() { apt-get -o Acquire::Retries=3 "$@"; }; \
     apt_retry() { attempt=0; until apt_get "$@"; do attempt=$((attempt + 1)); if [ "$attempt" -ge 3 ]; then return 1; fi; sleep $((attempt * 10)); done; }; \
-    : > /etc/apt/sources.list; \
-    for suite in focal focal-updates focal-security; do \
-      printf 'deb https://snapshot.ubuntu.com/ubuntu/%s/ %s main universe restricted multiverse\n' "$ARCHIVE_SNAPSHOT" "$suite" >> /etc/apt/sources.list; \
-      printf 'deb-src https://snapshot.ubuntu.com/ubuntu/%s/ %s main universe restricted multiverse\n' "$ARCHIVE_SNAPSHOT" "$suite" >> /etc/apt/sources.list; \
-    done; \
+    printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
     case "$SOURCE_PACKAGE" in \
       libxml2) binaries="libxml2 libxml2-utils libxml2-dev" ;; \
       libarchive) binaries="libarchive13 libarchive-tools libarchive-dev" ;; \

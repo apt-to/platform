@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac, generateKeyPairSync, sign as signJwt } from "node:crypto";
-import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
+import gateway, { beginSponsorPublication, canonicalAssets, fetchSponsorSnapshot, githubActionsIdentity, hasActiveSponsorship, parseUtc, publishOne, readFreshSponsorSnapshot, reconcile, reconcileSponsors, releaseAssets, requireImmutableReleasesEnabled, updateState, verifyGithubSignature, verifyPackageRun, verifySignedSourceTag } from "../src/index.js";
 
 const TEST_RELEASE_TAG_SIGNER = "getpatched-release-maintainer";
 
@@ -543,7 +543,7 @@ test("GitHub webhook signature uses the documented HMAC SHA-256 scheme", async (
   assert.equal(await verifyGithubSignature("wrong", body, "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"), false);
 });
 
-test("sponsor snapshot paginates current GitHub state, applies an explicit tier allowlist, and excludes organization members", async () => {
+test("sponsor snapshot paginates all active individual sponsorships, including one-time sponsorships only while active", async () => {
   const originalFetch = globalThis.fetch;
   const requests = [];
   globalThis.fetch = async (_url, options) => {
@@ -568,11 +568,11 @@ test("sponsor snapshot paginates current GitHub state, applies an explicit tier 
     } } });
   };
   try {
-    const snapshot = await fetchSponsorSnapshot({ SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early" }, new Date("2026-10-25T16:00:00Z"));
+    const snapshot = await fetchSponsorSnapshot({ SPONSOR_GRAPHQL_TOKEN: "test-token" }, new Date("2026-10-25T16:00:00Z"));
     assert.deepEqual(requests, [null, "cursor-1"]);
-    assert.deepEqual(snapshot.sponsors.map((sponsor) => sponsor.github_user_id), [17, 20]);
-    assert.equal(snapshot.sponsors[1].has_one_time_sponsorship, true);
-    assert.deepEqual(snapshot.tier_ids, ["tier-early"]);
+    assert.deepEqual(snapshot.sponsors.map((sponsor) => sponsor.github_user_id), [17, 18, 20]);
+    assert.equal(snapshot.sponsors[2].has_one_time_sponsorship, true);
+    assert.equal(snapshot.tier_policy, "any-active-individual-sponsorship");
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -593,7 +593,7 @@ test("scheduled sponsor reconciliation persists an authoritative snapshot and co
   } } });
   try {
     const snapshot = await reconcileSponsors({
-      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token",
     }, new Date("2026-10-25T16:00:00Z"));
     assert.deepEqual(snapshot.sponsors.map((sponsor) => sponsor.github_user_id), [17]);
     const event = await bucket.get("sponsor-deliveries/delivery-12345678.json");
@@ -608,17 +608,18 @@ test("scheduled sponsor reconciliation persists an authoritative snapshot and co
 
 test("failed sponsor refresh leaves the previous snapshot unchanged and unavailable listings fail closed", async () => {
   const oldSnapshot = {
-    organization: "getpatched", tier_ids: ["tier-early"],
-    sponsors: [{ github_user_id: 17, github_login: "alice", tier_ids: ["tier-early"], has_one_time_sponsorship: false }],
+    organization: "getpatched",
+    sponsors: [{ github_user_id: 17, github_login: "alice", has_one_time_sponsorship: false }],
     reconciled_at: "2026-10-25T15:00:00.000Z", valid_until: "2026-10-25T15:30:00.000Z",
     authority: "github-sponsors-graphql-active-only",
+    tier_policy: "any-active-individual-sponsorship",
   };
   const bucket = new MemoryBucket({ "sponsor-entitlements/current.json": oldSnapshot });
   const originalFetch = globalThis.fetch;
   try {
     globalThis.fetch = async () => new Response("unavailable", { status: 503 });
     await assert.rejects(reconcileSponsors({
-      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token",
     }, new Date("2026-10-25T16:00:00Z")), /returned 503/);
     assert.deepEqual(await (await bucket.get("sponsor-entitlements/current.json")).json(), oldSnapshot);
 
@@ -627,7 +628,7 @@ test("failed sponsor refresh leaves the previous snapshot unchanged and unavaila
       sponsorshipsAsMaintainer: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
     } } });
     await assert.rejects(fetchSponsorSnapshot({
-      SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+      SPONSOR_GRAPHQL_TOKEN: "test-token",
     }, new Date("2026-10-25T16:00:00Z")), /listing is unavailable/);
   } finally { globalThis.fetch = originalFetch; }
 });
@@ -647,7 +648,7 @@ test("authoritative inactive sponsor snapshot removes early-access eligibility",
   } } });
   try {
     const snapshot = await reconcileSponsors({
-      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token", SPONSOR_ALLOWED_TIER_IDS: "tier-early",
+      RELEASES: bucket, SPONSOR_GRAPHQL_TOKEN: "test-token",
     }, now);
     assert.deepEqual(snapshot.sponsors, []);
     assert.deepEqual((await readFreshSponsorSnapshot(bucket, now)).sponsors, []);
@@ -1205,15 +1206,23 @@ test("GitHub OAuth login issues hashed per-device APT credentials that can be li
     assert.equal(oauthCalls, 2);
     assert.match(submittedVerifier, /^[a-f0-9]{96}$/);
 
-    const tokenResponse = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
+    const missingLicenseResponse = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
       method: "POST", headers: { origin: "https://getpatched.dev", cookie: legacySessionCookie, "content-type": "application/json" },
       body: JSON.stringify({ label: "workstation" }),
+    }), env);
+    assert.equal(missingLicenseResponse.status, 400);
+    const tokenResponse = await gateway.fetch(new Request("https://getpatched.dev/api/device-tokens", {
+      method: "POST", headers: { origin: "https://getpatched.dev", cookie: legacySessionCookie, "content-type": "application/json" },
+      body: JSON.stringify({ label: "workstation", earlyBinaryLicenseId: "LicenseRef-GetPatched-Early-Binary-1.0" }),
     }), env);
     assert.equal(tokenResponse.status, 201);
     const issued = await tokenResponse.json();
     assert.match(issued.token, /^getpatched_[a-f0-9]{64}$/);
     const tokenHash = createHash("sha256").update(issued.token).digest("hex");
     assert.ok(bucket.entries.has(`apt-device-tokens/${tokenHash}.json`));
+    const tokenRecord = await (await bucket.get(`apt-device-tokens/${tokenHash}.json`)).json();
+    assert.equal(tokenRecord.early_binary_license_id, "LicenseRef-GetPatched-Early-Binary-1.0");
+    assert.ok(tokenRecord.early_binary_terms_accepted_at);
     assert.equal(JSON.stringify([...bucket.entries.values()]).includes(issued.token), false);
     assert.equal(JSON.stringify([...bucket.entries.values()]).includes("transient-oauth-secret"), false);
 
@@ -1311,8 +1320,15 @@ test("Worker serves the account shell through the clean asset URL and keeps unkn
   assert.deepEqual(requested, ["/account", "/"]);
 });
 
-test("sponsorship cancellation webhook verifies signature and records delivery idempotently without granting or revoking access", async () => {
-  const bucket = new MemoryBucket();
+test("signed cancellation immediately revokes cached sponsor access; a later active-only snapshot can restore it", async () => {
+  const now = new Date();
+  const snapshot = {
+    organization: "getpatched", authority: "github-sponsors-graphql-active-only",
+    sponsors: [{ github_user_id: 42, github_login: "alice" }],
+    reconciled_at: new Date(now.getTime() - 60_000).toISOString(),
+    valid_until: new Date(now.getTime() + 600_000).toISOString(),
+  };
+  const bucket = new MemoryBucket({ "sponsor-entitlements/current.json": snapshot });
   const payload = JSON.stringify({ action: "cancelled", sponsorship: { sponsor: { id: 42 } } });
   const signature = `sha256=${createHmac("sha256", "webhook-secret").update(payload).digest("hex")}`;
   const makeRequest = (sig = signature) => new Request("https://worker.test/webhooks/github/sponsorship", {
@@ -1321,20 +1337,27 @@ test("sponsorship cancellation webhook verifies signature and records delivery i
     body: payload,
   });
   const env = { SPONSOR_WEBHOOK_SECRET: "webhook-secret", RELEASES: bucket };
+  assert.equal(await hasActiveSponsorship(bucket, snapshot, 42), true);
   assert.equal((await gateway.fetch(makeRequest("sha256=" + "0".repeat(64)), env)).status, 401);
+  assert.equal(await hasActiveSponsorship(bucket, snapshot, 42), true);
   const accepted = await gateway.fetch(makeRequest(), env);
   assert.equal(accepted.status, 202);
   assert.equal((await accepted.json()).reconciliation_required, true);
+  assert.equal(await hasActiveSponsorship(bucket, snapshot, 42), false);
   const duplicate = await gateway.fetch(makeRequest(), env);
   assert.equal((await duplicate.json()).duplicate, true);
+  const renewedSnapshot = { ...snapshot, reconciled_at: new Date(Date.now() + 1_000).toISOString() };
+  assert.equal(await hasActiveSponsorship(bucket, renewedSnapshot, 42), true);
   const event = await bucket.get("sponsor-deliveries/12345678-1234-1234-1234-123456789abc.json");
   assert.deepEqual(await event.json(), {
     delivery_id: "12345678-1234-1234-1234-123456789abc",
     action: "cancelled",
     sponsor_id: 42,
     received_at: (await event.json()).received_at,
-    effect: "reconciliation-required",
+    effect: "early-access-revoked",
   });
+  const revocation = await bucket.get("sponsor-revocations/42.json");
+  assert.equal((await revocation.json()).reason, "github-sponsorship-cancelled");
 });
 
 test("deadline parser requires an explicit timezone", () => {
@@ -1345,7 +1368,7 @@ test("deadline parser requires an explicit timezone", () => {
 test("release gate requires the named successful package job and exact tested source commit", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
-  let displayTitle = `Verify libxml2 at ${"b".repeat(40)}`;
+  let displayTitle = `Verify libxml2 on ubuntu-focal-amd64 at ${"b".repeat(40)}`;
   let signerLogin = TEST_RELEASE_TAG_SIGNER;
   let annotatedSha = "d".repeat(40);
   globalThis.fetch = async (url) => {
