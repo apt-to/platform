@@ -79,7 +79,8 @@ def validate_source_asset(asset, package, version, *, descriptor=False):
 def load_recipe(root, platform_config, target_id=None):
     root = Path(root).resolve()
     manifest = load_json(root / "package-manifest.json")
-    if manifest.get("schemaVersion") != 1:
+    manifest_schema = manifest.get("schemaVersion")
+    if manifest_schema not in (1, 2):
         raise RuntimeError("Unsupported package recipe schemaVersion")
     package = manifest.get("package", {}).get("source")
     if package not in platform_config.get("packages", {}):
@@ -154,13 +155,16 @@ def load_recipe(root, platform_config, target_id=None):
     metadata_file = manifest.get("patchMetadata")
     metadata_path = recipe_path(root, metadata_file)
     metadata = load_json(metadata_path)
-    if metadata.get("schemaVersion") != 1 or not isinstance(metadata.get("patches"), list):
+    metadata_schema = metadata.get("schemaVersion")
+    if metadata_schema not in (1, 2) or not isinstance(metadata.get("patches"), list):
         raise RuntimeError("Unsupported or malformed patch metadata")
     patches = metadata["patches"]
     patch_by_id = {item.get("id"): item for item in patches if isinstance(item, dict)}
     patch_ids = target.get("patches")
     build_patch_ids = target.get("buildPatches", [])
     all_patch_ids = patch_ids + build_patch_ids if isinstance(patch_ids, list) and isinstance(build_patch_ids, list) else []
+    if isinstance(build_patch_ids, list) and build_patch_ids and manifest_schema < 2:
+        raise RuntimeError("Build patches require package manifest schemaVersion 2")
     if (not isinstance(patch_ids, list) or not patch_ids
             or not isinstance(build_patch_ids, list)
             or any(not isinstance(item, str) for item in all_patch_ids)
@@ -182,6 +186,10 @@ def load_recipe(root, platform_config, target_id=None):
         if len(applicable) != 1:
             raise RuntimeError(f"Patch {patch_id} is not pinned to exactly this target and source version")
         patch_kind = item.get("kind", "security")
+        if metadata_schema >= 2 and ("kind" not in item or patch_kind not in ("security", "build-compatibility")):
+            raise RuntimeError(f"Patch {patch_id} has an unsupported patch kind")
+        if patch_kind == "build-compatibility" and metadata_schema < 2:
+            raise RuntimeError("Build-compatibility patches require patch metadata schemaVersion 2")
         patch_cves = item.get("cves")
         if (not isinstance(patch_cves, list)
                 or any(not isinstance(cve, str) or not cve for cve in patch_cves)
@@ -190,6 +198,13 @@ def load_recipe(root, platform_config, target_id=None):
         if patch_id in patch_ids:
             if patch_kind != "security" or not patch_cves:
                 raise RuntimeError(f"Security patch {patch_id} must be typed as security and list CVEs")
+            upstream = item.get("upstream")
+            if (not isinstance(upstream, dict)
+                    or not isinstance(upstream.get("repository"), str) or not upstream["repository"]
+                    or not isinstance(upstream.get("url"), str) or not upstream["url"]
+                    or not isinstance(upstream.get("commit"), str)
+                    or not re.fullmatch(r"[0-9a-fA-F]{40}", upstream["commit"])):
+                raise RuntimeError(f"Security patch {patch_id} must record its upstream repository, URL, and full commit")
             cves.update(patch_cves)
         elif patch_kind != "build-compatibility" or patch_cves:
             raise RuntimeError(f"Build patch {patch_id} must be build-compatibility-only and list no CVEs")

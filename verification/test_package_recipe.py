@@ -53,7 +53,7 @@ class PackageRecipeContract(unittest.TestCase):
             "https://launchpad.net/source/libarchive.debian.tar.xz": debian_bytes,
         }
         self.manifest = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "project": {"name": "GetPatched", "repository": "getpatched/packaging-libarchive"},
             "package": {
                 "source": "libarchive",
@@ -91,7 +91,7 @@ class PackageRecipeContract(unittest.TestCase):
             "patchMetadata": "patches/metadata.json",
             "regressionTests": {"fixturesDirectory": "tests/fixtures", "runner": "getpatched/platform:verification/regression.py"},
         }
-        self.metadata = {"schemaVersion": 1, "patches": [{
+        self.metadata = {"schemaVersion": 2, "patches": [{
             "id": "cve-2026-4111",
             "kind": "security",
             "file": "fix.patch",
@@ -133,6 +133,12 @@ class PackageRecipeContract(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Build patch .* list no CVEs"):
             RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
 
+    def test_build_compatibility_patch_requires_versioned_recipe_schema(self):
+        self.manifest["schemaVersion"] = 1
+        self._write_json(self.root / "package-manifest.json", self.manifest)
+        with self.assertRaisesRegex(RuntimeError, "Build patches require package manifest schemaVersion 2"):
+            RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
+
     def test_patch_and_fixture_checksums_are_enforced(self):
         (self.root / "patches/fix.patch").write_bytes(self.patch_bytes + b"changed")
         with self.assertRaisesRegex(RuntimeError, "SHA-256 mismatch"):
@@ -152,6 +158,12 @@ class PackageRecipeContract(unittest.TestCase):
         self.metadata["patches"][0]["cves"] = ["CVE-OTHER"]
         self._write_json(self.root / "patches/metadata.json", self.metadata)
         with self.assertRaisesRegex(RuntimeError, "target CVE policy"):
+            RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
+
+    def test_security_patch_requires_full_upstream_commit_provenance(self):
+        self.metadata["patches"][0]["upstream"]["commit"] = "short"
+        self._write_json(self.root / "patches/metadata.json", self.metadata)
+        with self.assertRaisesRegex(RuntimeError, "full commit"):
             RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
 
     def test_source_archive_downloads_are_size_and_hash_pinned(self):
