@@ -13,7 +13,7 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 function packageRow(item) {
   const cves = item.cves.map((cve) => `<a href="https://ubuntu.com/security/${encodeURIComponent(cve)}">${escapeHtml(cve)}</a>`).join("<span class=\"cve-separator\"> / </span>");
   const policy = item.access === "sponsor"
-    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Any active individual GitHub Sponsors tier · public ${escapeHtml(item.delayHours)} hours later</span><small>Private and commercial use; no redistribution of official early binaries</small>`
+    ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Any active individual GitHub Sponsors tier, no minimum · public ${escapeHtml(item.delayHours)} hours later</span><small>Private and commercial use; no redistribution of official early binaries</small>`
     : `<span class="policy-dot policy-public"></span><span class="policy-main">Public immediately</span><span class="policy-detail">After release checks pass</span>`;
   const checks = item.verification
     ? `<a class="verification-link" href="${escapeHtml(item.verification)}"><span class="verified-check" aria-hidden="true">✓</span>Hosted verification passed<small>Build, CVE scans, regressions and signed APT client ↗</small></a>`
@@ -92,7 +92,7 @@ fetch("/catalogue.json", { headers: { Accept: "application/json" } })
     return response.json();
   })
   .then((catalogue) => {
-    if (catalogue.schemaVersion !== 2 || !catalogue.targets || !Array.isArray(catalogue.packages)) throw new Error("Unsupported catalogue schema");
+    if (catalogue.schemaVersion !== 3 || !catalogue.targets || !Array.isArray(catalogue.packages)) throw new Error("Unsupported catalogue schema");
     packages = catalogue.packages.flatMap((item) => Object.entries(item.targets || {}).map(([targetId, targetPolicy]) => {
       const target = catalogue.targets[targetId];
       if (!target) throw new Error("Package target is missing from catalogue target matrix");

@@ -11,8 +11,8 @@ SOURCE_BRANCH_RE = re.compile(r"^getpatched/[a-z0-9][a-z0-9._/-]*$")
 
 
 def target_profile(config, target_id):
-    if config.get("schemaVersion") != 2:
-        raise ValueError("platform policy must use schemaVersion 2")
+    if config.get("schemaVersion") != 3:
+        raise ValueError("platform policy must use schemaVersion 3")
     if not isinstance(target_id, str) or not TARGET_ID_RE.fullmatch(target_id):
         raise ValueError("target id must include a distribution, codename, and supported architecture")
     profiles = config.get("targets")
@@ -90,17 +90,23 @@ def package_target_policy(config, package, target_id):
     access = policy.get("releaseAccess")
     if (not isinstance(access, dict)
             or access.get("policy") not in ("sponsor-first", "public-after-checks")
+            or not isinstance(access.get("sponsorDelayHours"), int)
+            or isinstance(access.get("sponsorDelayHours"), bool)
             or access.get("sponsorDelayHours") not in (0, 168)
             or (access.get("policy") == "sponsor-first") != (access.get("sponsorDelayHours") == 168)
             or access.get("publicContributionSpdx") != "MIT"
+            or access.get("publicLicenseScope") != "getpatched-authored-contributions-only"
+            or access.get("earlyUse") != ["private", "commercial"]
+            or access.get("earlyRedistributionAllowed") is not False
             or (access.get("sponsorDelayHours") == 168 and (
                 access.get("sponsorEligibility") != "any-active-individual-github-sponsorship-tier"
                 or access.get("earlyBinaryLicenseId") != "LicenseRef-GetPatched-Early-Binary-1.2"
-                or access.get("earlyUse") != ["private", "commercial"]
-                or access.get("earlyRedistributionAllowed") is not False
-                or access.get("publicBinaryLicenseSpdx") != "MIT"
             ))):
         raise ValueError(f"package {package} has an invalid target release or sponsor-access policy")
+    if access["sponsorDelayHours"] == 0 and (
+        access.get("sponsorEligibility") is not None or access.get("earlyBinaryLicenseId") is not None
+    ):
+        raise ValueError(f"public target {package}/{target_id} must not declare sponsor-only access")
     return policy
 
 

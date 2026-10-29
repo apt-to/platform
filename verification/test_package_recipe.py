@@ -107,7 +107,8 @@ class PackageRecipeContract(unittest.TestCase):
                 "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0,
                                   "sponsorEligibility": None, "earlyBinaryLicenseId": None,
                                   "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"],
-                                  "earlyRedistributionAllowed": False, "publicBinaryLicenseSpdx": "MIT"},
+                                  "earlyRedistributionAllowed": False,
+                                  "publicLicenseScope": "getpatched-authored-contributions-only"},
             }],
             "patchMetadata": "patches/metadata.json",
             "regressionTests": {"fixturesDirectory": "tests/fixtures", "runner": "getpatched/platform:verification/regression.py"},
@@ -121,7 +122,7 @@ class PackageRecipeContract(unittest.TestCase):
             },
         }
         self.target = self.manifest["targets"][0]
-        self.target["schemaVersion"] = 1
+        self.target["schemaVersion"] = 2
         (self.root / "targets/ubuntu").mkdir(parents=True)
         self.manifest["schemaVersion"] = 3
         self.manifest["targets"] = [{"id": self.target["id"], "file": "targets/ubuntu/focal-amd64.json"}]

@@ -58,7 +58,7 @@ class PublicCatalogueContract(unittest.TestCase):
         catalogue = json.loads((ROOT / "site/catalogue.json").read_text())
         entries = {item["source"]: item for item in catalogue["packages"]}
         self.assertEqual(set(entries), set(platform["packages"]))
-        self.assertEqual(catalogue["schemaVersion"], 2)
+        self.assertEqual(catalogue["schemaVersion"], 3)
         self.assertEqual(set(catalogue["targets"]), set(platform["targets"]))
         for target_id, target in platform["targets"].items():
             profile = target_profile(platform, target_id)
@@ -81,11 +81,11 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertEqual(entry["publicContributionSpdx"], "MIT")
                 self.assertEqual(access["earlyUse"], ["private", "commercial"])
                 self.assertFalse(access["earlyRedistributionAllowed"])
-                self.assertEqual(access["publicBinaryLicenseSpdx"], "MIT")
+                self.assertEqual(access["publicLicenseScope"], "getpatched-authored-contributions-only")
                 self.assertEqual(entry["earlyUse"], access["earlyUse"])
                 self.assertEqual(entry["earlyRedistributionAllowed"], access["earlyRedistributionAllowed"])
                 self.assertEqual(entry["earlyBinaryLicenseId"], access["earlyBinaryLicenseId"])
-                self.assertEqual(entry["publicBinaryLicenseSpdx"], access["publicBinaryLicenseSpdx"])
+                self.assertEqual(entry["publicLicenseScope"], access["publicLicenseScope"])
                 self.assertEqual(entry["earlyRedistributionAllowed"], False)
                 self.assertEqual(entry["status"], "development-verified-production-release-pending")
                 expected_run = {
@@ -120,7 +120,7 @@ class PublicCatalogueContract(unittest.TestCase):
             self.assertIn(f">{label} ↗</a>", app)
         for field in ("patchUrl", "testsUrl", "releasesUrl", "releaseStatus"):
             self.assertIn(f"item.{field}", app)
-        self.assertIn("Any active individual GitHub Sponsors tier · public ${escapeHtml(item.delayHours)} hours later", app)
+        self.assertIn("Any active individual GitHub Sponsors tier, no minimum · public ${escapeHtml(item.delayHours)} hours later", app)
         self.assertNotIn("Public 168 hours after sponsor release", app)
         self.assertIn("open the public package source repositories on GitHub", page)
         self.assertNotIn("browse the public package repositories directly", page)

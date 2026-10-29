@@ -1792,7 +1792,7 @@ async function registerRelease(request, env) {
   if (![0, 168].includes(requiredDelay) || configured.policy !== expectedPolicy ||
       configured.publicContributionSpdx !== "MIT" ||
       JSON.stringify(configured.earlyUse) !== JSON.stringify(["private", "commercial"]) ||
-      configured.earlyRedistributionAllowed !== false || configured.publicBinaryLicenseSpdx !== "MIT" ||
+      configured.earlyRedistributionAllowed !== false || configured.publicLicenseScope !== "getpatched-authored-contributions-only" ||
       (requiredDelay === 168 && (configured.sponsorEligibility !== "any-active-individual-github-sponsorship-tier" ||
         configured.earlyBinaryLicenseId !== "LicenseRef-GetPatched-Early-Binary-1.2")) ||
       (requiredDelay === 0 && (configured.sponsorEligibility !== null || configured.earlyBinaryLicenseId !== null))) {

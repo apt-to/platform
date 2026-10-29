@@ -551,7 +551,7 @@ test("release registration fails closed on missing or invalid runtime access pol
     sponsorEligibility: "any-active-individual-github-sponsorship-tier",
     earlyBinaryLicenseId: "LicenseRef-GetPatched-Early-Binary-1.2",
     publicContributionSpdx: "MIT", earlyUse: ["private", "commercial"],
-    earlyRedistributionAllowed: false, publicBinaryLicenseSpdx: "MIT",
+    earlyRedistributionAllowed: false, publicLicenseScope: "getpatched-authored-contributions-only",
   };
   const request = () => new Request("https://worker.test/internal/releases", {
     method: "POST", headers: { authorization: "Bearer secret-test" }, body: JSON.stringify(registration),

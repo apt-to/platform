@@ -46,7 +46,7 @@ def main():
                 or os.path.commonpath((str(target_path), str(recipe)) ) != str(recipe)):
             raise RuntimeError("Target recipe file is missing, linked, or escapes the package checkout")
         target = read_json(target_path)
-        if target.get("schemaVersion") != 1 or target.get("id") != args.target:
+        if target.get("schemaVersion") != 2 or target.get("id") != args.target:
             raise RuntimeError("Target recipe file schema or identity is invalid")
     else:
         target = target_ref

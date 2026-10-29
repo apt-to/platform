@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "schema": "schemas/platform-policy.schema.json",
   "targets": {
     "ubuntu-focal-amd64": {
@@ -99,7 +99,7 @@
             "publicContributionSpdx": "MIT",
             "earlyUse": ["private", "commercial"],
             "earlyRedistributionAllowed": false,
-            "publicBinaryLicenseSpdx": "MIT"
+            "publicLicenseScope": "getpatched-authored-contributions-only"
           },
           "vendorFixedVersions": [
             "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
@@ -138,7 +138,7 @@
             "publicContributionSpdx": "MIT",
             "earlyUse": ["private", "commercial"],
             "earlyRedistributionAllowed": false,
-            "publicBinaryLicenseSpdx": "MIT"
+            "publicLicenseScope": "getpatched-authored-contributions-only"
           },
           "vendorFixedVersions": [
             "3.4.0-2ubuntu1.5+esm1"
