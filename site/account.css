@@ -2,40 +2,40 @@
 .account-heading { padding: 66px 0 35px; display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 38px; align-items: end; }
 .account-heading h1 { font-size: clamp(42px, 5vw, 62px); }
 .account-heading .lede { max-width: 620px; }
-.account-scope { padding: 16px 18px; display: grid; gap: 3px; border-top: 2px solid var(--green); background: #e9ece5; }
+.account-scope { padding: 16px 18px; display: grid; gap: 3px; border-top: 2px solid var(--orange); background: var(--surface-muted); }
 .account-scope span { color: var(--muted); font: 10px var(--mono); letter-spacing: .1em; }
 .account-scope strong { font-size: 23px; letter-spacing: -.04em; }
-.account-scope small { color: #5b655d; font-size: 10px; line-height: 1.5; }
-.account-message { min-height: 47px; margin: 0 0 22px; padding: 12px 15px; border-left: 3px solid var(--line-dark); background: #e9ece5; color: #526057; font-size: 12px; }
-.account-message[data-kind="error"] { border-color: #a44731; background: #f4e8e3; color: #773b2a; }
+.account-scope small { color: var(--copy-secondary); font-size: 10px; line-height: 1.5; }
+.account-message { min-height: 47px; margin: 0 0 22px; padding: 12px 15px; border-left: 3px solid var(--line-dark); background: var(--surface-muted); color: var(--copy-secondary); font-size: 12px; }
+.account-message[data-kind="error"] { border-color: var(--error-border); background: var(--surface-error); color: var(--error-copy); }
 .account-message[data-kind="success"] { border-color: var(--green); }
-.account-panel { padding: 24px 20px; display: grid; grid-template-columns: 145px minmax(0, 1fr) auto; gap: 22px; align-items: start; border-top: 1px solid var(--line-dark); border-bottom: 1px solid var(--line); background: rgba(251,250,246,.54); }
+.account-panel { padding: 24px 20px; display: grid; grid-template-columns: 145px minmax(0, 1fr) auto; gap: 22px; align-items: start; border-top: 1px solid var(--line-dark); border-bottom: 1px solid var(--line); background: var(--panel-surface); }
 .panel-index { padding-top: 5px; color: var(--muted); font: 10px var(--mono); letter-spacing: .07em; }
 .account-panel h2 { margin: 0 0 8px; font-size: 21px; }
 .account-panel p { max-width: 660px; margin: 0; color: var(--muted); font-size: 12px; }
 .sign-in-panel .action-button { align-self: center; }
-.action-button { min-height: 42px; padding: 10px 15px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid #1d5c41; border-radius: 2px; background: var(--green); color: white; text-decoration: none; font-size: 12px; font-weight: 600; cursor: pointer; }
-.action-button:hover { background: #174f38; color: white; }
+.action-button { min-height: 42px; padding: 10px 15px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid var(--action-border); border-radius: 2px; background: var(--action-fill); color: var(--action-ink); text-decoration: none; font-size: 12px; font-weight: 700; cursor: pointer; }
+.action-button:hover { border-color: var(--action-hover); background: var(--action-hover); color: var(--action-ink); }
 .action-button:disabled { opacity: .55; cursor: wait; }
 .quiet-button { min-height: 36px; padding: 7px 11px; border: 1px solid var(--line-dark); border-radius: 2px; background: var(--paper-raised); color: var(--ink); font-size: 11px; cursor: pointer; }
 .quiet-button:hover { border-color: var(--green); color: var(--green); }
 .identity-panel { align-items: center; }
-.identity-panel h2 span { color: var(--green); }
+.identity-panel h2 span { color: var(--orange); }
 .identity-copy .status-copy { font-size: 11px; }
 .device-section { padding: 55px 0 20px; }
 .device-heading { align-items: end; }
 .device-heading .eyebrow { margin-bottom: 7px; }
 .device-heading h2 { font-size: 27px; }
 .device-intro { max-width: 470px; margin: 0 0 2px; color: var(--muted); font-size: 11px; }
-.token-reveal { margin: 26px 0 0; padding: 17px 18px; border: 1px solid #b4c7b9; border-left: 3px solid var(--green); background: var(--green-soft); }
+.token-reveal { margin: 26px 0 0; padding: 17px 18px; border: 1px solid var(--success-border); border-left: 3px solid var(--green); background: var(--green-soft); }
 .token-label { display: flex; gap: 9px; align-items: center; font-size: 12px; font-weight: 600; }
 .status-led { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
-.token-reveal p { margin: 8px 0 12px; color: #526057; font-size: 11px; }
+.token-reveal p { margin: 8px 0 12px; color: var(--success-copy); font-size: 11px; }
 .token-line { display: flex; gap: 12px; align-items: center; }
-.token-line > code { min-width: 0; padding: 9px 10px; overflow-wrap: anywhere; background: #f9faf6; color: #183526; font: 11px/1.55 var(--mono); }
-.dismiss-button { margin-top: 12px; padding: 0; border: 0; background: none; color: #355e48; text-decoration: underline; font-size: 10px; cursor: pointer; }
+.token-line > code { min-width: 0; padding: 9px 10px; overflow-wrap: anywhere; background: var(--paper-raised); color: var(--success-ink); font: 11px/1.55 var(--mono); }
+.dismiss-button { margin-top: 12px; padding: 0; border: 0; background: none; color: var(--success-link); text-decoration: underline; font-size: 10px; cursor: pointer; }
 .create-device { margin-top: 26px; padding: 18px 0 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.create-device label { display: block; margin-bottom: 7px; color: #47544b; font-size: 11px; font-weight: 600; }
+.create-device label { display: block; margin-bottom: 7px; color: var(--copy-secondary); font-size: 11px; font-weight: 600; }
 .create-controls { display: flex; gap: 9px; }
 .create-controls input { width: min(100%, 360px); min-height: 42px; padding: 9px 11px; border: 1px solid var(--line-dark); border-radius: 2px; background: var(--paper-raised); color: var(--ink); font-size: 12px; }
 .create-device > p { margin: 8px 0 0; color: var(--muted); font-size: 10px; }
@@ -47,13 +47,13 @@
 .device-name { min-width: 0; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .device-meta { display: block; margin-top: 3px; color: var(--muted); font: 9px var(--mono); }
 .device-state { color: var(--green); font: 10px var(--mono); }
-.device-state.is-revoked { color: #8d5141; }
-.revoke-button { justify-self: end; padding: 6px 8px; border: 1px solid #c9a79b; border-radius: 2px; background: transparent; color: #814936; font-size: 10px; cursor: pointer; }
-.revoke-button:hover { border-color: #814936; background: #f4e8e3; }
+.device-state.is-revoked { color: var(--error-ink); }
+.revoke-button { justify-self: end; padding: 6px 8px; border: 1px solid var(--error-border); border-radius: 2px; background: transparent; color: var(--error-copy); font-size: 10px; cursor: pointer; }
+.revoke-button:hover { border-color: var(--error-border); background: var(--surface-error); }
 .empty-devices { padding: 15px 2px; color: var(--muted); font-size: 11px; }
-.inline-error { margin: 12px 0; color: #8b3b2b; font-size: 11px; }
+.inline-error { margin: 12px 0; color: var(--error-copy); font-size: 11px; }
 .eligibility-panel { margin-top: 36px; }
-.eligibility-panel .text-link { display: inline-block; margin-top: 12px; color: var(--green); font-size: 11px; }
+.eligibility-panel .text-link { display: inline-block; margin-top: 12px; color: var(--blue); font-size: 11px; }
 .credential-note { margin: 60px 0 20px; padding: 18px 0; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; border-top: 1px solid var(--line); }
 .credential-note p { max-width: 800px; margin: 0; color: var(--muted); font-size: 11px; }
 .credential-note strong { color: var(--ink); }
