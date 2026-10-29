@@ -1,0 +1,144 @@
+{
+  "architecture": "amd64",
+  "checkedAt": "2026-10-29T00:39:12.280054+00:00",
+  "indexes": [
+    {
+      "component": "main",
+      "compressedSha256": "8d68a58901f0e0ce29500d204f67a97a127ce91688fa18e5677ae5e7f6d84652",
+      "contentLength": 633576,
+      "etag": "\"9aae8-65eed6525b09f\"",
+      "lastModified": "Wed, 28 Oct 2026 21:39:17 GMT",
+      "packages": {
+        "libarchive": {
+          "directory": "pool/main/liba/libarchive",
+          "sourceFiles": [
+            {
+              "bytes": 6908093,
+              "name": "libarchive_3.4.0.orig.tar.gz",
+              "sha256": "8643d50ed40c759f5412a3af4e353cffbce4fdf3b5cf321cb72cacf06b2d825e"
+            },
+            {
+              "bytes": 833,
+              "name": "libarchive_3.4.0.orig.tar.gz.asc",
+              "sha256": "5aa9d657d9d2f2481a8dce1bab4c733cfc18657b451f6551d60f37cce4ca2f57"
+            },
+            {
+              "bytes": 54556,
+              "name": "libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+              "sha256": "677bade6eeba5b5414d1ee48b8320e139d3ddb25f8d7b8728c04890571a491ed"
+            },
+            {
+              "bytes": 2617,
+              "name": "libarchive_3.4.0-2ubuntu1.5.dsc",
+              "sha256": "7bdeaab28719c714aec49ba87f0e80bed1e3bb0a72aab3dcd3dec3dd0ecbe0ac"
+            }
+          ],
+          "version": "3.4.0-2ubuntu1.5"
+        },
+        "libxml2": {
+          "directory": "pool/main/libx/libxml2",
+          "sourceFiles": [
+            {
+              "bytes": 2503560,
+              "name": "libxml2_2.9.10+dfsg.orig.tar.xz",
+              "sha256": "65ee7a2f5e100c64ddf7beb92297c9b2a30b994a76cd1fab67470cf22db6b7d0"
+            },
+            {
+              "bytes": 46084,
+              "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+              "sha256": "93996cc05c902fca661c0f4b5ccd2691e62cfda5e38b2556b68bafa51bf0b843"
+            },
+            {
+              "bytes": 3125,
+              "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+              "sha256": "f6bdb548b3e50216dc0721738ba8125277395d5de9e9c9900741fda82d3a7c88"
+            }
+          ],
+          "version": "2.9.10+dfsg-5ubuntu0.20.04.10"
+        }
+      },
+      "pocket": "focal-updates",
+      "url": "https://archive.ubuntu.com/ubuntu/dists/focal-updates/main/source/Sources.xz"
+    },
+    {
+      "component": "main",
+      "compressedSha256": "4599b6a7ab10b0784e27b00869364caf8e7b8cdc434fab733544011be9a31058",
+      "contentLength": 333032,
+      "etag": "\"514e8-65eed59cfaf2d\"",
+      "lastModified": "Wed, 28 Oct 2026 21:36:07 GMT",
+      "packages": {
+        "libarchive": {
+          "directory": "pool/main/liba/libarchive",
+          "sourceFiles": [
+            {
+              "bytes": 6908093,
+              "name": "libarchive_3.4.0.orig.tar.gz",
+              "sha256": "8643d50ed40c759f5412a3af4e353cffbce4fdf3b5cf321cb72cacf06b2d825e"
+            },
+            {
+              "bytes": 833,
+              "name": "libarchive_3.4.0.orig.tar.gz.asc",
+              "sha256": "5aa9d657d9d2f2481a8dce1bab4c733cfc18657b451f6551d60f37cce4ca2f57"
+            },
+            {
+              "bytes": 54556,
+              "name": "libarchive_3.4.0-2ubuntu1.5.debian.tar.xz",
+              "sha256": "677bade6eeba5b5414d1ee48b8320e139d3ddb25f8d7b8728c04890571a491ed"
+            },
+            {
+              "bytes": 2617,
+              "name": "libarchive_3.4.0-2ubuntu1.5.dsc",
+              "sha256": "7bdeaab28719c714aec49ba87f0e80bed1e3bb0a72aab3dcd3dec3dd0ecbe0ac"
+            }
+          ],
+          "version": "3.4.0-2ubuntu1.5"
+        },
+        "libxml2": {
+          "directory": "pool/main/libx/libxml2",
+          "sourceFiles": [
+            {
+              "bytes": 2503560,
+              "name": "libxml2_2.9.10+dfsg.orig.tar.xz",
+              "sha256": "65ee7a2f5e100c64ddf7beb92297c9b2a30b994a76cd1fab67470cf22db6b7d0"
+            },
+            {
+              "bytes": 46084,
+              "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.debian.tar.xz",
+              "sha256": "93996cc05c902fca661c0f4b5ccd2691e62cfda5e38b2556b68bafa51bf0b843"
+            },
+            {
+              "bytes": 3125,
+              "name": "libxml2_2.9.10+dfsg-5ubuntu0.20.04.10.dsc",
+              "sha256": "f6bdb548b3e50216dc0721738ba8125277395d5de9e9c9900741fda82d3a7c88"
+            }
+          ],
+          "version": "2.9.10+dfsg-5ubuntu0.20.04.10"
+        }
+      },
+      "pocket": "focal-security",
+      "url": "https://security.ubuntu.com/ubuntu/dists/focal-security/main/source/Sources.xz"
+    },
+    {
+      "component": "universe",
+      "compressedSha256": "5807af2d5d20fd6e451d3da640d9e3d8fa2d23a7a20269c996b773be0d55af66",
+      "contentLength": 413104,
+      "etag": "\"64db0-65eed6525b09f\"",
+      "lastModified": "Wed, 28 Oct 2026 21:39:17 GMT",
+      "packages": {},
+      "pocket": "focal-updates",
+      "url": "https://archive.ubuntu.com/ubuntu/dists/focal-updates/universe/source/Sources.xz"
+    },
+    {
+      "component": "universe",
+      "compressedSha256": "9f8dc571a1b7a99df1b0b62380224278989c712230543f9599cc7d8d8429107e",
+      "contentLength": 255720,
+      "etag": "\"3e6e8-65eed59cfaf2d\"",
+      "lastModified": "Wed, 28 Oct 2026 21:36:07 GMT",
+      "packages": {},
+      "pocket": "focal-security",
+      "url": "https://security.ubuntu.com/ubuntu/dists/focal-security/universe/source/Sources.xz"
+    }
+  ],
+  "release": "focal",
+  "source": "Ubuntu public APT source indexes fetched over HTTPS; compressed index SHA-256 recorded"
+}
