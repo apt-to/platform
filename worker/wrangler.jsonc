@@ -18,5 +18,8 @@
     { "binding": "RELEASES", "bucket_name": "getpatched-release-staging" }
   ],
   "triggers": { "crons": ["*/15 * * * *"] },
-  "vars": { "GITHUB_API": "https://api.github.com" }
+  "vars": {
+    "GITHUB_API": "https://api.github.com",
+    "PUBLIC_ORIGIN": "https://getpatched.dev"
+  }
 }
