@@ -1,0 +1,64 @@
+{
+  "checkedAtUtc": "2026-10-29T00:57:29Z",
+  "scope": "read-only live release-gate recheck; no publication attempted",
+  "github": {
+    "organization": "getpatched",
+    "hasSponsorsListing": false,
+    "sponsorCount": 0,
+    "repository": "getpatched/platform",
+    "repositoryActionsVariables": 0
+  },
+  "httpStatus": {
+    "https://getpatched.dev/": 200,
+    "https://repo.getpatched.dev/dists/focal/InRelease": 503,
+    "https://early.getpatched.dev/dists/focal/InRelease": 401,
+    "https://getpatched.dev/auth/github": 503
+  },
+  "publicationWorkflows": [
+    {
+      "runId": 40796457785,
+      "workflow": "Private binary staging",
+      "event": "workflow_run",
+      "createdAtUtc": "2026-10-29T00:48:35Z",
+      "headBranch": "main",
+      "headSha": "d57b3690ddd119a58145a1fb964da65b68df21aa",
+      "url": "https://github.com/getpatched/platform/actions/runs/40796457785",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 40796480389,
+      "workflow": "Private binary staging",
+      "event": "workflow_run",
+      "createdAtUtc": "2026-10-29T00:48:48Z",
+      "headBranch": "main",
+      "headSha": "d57b3690ddd119a58145a1fb964da65b68df21aa",
+      "url": "https://github.com/getpatched/platform/actions/runs/40796480389",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 40796465240,
+      "workflow": "Publish signed APT repository snapshots",
+      "event": "workflow_run",
+      "createdAtUtc": "2026-10-29T00:48:39Z",
+      "headBranch": "main",
+      "headSha": "d57b3690ddd119a58145a1fb964da65b68df21aa",
+      "url": "https://github.com/getpatched/platform/actions/runs/40796465240",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 40796485156,
+      "workflow": "Publish signed APT repository snapshots",
+      "event": "workflow_run",
+      "createdAtUtc": "2026-10-29T00:48:51Z",
+      "headBranch": "main",
+      "headSha": "d57b3690ddd119a58145a1fb964da65b68df21aa",
+      "url": "https://github.com/getpatched/platform/actions/runs/40796485156",
+      "status": "completed",
+      "conclusion": "skipped"
+    }
+  ],
+  "interpretation": "The public site is live, but no active signed public focal snapshot was observed during this probe. The early endpoint rejects anonymous access, and the GitHub sign-in route is unavailable. These four workflow_run-triggered attempts were skipped; this record makes no claim about other private or previously uploaded package assets."
+}
