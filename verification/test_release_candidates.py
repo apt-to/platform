@@ -36,6 +36,15 @@ def source_policy(source):
 
 
 class ReleaseCandidateOutput(unittest.TestCase):
+    def test_patched_scan_installs_interdependent_local_packages_together(self):
+        containerfile = (ROOT / "build/patched-scan.Containerfile").read_text()
+        local_deb_loop = containerfile.index('for binary in $BINARY_PACKAGES; do')
+        local_install = containerfile.index('apt-get install -y --no-install-recommends $packages;')
+        version_check = containerfile.index('dpkg-query -W', local_install)
+        self.assertLess(local_deb_loop, local_install)
+        self.assertLess(local_install, version_check)
+        self.assertNotIn('apt-get install -y --no-install-recommends "$package"', containerfile)
+
     def test_latest_public_focal_candidates_are_eligible_after_verification(self):
         self.assertEqual(set(CONFIG["packages"]), {"libxml2", "libarchive", "libpng1.6", "libgit2", "tiff", "poppler"})
         workflow = (ROOT / ".github/workflows/package-verification.yml").read_text()
