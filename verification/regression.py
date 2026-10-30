@@ -185,7 +185,7 @@ def main():
             cflags = []
             libs = ["-lpng16", "-lz"]
             def compile_probe(name):
-                binary = temp / name.removesuffix(".c")
+                binary = temp / Path(name).stem
                 subprocess.run(["cc", "-std=c99", "-Wall", "-Wextra", "-Werror",
                                 *cflags, str(fixtures.parent / name), *libs, "-o", str(binary)],
                                check=True, timeout=30)
