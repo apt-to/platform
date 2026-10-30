@@ -10,6 +10,18 @@ TARGET_ID_RE = re.compile(r"^[a-z0-9]+-[a-z0-9][a-z0-9.-]*-(amd64|arm64)$")
 SOURCE_BRANCH_RE = re.compile(r"^getpatched/[a-z0-9][a-z0-9._/-]*$")
 
 
+def package_ecosystem_matches_target(distribution, release_version, ecosystem):
+    """Accept only scanner ecosystems supported by this distro release."""
+    if distribution == "Debian":
+        return ecosystem in {"Debian", f"Debian:{release_version}"}
+    if distribution == "Ubuntu":
+        return ecosystem in {
+            f"Ubuntu:{release_version}:LTS",
+            f"Ubuntu:Pro:{release_version}:LTS",
+        }
+    return False
+
+
 def target_profile(config, target_id):
     if config.get("schemaVersion") != 3:
         raise ValueError("platform policy must use schemaVersion 3")
@@ -35,7 +47,8 @@ def target_profile(config, target_id):
             or any(part in ("", ".", "..") or part.endswith(".lock") for part in source_branch_parts)):
         raise ValueError("target must declare a valid getpatched/* source branch")
     if (not isinstance(profile.get("advisoryEcosystem"), str) or not profile["advisoryEcosystem"]
-            or not isinstance(profile.get("packageEcosystem"), str) or not profile["packageEcosystem"]):
+            or not isinstance(profile.get("packageEcosystem"), str)
+            or not package_ecosystem_matches_target(distribution, profile["releaseVersion"], profile["packageEcosystem"])):
         raise ValueError("target must declare its package and advisory ecosystems")
     base_image = profile.get("baseImage")
     if not isinstance(base_image, str) or not re.search(r"@sha256:[0-9a-f]{64}$", base_image):
@@ -107,7 +120,36 @@ def package_target_policy(config, package, target_id):
         access.get("sponsorEligibility") is not None or access.get("earlyBinaryLicenseId") is not None
     ):
         raise ValueError(f"public target {package}/{target_id} must not declare sponsor-only access")
+    followups = policy.get("followUpAssessments", {})
+    if not isinstance(followups, dict):
+        raise ValueError(f"package {package}/{target_id} follow-up assessments must be an object")
+    for cve, assessment in followups.items():
+        if (not isinstance(cve, str) or not re.fullmatch(r"CVE-[0-9]{4}-[0-9]+", cve)
+                or not isinstance(assessment, dict)
+                or assessment.get("baselineApplicability") != "not-affected"
+                or assessment.get("candidateDisposition") != "fixed-in-backport"
+                or not re.fullmatch(r"[a-f0-9]{40}", assessment.get("introducedBy", ""))
+                or not re.fullmatch(r"[a-f0-9]{40}", assessment.get("fixedBy", ""))
+                or not isinstance(assessment.get("regressionTestId"), str)
+                or not assessment["regressionTestId"]
+                or assessment.get("scannerTreatment") != (
+                    "not-a-target-finding; explicit installed regression required; "
+                    "scanner absence alone is not remediation evidence"
+                )):
+            raise ValueError(f"package {package}/{target_id} has an invalid follow-up CVE assessment")
+    ecosystem = policy.get("packageEcosystem", target_profile(config, target_id)["packageEcosystem"])
+    profile = target_profile(config, target_id)
+    if not isinstance(ecosystem, str) or not package_ecosystem_matches_target(
+        profile["distribution"], profile["releaseVersion"], ecosystem
+    ):
+        raise ValueError(f"package {package}/{target_id} must declare a valid package ecosystem")
     return policy
+
+
+def package_ecosystem(config, package, target_id):
+    """Return an explicit package ecosystem override or the target default."""
+    policy = package_target_policy(config, package, target_id)
+    return policy.get("packageEcosystem", target_profile(config, target_id)["packageEcosystem"])
 
 
 def scanner_config(config):

@@ -15,6 +15,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Check out pinned Poppler package recipe
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: getpatched/packaging-poppler
+          ref: 08a8c260a334482fd89b9612dbc5bcaaa7246771
+          path: packaging-poppler
+          persist-credentials: false
       - name: Check package policies and release verification contracts
         run: python3 -B -m unittest discover -s verification -p 'test_*.py' -v
       - name: Check catalogue JavaScript syntax

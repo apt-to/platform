@@ -71,6 +71,9 @@ class PrivateStagingManifest(unittest.TestCase):
             staging,
             r"rebuild-and-stage:\n\s+if: >-\n\s+vars\.GETPATCHED_REPOSITORY_ENABLED == 'true' &&",
         )
+        self.assertIn("libpng1\\.6|libgit2|tiff|poppler", staging)
+        self.assertIn('eligibility.get("targetId") != target', staging)
+        self.assertNotIn('target_id != "ubuntu-focal-amd64"', (ROOT / "scripts/stage-release.py").read_text())
 
     def test_release_endpoint_is_pinned_to_repository_hostname(self):
         self.assertEqual(STAGE.validate_endpoint("https://repo.getpatched.dev/"), "https://repo.getpatched.dev")

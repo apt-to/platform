@@ -48,13 +48,44 @@ class AptSnapshotPublisher(unittest.TestCase):
             self.assertEqual(item["sha256"], hashlib.sha256(content).hexdigest())
 
     def test_signer_uses_exact_builder_ids_for_each_channel(self):
-        ids = {"public": "focal-20261025T120000-r123-public", "early": "focal-20261025T120000-r123-early"}
+        ids = [
+            {"suite": "focal", "architecture": "amd64", "channel": "public", "snapshot_build": "focal-20261025T120000-r123-public"},
+            {"suite": "focal", "architecture": "amd64", "channel": "early", "snapshot_build": "focal-20261025T120000-r123-early"},
+            {"suite": "bookworm", "architecture": "amd64", "channel": "public", "snapshot_build": "bookworm-amd64-20261025T120000-r124-public"},
+        ]
         self.assertEqual(SIGNER.validate_snapshot_ids(ids), ids)
-        with self.assertRaisesRegex(ValueError, "does not match its builder channel"):
-            SIGNER.validate_snapshot_ids({"public": ids["early"], "early": ids["public"]})
-        self.assertEqual(SIGNER.validate_snapshot_ids({"public": ids["public"]}), {"public": ids["public"]})
-        with self.assertRaisesRegex(ValueError, "at least one valid channel"):
-            SIGNER.validate_snapshot_ids({})
+        with self.assertRaisesRegex(ValueError, "does not match its target and channel"):
+            SIGNER.validate_snapshot_ids([{"suite": "bookworm", "architecture": "amd64", "channel": "public", "snapshot_build": ids[0]["snapshot_build"]}])
+        with self.assertRaisesRegex(ValueError, "non-empty list"):
+            SIGNER.validate_snapshot_ids([])
+
+    def test_bookworm_snapshot_manifest_uses_suite_specific_indexes_and_paths(self):
+        root = Path(self.temp.name) / "bookworm-repo"
+        for relative in PUBLISH.required_files("bookworm", "amd64"):
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(("fixture:" + relative).encode())
+        _, files = PUBLISH.snapshot_files(root, "bookworm", "amd64")
+        self.assertEqual({item["path"] for item in files}, PUBLISH.required_files("bookworm", "amd64"))
+        with self.assertRaisesRegex(ValueError, "not enabled"):
+            PUBLISH.snapshot_files(root, "bookworm", "arm64")
+
+    def test_bookworm_publication_registers_target_identity_and_signed_file_manifest(self):
+        root = Path(self.temp.name) / "bookworm-publish"
+        for relative in PUBLISH.required_files("bookworm", "amd64"):
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(("fixture:" + relative).encode())
+        snapshot_id = "bookworm-amd64-20261025T120000-r123-public"
+        with patch.object(PUBLISH, "verify_release"), patch.object(PUBLISH, "call", return_value=(201, {})) as call:
+            PUBLISH.publish("https://repo.getpatched.dev", "public", snapshot_id, ["tiff-bookworm"], root, "0" * 40,
+                            "bookworm", "amd64")
+        registration = call.call_args_list[0]
+        self.assertEqual(registration.args[:2], ("https://repo.getpatched.dev/internal/repository-snapshots/public", "POST"))
+        self.assertEqual(registration.kwargs["body"]["suite"], "bookworm")
+        self.assertEqual(registration.kwargs["body"]["architecture"], "amd64")
+        self.assertTrue(all(item["path"].startswith("dists/bookworm/") or item["path"] == "getpatched-archive-keyring.gpg"
+                            for item in registration.kwargs["body"]["files"]))
 
     def test_rollback_only_activates_a_matching_retained_snapshot_without_uploading_bytes(self):
         snapshot_id = "focal-20261025T120000-r123-public"
@@ -65,8 +96,18 @@ class AptSnapshotPublisher(unittest.TestCase):
             f"https://repo.getpatched.dev/internal/repository-snapshots/public/{snapshot_id}/activate", "POST", body={}
         )
 
+    def test_rollback_accepts_target_specific_debian_snapshot(self):
+        snapshot_id = "bookworm-amd64-20261025T120000-r123-public"
+        with patch.object(ROLLBACK.PUBLISH, "call", return_value=(201, {"id": snapshot_id, "channel": "public", "active": True})):
+            result = ROLLBACK.rollback("https://repo.getpatched.dev", "public", snapshot_id, "debian-bookworm-amd64")
+        self.assertEqual(result["id"], snapshot_id)
+
+    def test_rollback_requires_snapshot_id_to_match_selected_target(self):
+        with self.assertRaisesRegex(ValueError, "selected target and channel"):
+            ROLLBACK.rollback("https://repo.getpatched.dev", "public", "bookworm-amd64-20261025T120000-r123-public", "debian-trixie-amd64")
+
     def test_rollback_rejects_wrong_channel_snapshot_and_noncanonical_endpoint(self):
-        with self.assertRaisesRegex(ValueError, "selected channel"):
+        with self.assertRaisesRegex(ValueError, "selected target and channel"):
             ROLLBACK.rollback("https://repo.getpatched.dev", "early", "focal-20261025T120000-r123-public")
         with self.assertRaisesRegex(ValueError, "configured HTTPS"):
             ROLLBACK.rollback("https://attacker.example", "public", "focal-20261025T120000-r123-public")

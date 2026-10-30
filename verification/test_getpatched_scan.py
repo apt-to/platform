@@ -1,5 +1,6 @@
 """End-to-end contract for GetPatched's OSV-compatible dpkg advisory scanner."""
 import json
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -9,9 +10,25 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = ROOT / "scripts" / "getpatched-scan.py"
 FEED = ROOT / "advisories" / "getpatched-osv.json"
+import importlib.util
+SCANNER_SPEC = importlib.util.spec_from_file_location("getpatched_scan", SCANNER)
+SCANNER_MODULE = importlib.util.module_from_spec(SCANNER_SPEC)
+SCANNER_SPEC.loader.exec_module(SCANNER_MODULE)
 
 
 class GetPatchedScannerContract(unittest.TestCase):
+    def test_followup_assessment_requires_the_paired_installed_regression(self):
+        config = json.loads((ROOT / "packages.json").read_text())
+        target = config["packages"]["libpng1.6"]["targets"]["ubuntu-focal-amd64"]
+        cve = "CVE-2026-22695"
+        check = {"cve": cve, "testId": target["followUpAssessments"][cve]["regressionTestId"], "passed": True}
+        # Baseline applicability is an explicit source-history assessment. The installed
+        # padded-stride check is required only on the patched candidate image.
+        SCANNER_MODULE.validate_followup_assessment_checks(target, [], "baseline")
+        SCANNER_MODULE.validate_followup_assessment_checks(target, [check], "patched")
+        with self.assertRaisesRegex(ValueError, "lacks the assessed follow-up check"):
+            SCANNER_MODULE.validate_followup_assessment_checks(target, [], "patched")
+
     def scan_packages(self, entries):
         status = "\n\n".join(
             f"Package: {name}\nStatus: install ok installed\nVersion: {version}\nArchitecture: amd64"
@@ -19,14 +36,64 @@ class GetPatchedScannerContract(unittest.TestCase):
         ) + "\n"
         return self.scan(status)
 
-    def scan(self, status_text, feed=FEED, architecture="amd64"):
+    def scan(self, status_text, feed=FEED, architecture="amd64", target_id=None, regression_directory=None, image_id=None, regression_phase=None, scan_images=None, recipe_directory=None, policy_file=None, docker_stub_dir=None, docker_report_dir=None, docker_status_file=None):
         with tempfile.TemporaryDirectory(prefix="getpatched-scan-test-") as directory:
             status = Path(directory) / "status"
             status.write_text(status_text)
+            command = [sys.executable, str(SCANNER), "--feed", str(feed), "--status-file", str(status), "--architecture", architecture]
+            if target_id:
+                command.extend(["--target-id", target_id])
+            if regression_directory:
+                command.extend(["--regression-directory", str(regression_directory)])
+            if image_id:
+                command.extend(["--image-id", image_id])
+            if regression_phase:
+                command.extend(["--regression-phase", regression_phase])
+            if scan_images:
+                command.extend(["--scan-images", str(scan_images)])
+            if recipe_directory:
+                command.extend(["--recipe-directory", str(recipe_directory)])
+            if policy_file:
+                command.extend(["--policy-file", str(policy_file)])
+            environment = None
+            if docker_stub_dir:
+                import os
+                environment = dict(os.environ, PATH=str(docker_stub_dir) + os.pathsep + os.environ.get("PATH", ""),
+                                   GETPATCHED_TEST_REPORTS=str(docker_report_dir),
+                                   GETPATCHED_TEST_IMAGE_STATUS=str(docker_status_file or status))
             return subprocess.run(
-                [sys.executable, str(SCANNER), "--feed", str(feed), "--status-file", str(status), "--architecture", architecture],
-                capture_output=True, text=True, check=False,
+                command,
+                capture_output=True, text=True, check=False, env=environment,
             )
+
+    def docker_stub(self, directory, reports):
+        stub = directory / "bin"
+        stub.mkdir()
+        executable = stub / "docker"
+        executable.write_text("#!" + sys.executable + "\n" + '''import json, os, pathlib, sys
+args = sys.argv[1:]
+if args[:2] == ["image", "inspect"]:
+    print(args[-1])
+    raise SystemExit(0)
+if args[0] == "run" and args[-1] == "/var/lib/dpkg/status":
+    print(pathlib.Path(os.environ["GETPATCHED_TEST_IMAGE_STATUS"]).read_text(), end="")
+    raise SystemExit(0)
+if args[0] != "run":
+    raise SystemExit(3)
+phase = args[args.index("--phase") + 1]
+image_id = args[args.index("--image-id") + 1]
+verification_id = args[args.index("--verification-id") + 1]
+output_name = args[args.index("--output") + 1].rsplit("/", 1)[-1]
+mount = next(item for item in args if item.startswith("type=bind,") and "target=/proof" in item)
+output_root = pathlib.Path(next(part[7:] for part in mount.split(",") if part.startswith("source=")))
+source = pathlib.Path(os.environ["GETPATCHED_TEST_REPORTS"]) / (phase + "-regression.json")
+report = json.loads(source.read_text())
+report["imageId"] = image_id
+report["verificationId"] = verification_id
+(output_root / output_name).write_text(json.dumps(report))
+''')
+        executable.chmod(0o755)
+        return stub
 
     def test_baselines_are_found_and_tested_backports_are_clean(self):
         baseline = self.scan("""Package: libxml2
@@ -141,6 +208,146 @@ Architecture: i386
         self.assertEqual(report["findings"], [])
         self.assertEqual(report["summary"]["scannedPackages"], 4)
 
+    def test_unverified_libpng_target_is_not_asserted_in_public_advisory_feed(self):
+        records = [affected for advisory in json.loads(FEED.read_text())["vulns"]
+                   for affected in advisory["affected"]
+                   if affected["ecosystem_specific"]["source_package"] == "libpng1.6"]
+        self.assertEqual(records, [])
+
+    def test_unverified_candidate_requires_version_match_and_regression_evidence(self):
+        candidate = "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"
+
+        with tempfile.TemporaryDirectory(prefix="getpatched-tiff-regression-proof-") as directory:
+            proof = Path(directory)
+            for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", candidate)):
+                cve_check = {
+                    "command": ["tiffcrop", "-D", "format:txt,level:2,input:fixture", "fixture.tif", "output.tif"],
+                    "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
+                    "timedOut": False, "cve": "CVE-2025-61144", "passed": True,
+                    "memoryLog": "Invalid read of size 8\nat loadImage\n0 bytes after a block of size 64\nStack variable srcbuffs\n" if phase == "baseline" else "",
+                }
+                cve_check["memoryLog"] += "ERROR SUMMARY: 0 errors\n" if phase == "patched" else ""
+                checks = [cve_check]
+                if phase == "patched":
+                    checks.append({"command": ["tiffinfo", "output.tif"], "returncode": 0,
+                                   "stdout": "Image Width: 16\n", "stderr": "", "timedOut": False, "passed": True})
+                (proof / f"{phase}-regression.json").write_text(json.dumps({
+                    "runner": "getpatched-platform-regression/1",
+                    "runnerSha256": hashlib.sha256((ROOT / "verification/regression.py").read_bytes()).hexdigest(),
+                    "source": "tiff", "targetId": "ubuntu-focal-amd64",
+                    "imageId": "image-baseline" if phase == "baseline" else "image-patched",
+                    "verificationId": "a" * 32,
+                    "distribution": "Ubuntu", "release": "focal", "architecture": "amd64", "phase": phase,
+                    "installedVersion": version, "expectedVersion": version, "passed": True, "checks": checks,
+                }))
+            scan_images = proof / "scan-images.json"
+            scan_images.write_text(json.dumps({"baselineImageId": "image-baseline", "patchedImageId": "image-patched"}))
+            policy_file = proof / "package-policy.json"
+            policy_file.write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64",
+                                               "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+                                               "version": candidate}))
+            docker_stub = self.docker_stub(proof, proof)
+            image_status_file = proof / "image-status.txt"
+            image_status_file.write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14\nArchitecture: amd64\n")
+            patched_status_file = proof / "patched-image-status.txt"
+            patched_status_file.write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: " + candidate + "\nArchitecture: amd64\n")
+            baseline_result = self.scan(
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14\nArchitecture: amd64\n",
+                target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="image-baseline",
+                regression_phase="before", scan_images=scan_images, recipe_directory=proof,
+                policy_file=policy_file, docker_stub_dir=docker_stub, docker_report_dir=proof,
+                docker_status_file=image_status_file,
+            )
+            result = self.scan(
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: " + candidate + "\nArchitecture: amd64\n",
+                target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="image-patched",
+                regression_phase="after", scan_images=scan_images, recipe_directory=proof,
+                policy_file=policy_file, docker_stub_dir=docker_stub, docker_report_dir=proof,
+                docker_status_file=patched_status_file,
+            )
+            mismatched_inventory = self.scan(
+                "Package: unrelated\nStatus: install ok installed\nVersion: 1\nArchitecture: amd64\n",
+                target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="image-baseline",
+                regression_phase="before", scan_images=scan_images, recipe_directory=proof,
+                policy_file=policy_file, docker_stub_dir=docker_stub, docker_report_dir=proof,
+                docker_status_file=image_status_file,
+            )
+        self.assertEqual(baseline_result.returncode, 1, baseline_result.stderr)
+        self.assertEqual(json.loads(baseline_result.stdout)["findingsById"], ["CVE-2025-61144"])
+        self.assertEqual(mismatched_inventory.returncode, 2)
+        self.assertIn("does not match the verified candidate image", mismatched_inventory.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["findings"], [])
+        self.assertEqual(report["regressionVerifiedCandidate"], [{"source": "tiff", "targetId": "ubuntu-focal-amd64"}])
+        self.assertEqual(set(report["regressionReportSha256"]), {"baseline", "patched"})
+        self.assertEqual(report["regressionImageIds"], {"baseline": "image-baseline", "patched": "image-patched"})
+
+    def test_candidate_generic_passing_reports_without_target_cve_proof_are_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="getpatched-tiff-regression-proof-") as directory:
+            proof = Path(directory)
+            for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
+                (proof / f"{phase}-regression.json").write_text(json.dumps({
+                    "runner": "getpatched-platform-regression/1",
+                    "runnerSha256": hashlib.sha256((ROOT / "verification/regression.py").read_bytes()).hexdigest(),
+                    "source": "tiff", "targetId": "ubuntu-focal-amd64",
+                    "imageId": "image-baseline" if phase == "baseline" else "image-patched",
+                    "verificationId": "b" * 32,
+                    "distribution": "Ubuntu", "release": "focal", "architecture": "amd64", "phase": phase,
+                    "installedVersion": version, "expectedVersion": version, "passed": True,
+                    "checks": [{"command": ["true"], "returncode": 0, "timedOut": False, "passed": True}],
+                }))
+            scan_images = proof / "scan-images.json"
+            scan_images.write_text(json.dumps({"baselineImageId": "image-baseline", "patchedImageId": "image-patched"}))
+            policy_file = proof / "package-policy.json"
+            policy_file.write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64",
+                                               "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+                                               "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"}))
+            docker_stub = self.docker_stub(proof, proof)
+            result = self.scan(
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n",
+                target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="image-patched",
+                regression_phase="after", scan_images=scan_images, recipe_directory=proof,
+                policy_file=policy_file, docker_stub_dir=docker_stub, docker_report_dir=proof,
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("do not cover every configured target CVE", result.stderr)
+
+    def test_caller_supplied_passing_reports_cannot_replace_execution_in_scan_images(self):
+        with tempfile.TemporaryDirectory(prefix="getpatched-forged-regression-proof-") as directory:
+            proof = Path(directory)
+            for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"),
+                                   ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
+                (proof / f"{phase}-regression.json").write_text(json.dumps({
+                    "runner": "getpatched-platform-regression/1",
+                    "runnerSha256": hashlib.sha256((ROOT / "verification/regression.py").read_bytes()).hexdigest(),
+                    "source": "tiff", "targetId": "ubuntu-focal-amd64",
+                    "imageId": "invented-" + phase, "verificationId": "c" * 32,
+                    "distribution": "Ubuntu", "release": "focal", "architecture": "amd64", "phase": phase,
+                    "installedVersion": version, "expectedVersion": version, "passed": True,
+                    "checks": [{"command": ["tiffcrop"], "returncode": 0, "passed": True,
+                                "cve": "CVE-2025-61144"}],
+                }))
+            scan_images = proof / "scan-images.json"
+            scan_images.write_text(json.dumps({"baselineImageId": "invented-baseline", "patchedImageId": "invented-patched"}))
+            policy_file = proof / "package-policy.json"
+            policy_file.write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64",
+                                               "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+                                               "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"}))
+            stub = proof / "bin"
+            stub.mkdir()
+            docker = stub / "docker"
+            docker.write_text("#!" + sys.executable + "\nraise SystemExit(1)\n")
+            docker.chmod(0o755)
+            result = self.scan(
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n",
+                target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="invented-patched",
+                regression_phase="after", scan_images=scan_images, recipe_directory=proof,
+                policy_file=policy_file, docker_stub_dir=stub,
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("not match a locally inspectable Docker image", result.stderr)
+
     def test_later_ubuntu_pro_fixed_versions_are_clean(self):
         result = self.scan_packages({
             "libarchive13": "3.4.0-2ubuntu1.5+esm2",
@@ -177,9 +384,17 @@ Architecture: i386
             generated = json.loads(output.read_text())
         committed = json.loads(FEED.read_text())
         self.assertEqual(generated, committed)
-        self.assertEqual({item["id"] for item in committed["vulns"]}, {"CVE-2025-49794", "CVE-2025-49796", "CVE-2026-4111"})
-        self.assertTrue(all(affected["package"]["ecosystem"] == "Ubuntu:Pro:20.04:LTS"
-                            for item in committed["vulns"] for affected in item["affected"]))
+        self.assertEqual({item["id"] for item in committed["vulns"]}, {
+            "CVE-2025-49794", "CVE-2025-49796", "CVE-2026-4111",
+        })
+        ecosystems = {
+            (affected["ecosystem_specific"]["source_package"], affected["ecosystem_specific"]["target_id"]): affected["package"]["ecosystem"]
+            for item in committed["vulns"] for affected in item["affected"]
+        }
+        self.assertEqual(ecosystems[("libxml2", "ubuntu-focal-amd64")], "Ubuntu:Pro:20.04:LTS")
+        self.assertEqual(ecosystems[("libarchive", "ubuntu-focal-amd64")], "Ubuntu:Pro:20.04:LTS")
+        self.assertFalse(any(affected["ecosystem_specific"]["source_package"] in {"libpng1.6", "libgit2", "tiff", "poppler"}
+                             for item in committed["vulns"] for affected in item["affected"]))
         self.assertTrue(all("ranges" not in affected for item in committed["vulns"] for affected in item["affected"]))
 
     def test_scanner_rejects_feed_that_disagrees_with_reviewed_package_policy(self):

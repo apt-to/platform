@@ -1,6 +1,8 @@
 import importlib.util
 import hashlib
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 from unittest.mock import patch
 import unittest
@@ -23,6 +25,43 @@ def release_record(state="public"):
 
 
 class SnapshotAssemblyContract(unittest.TestCase):
+    def test_snapshot_targets_are_suite_scoped_and_arm64_stays_disabled(self):
+        for suite in ("focal", "bookworm", "trixie"):
+            BUILD.validate_snapshot_target(suite, "amd64")
+        for suite, architecture in (("bookworm", "arm64"), ("trixie", "arm64"), ("sid", "amd64")):
+            with self.subTest(suite=suite, architecture=architecture), self.assertRaisesRegex(ValueError, "not enabled"):
+                BUILD.validate_snapshot_target(suite, architecture)
+        self.assertEqual(BUILD.snapshot_id_prefix("focal", "amd64"), "focal-")
+        self.assertEqual(BUILD.snapshot_id_prefix("bookworm", "amd64"), "bookworm-amd64-")
+
+    def test_cli_exposes_debian_suites_as_supported_targets(self):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/build-apt-snapshot.py"), "--help"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("{focal,bookworm,trixie}", result.stdout)
+
+    def test_active_snapshot_identity_is_bound_to_suite_and_architecture(self):
+        releases = [release_record()]
+        focal = {"id": "focal-20261025T120000-r123-public", "release_ids": [releases[0]["id"]], "healthy": True}
+        bookworm = {"id": "bookworm-amd64-20261025T120000-r123-public", "release_ids": [releases[0]["id"]], "healthy": True}
+        self.assertTrue(BUILD.snapshot_inventory_matches(releases, focal))
+        self.assertTrue(BUILD.snapshot_inventory_matches(releases, bookworm, "bookworm", "amd64"))
+        self.assertFalse(BUILD.snapshot_inventory_matches(releases, focal, "bookworm", "amd64"))
+
+    def test_index_manifest_reads_only_requested_suite(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repository = Path(temporary)
+            focal = repository / "dists/focal/Release"
+            bookworm = repository / "dists/bookworm/Release"
+            focal.parent.mkdir(parents=True)
+            bookworm.parent.mkdir(parents=True)
+            focal.write_text("focal")
+            bookworm.write_text("bookworm")
+            manifest = BUILD.index_manifest(repository, "bookworm")
+        self.assertEqual([item["path"] for item in manifest], ["dists/bookworm/Release"])
+
     def test_valid_public_and_sponsor_release_records_are_accepted(self):
         BUILD.validate_release(release_record())
         BUILD.validate_release(release_record("sponsor-period"))
@@ -36,6 +75,12 @@ class SnapshotAssemblyContract(unittest.TestCase):
         invalid["source_assets"][0]["name"] = "../outside.dsc"
         with self.assertRaisesRegex(ValueError, "invalid source_assets entry"):
             BUILD.validate_release(invalid)
+
+    def test_inventory_accepts_selected_public_batch_recipe_repositories(self):
+        for package in ("libpng1.6", "libgit2", "tiff", "poppler"):
+            release = release_record()
+            release["repository"] = f"getpatched/packaging-{package}"
+            BUILD.validate_release(release)
 
     def test_inventory_requires_binary_and_complete_source_descriptor(self):
         invalid = release_record()
@@ -75,6 +120,19 @@ class SnapshotAssemblyContract(unittest.TestCase):
                 self.assertEqual(result["unchanged"], True)
                 self.assertIsNone(result["snapshot_build"])
                 self.assertFalse((Path(temporary) / "public").exists())
+
+    def test_empty_target_inventory_is_a_noop_and_does_not_publish_empty_indexes(self):
+        with patch.object(BUILD, "fetch_inventory", return_value={"releases": [], "active_snapshot": None}), tempfile.TemporaryDirectory() as temporary:
+            result = BUILD.assemble_channel("https://repo.getpatched.dev", "public", Path(temporary), suite="bookworm")
+        self.assertTrue(result["unchanged"])
+        self.assertEqual(result["release_count"], 0)
+        self.assertIsNone(result["snapshot_build"])
+
+    def test_empty_inventory_with_active_snapshot_fails_closed(self):
+        active = {"id": "bookworm-amd64-20261025T120000-r123-public", "release_ids": ["withdrawn"], "healthy": True}
+        with patch.object(BUILD, "fetch_inventory", return_value={"releases": [], "active_snapshot": active}), tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(RuntimeError, "active snapshot still exists"):
+                BUILD.assemble_channel("https://repo.getpatched.dev", "public", Path(temporary), suite="bookworm")
 
     def test_changed_channel_result_marks_snapshot_as_changed(self):
         releases = [release_record()]

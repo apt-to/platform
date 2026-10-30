@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify and atomically publish a signed focal APT snapshot to the Worker."""
+"""Verify and atomically publish a signed target-specific APT snapshot to the Worker."""
 import argparse
 import hashlib
 import json
@@ -15,12 +15,21 @@ import urllib.request
 MAX_FILES = 256
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 128 * 1024 * 1024
-REQUIRED = {
-    "dists/focal/Release", "dists/focal/InRelease", "dists/focal/Release.gpg",
-    "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
-    "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
-    "getpatched-archive-keyring.gpg",
-}
+SUPPORTED_TARGETS = {"focal": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
+
+
+def required_files(suite, architecture):
+    if architecture not in SUPPORTED_TARGETS.get(suite, set()):
+        raise ValueError("repository snapshot target is not enabled for this suite and architecture")
+    return {
+        f"dists/{suite}/Release", f"dists/{suite}/InRelease", f"dists/{suite}/Release.gpg",
+        f"dists/{suite}/main/binary-{architecture}/Packages", f"dists/{suite}/main/binary-{architecture}/Packages.gz", f"dists/{suite}/main/binary-{architecture}/Packages.xz",
+        f"dists/{suite}/main/source/Sources", f"dists/{suite}/main/source/Sources.gz", f"dists/{suite}/main/source/Sources.xz",
+        "getpatched-archive-keyring.gpg",
+    }
+
+
+REQUIRED = required_files("focal", "amd64")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -52,10 +61,11 @@ def validate_identity():
         raise RuntimeError("GitHub OIDC request URL is not on the GitHub Actions token service")
 
 
-def snapshot_files(repository):
+def snapshot_files(repository, suite="focal", architecture="amd64"):
     repository = Path(repository).resolve(strict=True)
+    required = required_files(suite, architecture)
     paths = []
-    for candidate in (repository / "dists/focal").rglob("*"):
+    for candidate in (repository / f"dists/{suite}").rglob("*"):
         if candidate.is_symlink():
             raise ValueError(f"snapshot contains a symbolic link: {candidate}")
         if candidate.is_file():
@@ -64,12 +74,12 @@ def snapshot_files(repository):
     if keyring.is_symlink() or not keyring.is_file():
         raise ValueError("snapshot is missing a regular public archive key")
     paths.append((keyring.relative_to(repository).as_posix(), keyring))
-    if not REQUIRED.issubset({path for path, _ in paths}) or len(paths) > MAX_FILES:
-        raise ValueError("snapshot is missing required focal indexes/signatures or has too many files")
+    if not required.issubset({path for path, _ in paths}) or len(paths) > MAX_FILES:
+        raise ValueError(f"snapshot is missing required {suite} indexes/signatures or has too many files")
     total = 0
     manifest = []
     for relative, path in sorted(paths):
-        if not re.fullmatch(r"dists/focal/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*|getpatched-archive-keyring\.gpg", relative):
+        if not re.fullmatch(rf"dists/{re.escape(suite)}/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*|getpatched-archive-keyring\.gpg", relative):
             raise ValueError(f"snapshot contains an unsafe path: {relative}")
         size = path.stat().st_size
         if size <= 0 or size > MAX_FILE_BYTES:
@@ -82,9 +92,9 @@ def snapshot_files(repository):
     return repository, manifest
 
 
-def verify_release_indexes(repository):
+def verify_release_indexes(repository, suite="focal"):
     repository = Path(repository)
-    dist = repository / "dists/focal"
+    dist = repository / "dists" / suite
     release = (dist / "Release").read_bytes()
     entries = {}
     in_sha256 = False
@@ -112,13 +122,13 @@ def verify_release_indexes(repository):
     return release
 
 
-def verify_release(repository, expected_fingerprint):
+def verify_release(repository, expected_fingerprint, suite="focal"):
     if not isinstance(expected_fingerprint, str) or not re.fullmatch(r"(?:[A-Fa-f0-9]{40}|[A-Fa-f0-9]{64})", expected_fingerprint):
         raise ValueError("a configured 40- or 64-character archive primary-key fingerprint is required")
     expected_fingerprint = expected_fingerprint.upper()
     repository = Path(repository)
-    dist = repository / "dists/focal"
-    release = verify_release_indexes(repository)
+    dist = repository / "dists" / suite
+    release = verify_release_indexes(repository, suite)
 
     with tempfile.TemporaryDirectory(prefix="getpatched-snapshot-verify-") as temporary:
         home = Path(temporary) / "gnupg"
@@ -188,18 +198,23 @@ def call(endpoint, method, *, body=None, content_type="application/json"):
         raise RuntimeError(f"repository Worker returned HTTP {error.code}") from None
 
 
-def publish(endpoint, channel, snapshot_id, release_ids, repository, expected_fingerprint):
+def publish(endpoint, channel, snapshot_id, release_ids, repository, expected_fingerprint, suite="focal", architecture="amd64"):
     if channel not in {"public", "early"} or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{2,79}", snapshot_id):
         raise ValueError("invalid repository channel or snapshot id")
+    if architecture not in SUPPORTED_TARGETS.get(suite, set()):
+        raise ValueError("repository snapshot target is not enabled for this suite and architecture")
     endpoint_url = urllib.parse.urlsplit(endpoint)
     if endpoint_url.scheme != "https" or endpoint_url.hostname != "repo.getpatched.dev" or endpoint_url.path not in ("", "/") or endpoint_url.username or endpoint_url.password or endpoint_url.query or endpoint_url.fragment:
         raise ValueError("snapshot publication endpoint must be the configured HTTPS repo.getpatched.dev gateway")
+    prefix = "focal-" if (suite, architecture) == ("focal", "amd64") else f"{suite}-{architecture}-"
+    if not re.fullmatch(re.escape(prefix) + rf"[0-9]{{8}}T[0-9]{{6}}-r[0-9]{{1,20}}-{channel}", snapshot_id):
+        raise ValueError("snapshot ID does not match the selected target and channel")
     if not release_ids or len(set(release_ids)) != len(release_ids) or any(not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,100}", item) for item in release_ids):
         raise ValueError("at least one valid release id is required")
-    repository, files = snapshot_files(repository)
-    verify_release(repository, expected_fingerprint)
+    repository, files = snapshot_files(repository, suite, architecture)
+    verify_release(repository, expected_fingerprint, suite)
     base = endpoint.rstrip("/") + "/internal/repository-snapshots/" + channel
-    manifest = {"id": snapshot_id, "release_ids": release_ids, "files": files}
+    manifest = {"id": snapshot_id, "suite": suite, "architecture": architecture, "release_ids": release_ids, "files": files}
     status, _ = call(base, "POST", body=manifest)
     if status not in (200, 201):
         raise RuntimeError(f"snapshot registration returned unexpected HTTP {status}")
@@ -222,10 +237,12 @@ def main():
     parser.add_argument("--release-id", required=True, action="append")
     parser.add_argument("--repository", required=True, type=Path)
     parser.add_argument("--expected-fingerprint", required=True, help="trusted archive primary-key fingerprint (40 or 64 hex characters)")
+    parser.add_argument("--suite", choices=tuple(SUPPORTED_TARGETS), default="focal")
+    parser.add_argument("--architecture", choices=("amd64",), default="amd64")
     args = parser.parse_args()
     validate_identity()
-    count = publish(args.endpoint, args.channel, args.snapshot_id, args.release_id, args.repository, args.expected_fingerprint)
-    print(f"activated {args.channel} focal snapshot {args.snapshot_id} with {count} verified files")
+    count = publish(args.endpoint, args.channel, args.snapshot_id, args.release_id, args.repository, args.expected_fingerprint, args.suite, args.architecture)
+    print(f"activated {args.channel} {args.suite}/{args.architecture} snapshot {args.snapshot_id} with {count} verified files")
 
 
 if __name__ == "__main__":

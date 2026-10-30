@@ -22,8 +22,14 @@ on:
         required: true
         default: public
         options: [public, early]
+      rollback_target:
+        description: Exact distro and architecture for the retained snapshot
+        type: choice
+        required: true
+        default: ubuntu-focal-amd64
+        options: [ubuntu-focal-amd64, debian-bookworm-amd64, debian-trixie-amd64]
       rollback_snapshot_id:
-        description: Exact retained focal snapshot ID for the selected channel
+        description: Exact retained target snapshot ID for the selected channel
         type: string
         required: false
       force_refresh:
@@ -65,7 +71,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Install focal repository metadata tools
+      - name: Install Ubuntu and Debian repository metadata tools
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends apt-utils dpkg-dev xz-utils
@@ -79,16 +85,22 @@ jobs:
           set -euo pipefail
           build_args=()
           if [[ "$GETPATCHED_FORCE_SNAPSHOT_REFRESH" == "true" ]]; then build_args+=(--force-refresh); fi
-          python3 scripts/build-apt-snapshot.py --channel both "${build_args[@]}" | tee snapshot-builds.jsonl
+          : > snapshot-builds.jsonl
+          for suite in focal bookworm trixie; do
+            python3 scripts/build-apt-snapshot.py --suite "$suite" --channel both "${build_args[@]}" | tee -a snapshot-builds.jsonl
+          done
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           from pathlib import Path
           rows = [json.loads(line) for line in Path("snapshot-builds.jsonl").read_text().splitlines()]
-          if ({row.get("channel") for row in rows} != {"public", "early"} or
+          expected = {(suite, channel) for suite in ("focal", "bookworm", "trixie") for channel in ("public", "early")}
+          if ({(row.get("suite"), row.get("channel")) for row in rows} != expected or
+              any(row.get("architecture") != "amd64" for row in rows) or
               any(not isinstance(row.get("unchanged"), bool) for row in rows) or
               any(row["unchanged"] == bool(row.get("snapshot_build")) for row in rows)):
-              raise SystemExit("builder returned inconsistent unchanged flags or snapshot IDs")
-          snapshot_ids = {row["channel"]: row["snapshot_build"] for row in rows if row.get("snapshot_build")}
+              raise SystemExit("builder returned incomplete target coverage or inconsistent unchanged flags/snapshot IDs")
+          snapshot_ids = [{"suite": row["suite"], "architecture": row["architecture"], "channel": row["channel"], "snapshot_build": row["snapshot_build"]}
+                          for row in rows if row.get("snapshot_build")]
           print("snapshot_ids=" + json.dumps(snapshot_ids, separators=(",", ":")))
           PY
 
@@ -96,7 +108,7 @@ jobs:
     if: >-
       (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'rollback') &&
       (github.event_name != 'workflow_dispatch' || github.event.inputs.operation != 'prune') &&
-      needs.build-indexes.outputs.snapshot_ids != '{}'
+      needs.build-indexes.outputs.snapshot_ids != '[]'
     needs: build-indexes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -171,5 +183,6 @@ jobs:
         env:
           GETPATCHED_RELEASE_ENDPOINT: https://repo.getpatched.dev
           GETPATCHED_ROLLBACK_CHANNEL: ${{ inputs.rollback_channel }}
+          GETPATCHED_ROLLBACK_TARGET: ${{ inputs.rollback_target }}
           GETPATCHED_ROLLBACK_SNAPSHOT_ID: ${{ inputs.rollback_snapshot_id }}
         run: python3 scripts/rollback-apt-snapshot.py

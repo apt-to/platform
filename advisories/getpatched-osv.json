@@ -5,6 +5,8 @@
       "affected": [
         {
           "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
             "fixed_versions": [
               "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
@@ -33,6 +35,8 @@
         },
         {
           "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
             "fixed_versions": [
               "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
@@ -66,7 +70,7 @@
       },
       "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
       "id": "CVE-2025-49794",
-      "modified": "2026-10-28T16:09:38Z",
+      "modified": "2026-10-30T05:38:23Z",
       "references": [
         {
           "type": "ADVISORY",
@@ -80,6 +84,8 @@
       "affected": [
         {
           "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
             "fixed_versions": [
               "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
@@ -108,6 +114,8 @@
         },
         {
           "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
             "fixed_versions": [
               "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
               "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
@@ -141,7 +149,7 @@
       },
       "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
       "id": "CVE-2025-49796",
-      "modified": "2026-10-28T16:09:38Z",
+      "modified": "2026-10-30T05:38:23Z",
       "references": [
         {
           "type": "ADVISORY",
@@ -155,6 +163,8 @@
       "affected": [
         {
           "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "3.4.0-2ubuntu1.5+getpatched1",
             "fixed_versions": [
               "3.4.0-2ubuntu1.5+getpatched1",
               "3.4.0-2ubuntu1.5+esm1"
@@ -183,6 +193,8 @@
         },
         {
           "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "3.4.0-2ubuntu1.5+getpatched1",
             "fixed_versions": [
               "3.4.0-2ubuntu1.5+getpatched1",
               "3.4.0-2ubuntu1.5+esm1"
@@ -216,7 +228,7 @@
       },
       "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
       "id": "CVE-2026-4111",
-      "modified": "2026-10-28T16:09:38Z",
+      "modified": "2026-10-30T05:38:23Z",
       "references": [
         {
           "type": "ADVISORY",

@@ -100,17 +100,24 @@ def persist_release_candidates(selected, binary_manifest, output, package, versi
     }, indent=2) + "\n")
 
 
-def run_getpatched_scan(image, image_id, phase, output, temp, package, expected):
+def run_getpatched_scan(image, image_id, phase, output, temp, package, expected, recipe_directory):
     status_result = run(["docker", "run", "--rm", "--network", "none", image, "cat", "/var/lib/dpkg/status"], capture_output=True, text=True, timeout=60)
     if len(status_result.stdout.encode()) > 16 * 1024 * 1024:
         raise RuntimeError("Installed dpkg status inventory exceeds the scanner input bound")
     status_path = output / (package + "-getpatched-status-" + phase + ".txt")
     status_path.write_text(status_result.stdout)
-    scan = subprocess.run([
+    command = [
         sys.executable, str(ROOT / "scripts/getpatched-scan.py"), "--feed", str(ROOT / "advisories/getpatched-osv.json"),
         "--status-file", str(status_path), "--release", expected["codename"],
         "--architecture", expected["architecture"], "--target-id", expected["targetId"], "--image-id", image_id,
-    ], capture_output=True, text=True, timeout=60, check=False)
+    ]
+    command.extend(["--regression-directory", str(output), "--regression-phase", phase,
+                    "--scan-images", str(output / "scan-images.json"),
+                    "--recipe-directory", str(recipe_directory),
+                    "--policy-file", str(output / "package-policy.json")])
+    # Candidate mode independently reruns both installed regression suites inside
+    # the baseline and patched images before classifying either scan.
+    scan = subprocess.run(command, capture_output=True, text=True, timeout=900, check=False)
     if scan.returncode not in (0, 1):
         raise RuntimeError("GetPatched advisory scan failed: " + scan.stderr[-2000:])
     report = json.loads(scan.stdout)
@@ -131,6 +138,23 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected)
     if phase == "after" and target_findings:
         raise RuntimeError("GetPatched advisory scan reported target findings on the tested patched image")
     return {"report": report_path, "status": status_path}
+
+
+def rerun_installed_regression(image, image_id, verification_id, container_platform, recipe, policy_path, output, phase):
+    """Run the checked-in regression runner in the exact baseline or patched scan image."""
+    report_phase = "baseline" if phase == "before" else "patched"
+    report_path = output / (report_phase + "-regression.json")
+    run([
+        "docker", "run", "--rm", "--platform", container_platform, "--network", "none",
+        "--mount", "type=bind,source=" + str(recipe) + ",target=/recipe,readonly",
+        "--mount", "type=bind,source=" + str(ROOT / "verification") + ",target=/verification,readonly",
+        "--mount", "type=bind,source=" + str(policy_path) + ",target=/package-policy.json,readonly",
+        "--mount", "type=bind,source=" + str(output) + ",target=/output",
+        image, "python3", "/verification/regression.py", "--recipe", "/recipe",
+        "--policy", "/package-policy.json", "--phase", report_phase,
+        "--image-id", image_id, "--verification-id", verification_id,
+        "--output", "/output/" + report_path.name,
+    ], timeout=180)
 
 
 def validate_release_policy(policy, config):
@@ -328,9 +352,13 @@ def main():
             scan_images.append(scan_base)
             scan_identity = {"baselineImageId": run(["docker", "image", "inspect", scan_base, "--format", "{{.Id}}"], capture_output=True, text=True).stdout.strip(), "patchedImageId": run(["docker", "image", "inspect", scan_patched, "--format", "{{.Id}}"], capture_output=True, text=True).stdout.strip()}
             (output / "scan-images.json").write_text(json.dumps(scan_identity, indent=2) + "\n")
+            regression_verification_id = uuid.uuid4().hex
+            rerun_installed_regression(scan_base, scan_identity["baselineImageId"], regression_verification_id, container_platform, source, output / "package-policy.json", output, "before")
+            rerun_installed_regression(scan_patched, scan_identity["patchedImageId"], regression_verification_id, container_platform, source, output / "package-policy.json", output, "after")
             getpatched_scan_paths = {}
             for phase, image, image_id in (("before", scan_base, scan_identity["baselineImageId"]), ("after", scan_patched, scan_identity["patchedImageId"])):
-                getpatched_scan_paths[phase] = run_getpatched_scan(image, image_id, phase, output, temp, package, expected)
+                getpatched_scan_paths[phase] = run_getpatched_scan(
+                    image, image_id, phase, output, temp, package, expected, source)
             for phase, image in (("before", scan_base), ("after", scan_patched)):
                 image_tar = temp / (phase + ".tar")
                 run(["docker", "save", "--output", str(image_tar), image])

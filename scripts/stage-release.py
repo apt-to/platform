@@ -68,8 +68,6 @@ def main():
             or manifest["distribution"] != profile["codename"]
             or manifest["architecture"] != profile["architecture"]):
         raise RuntimeError("candidate target is configured for builds but not enabled for repository publication")
-    if target_id != "ubuntu-focal-amd64":
-        raise RuntimeError("the release Worker currently routes only the verified Ubuntu Focal amd64 target")
     if manifest["sourceCommit"] != os.environ.get("SOURCE_COMMIT", manifest["sourceCommit"]):
         raise RuntimeError("candidate source commit does not match the completed build")
     candidates = manifest["packages"]

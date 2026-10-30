@@ -7,6 +7,14 @@
       "codename": "focal",
       "architecture": "amd64",
       "displayName": "Ubuntu 20.04 LTS (focal) · amd64"
+    },
+    "debian-bookworm-amd64": {
+      "distribution": "Debian", "releaseVersion": "12", "codename": "bookworm", "architecture": "amd64",
+      "displayName": "Debian 12 (bookworm) · amd64"
+    },
+    "debian-trixie-amd64": {
+      "distribution": "Debian", "releaseVersion": "13", "codename": "trixie", "architecture": "amd64",
+      "displayName": "Debian 13 (trixie) · amd64"
     }
   },
   "packages": [

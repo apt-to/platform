@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 import importlib.util
 
 sys.path.insert(0, str(ROOT / "scripts"))
-from platform_policy import apt_source_list, target_profile, target_source_branch
+from platform_policy import apt_source_list, package_target_policy, target_profile, target_source_branch
 _SCAN_SPEC = importlib.util.spec_from_file_location("getpatched_scan", ROOT / "scripts/getpatched-scan.py")
 _SCAN = importlib.util.module_from_spec(_SCAN_SPEC)
 _SCAN_SPEC.loader.exec_module(_SCAN)
@@ -53,19 +53,61 @@ class PublicCatalogueContract(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "valid getpatched/\\* source branch"):
             target_profile(platform, "ubuntu-focal-amd64")
 
+    def test_package_ecosystem_override_must_match_target_distribution_and_release(self):
+        platform = deepcopy(json.loads((ROOT / "packages.json").read_text()))
+        target = "ubuntu-focal-amd64"
+        policy = platform["packages"]["libpng1.6"]["targets"][target]
+        policy["packageEcosystem"] = "Ubuntu:20.04:LTS"
+        self.assertEqual(package_target_policy(platform, "libpng1.6", target)["packageEcosystem"], "Ubuntu:20.04:LTS")
+
+        policy["packageEcosystem"] = "Ubuntu:22.04:LTS"
+        with self.assertRaisesRegex(ValueError, "valid package ecosystem"):
+            package_target_policy(platform, "libpng1.6", target)
+
+    def test_libpng_followup_assessment_records_nonaffected_baseline_and_scan_policy(self):
+        platform = deepcopy(json.loads((ROOT / "packages.json").read_text()))
+        target_id = "ubuntu-focal-amd64"
+        policy = platform["packages"]["libpng1.6"]["targets"][target_id]
+        assessment = policy["followUpAssessments"]["CVE-2026-22695"]
+        self.assertEqual(assessment["baselineApplicability"], "not-affected")
+        self.assertEqual(assessment["candidateDisposition"], "fixed-in-backport")
+        self.assertEqual(assessment["introducedBy"], "218612ddd6b17944e21eda56caf8b4bf7779d1ea")
+        self.assertEqual(assessment["fixedBy"], "e4f7ad4ea2a471776c81dda4846b7691925d9786")
+        self.assertIn("scanner absence alone is not remediation evidence", assessment["scannerTreatment"])
+        self.assertEqual(package_target_policy(platform, "libpng1.6", target_id)["followUpAssessments"],
+                         policy["followUpAssessments"])
+        policy["followUpAssessments"]["CVE-2026-22695"]["fixedBy"] = "not-a-commit"
+        with self.assertRaisesRegex(ValueError, "invalid follow-up CVE assessment"):
+            package_target_policy(platform, "libpng1.6", target_id)
+
+        policy["followUpAssessments"] = {}
+        policy["packageEcosystem"] = "Untrusted:Canary"
+        with self.assertRaisesRegex(ValueError, "valid package ecosystem"):
+            package_target_policy(platform, "libpng1.6", target_id)
+
     def test_catalogue_matches_release_policy_without_claiming_public_downloads(self):
         platform = json.loads((ROOT / "packages.json").read_text())
         catalogue = json.loads((ROOT / "site/catalogue.json").read_text())
         entries = {item["source"]: item for item in catalogue["packages"]}
-        self.assertEqual(set(entries), set(platform["packages"]))
+        expected_catalogue = {
+            source for source, record in platform["packages"].items()
+            if all(target.get("candidateStatus") != "unverified-development-candidate"
+                   for target in record["targets"].values())
+        }
+        self.assertEqual(set(entries), expected_catalogue)
+        self.assertEqual(expected_catalogue, {"libxml2", "libarchive"})
+        self.assertIn("libpng1.6", set(platform["packages"]) - set(entries))
+        self.assertIn("libgit2", set(platform["packages"]) - set(entries))
+        self.assertIn("poppler", set(platform["packages"]) - set(entries))
         self.assertEqual(catalogue["schemaVersion"], 3)
         self.assertEqual(set(catalogue["targets"]), set(platform["targets"]))
         for target_id, target in platform["targets"].items():
             profile = target_profile(platform, target_id)
             self.assertEqual(catalogue["targets"][target_id]["codename"], profile["codename"])
             self.assertEqual(catalogue["targets"][target_id]["architecture"], profile["architecture"])
-        for source, package in platform["packages"].items():
-            self.assertEqual(set(entries[source]["targets"]), set(package["targets"]))
+        for source, entry_package in entries.items():
+            package = platform["packages"][source]
+            self.assertEqual(set(entry_package["targets"]), set(package["targets"]))
             for target_id, policy in package["targets"].items():
                 entry = entries[source]["targets"][target_id]
                 access = policy["releaseAccess"]
