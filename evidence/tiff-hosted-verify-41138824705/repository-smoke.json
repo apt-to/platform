@@ -1,0 +1,24 @@
+{
+  "source": "tiff",
+  "targetId": "debian-bookworm-amd64",
+  "suite": "bookworm",
+  "architecture": "amd64",
+  "component": "main",
+  "binaryPackages": [
+    "libtiff-tools"
+  ],
+  "version": "4.5.0-6+deb12u4+getpatched1",
+  "sourcePackageFetched": true,
+  "inReleaseVerified": true,
+  "releaseGpgVerified": true,
+  "byHashSha256": true,
+  "temporaryTestKeyFingerprint": "5F002DB2C8F8F72DFF2F9704E8466D8BF1F0EDC0",
+  "supportScope": "debian-bookworm-amd64",
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "runnerCaBundleSource": "linux-system-default",
+  "runnerCaBundleSha256": "e05a523d99de77c6b1f2c7b7c3af502c8378f29e6e8484358ec55f96b0972ad6",
+  "releaseSha256": "4eaccf49944a4cd8e10c0dfb1b99526675f47247c705cac8854c33b89c577a2d",
+  "inReleaseSha256": "b7736d8f7cfacc32ebc3157d857001847441812bf02c6c5a04d1f16e8272e9c5",
+  "clientBaseImage": "debian:bookworm@sha256:d74df7598108a173a621eda4d58a2adbf850b2d9a9d81bc2cca1a6c21174a880",
+  "publication": "none; repository and temporary signing key were discarded after the isolated target client test"
+}

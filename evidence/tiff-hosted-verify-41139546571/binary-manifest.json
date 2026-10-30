@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "purpose": "unpublished build verification; binaries not exported",
+  "source": "tiff",
+  "targetId": "ubuntu-focal-amd64",
+  "sourceVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+  "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1",
+  "architecture": "amd64",
+  "packages": [
+    {
+      "name": "libtiff-dev_4.1.0+git191117-2ubuntu0.20.04.14+getpatched1_amd64.deb",
+      "sha256": "d9d54e521fac5fe8cc9130061a04ea3666c34e29174b4847472a162cf3afb456",
+      "bytes": 304652,
+      "control": "Package: libtiff-dev\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\nDepends: libc6-dev | libc-dev, libjbig-dev, libjpeg-dev, liblzma-dev, libtiff5 (= 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1), libtiffxx5 (= 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1), zlib1g-dev\n"
+    },
+    {
+      "name": "libtiff-doc_4.1.0+git191117-2ubuntu0.20.04.14+getpatched1_all.deb",
+      "sha256": "02e0d9b038202614bce61ac6c4da40e0963b2adbc77d2e56d84b5fdd9d913743",
+      "bytes": 330668,
+      "control": "Package: libtiff-doc\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: all\n"
+    },
+    {
+      "name": "libtiff-opengl_4.1.0+git191117-2ubuntu0.20.04.14+getpatched1_amd64.deb",
+      "sha256": "00d9d755447e97a0b322a602729d4c004c96cd9f964a3d1cbebc0f577ed250d7",
+      "bytes": 28428,
+      "control": "Package: libtiff-opengl\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\nDepends: freeglut3, libc6 (>= 2.3.4), libgl1, libtiff5 (>= 4.0.3)\n"
+    },
+    {
+      "name": "libtiff-tools_4.1.0+git191117-2ubuntu0.20.04.14+getpatched1_amd64.deb",
+      "sha256": "f257591f2540bd575bfb74fc118a832f74a0ddac0e7a2863b16bf8663d9884c2",
+      "bytes": 212312,
+      "control": "Package: libtiff-tools\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\nDepends: libc6 (>= 2.14), libtiff5 (>= 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1)\n"
+    },
+    {
+      "name": "libtiff5-dev_4.1.0+git191117-2ubuntu0.20.04.14+getpatched1_amd64.deb",
+      "sha256": "507da0bc9c2c3fa904f076fe6a408d2eb66d0f1a2a2b7db3fa92c193cf5e3aea",
+      "bytes": 19892,
+      "control": "Package: libtiff5-dev\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\nDepends: libtiff-dev (>= 4.0.10-1)\n"
+    },
+    {
+      "name": "libtiff5_4.1.0+git191117-2ubuntu0.20.04.14+getpatched1_amd64.deb",
+      "sha256": "016f55de76907a4adde44c0e7ef977daac0f1511c110d41180d78594f98d9d87",
+      "bytes": 179632,
+      "control": "Package: libtiff5\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\nDepends: libc6 (>= 2.29), libjbig0 (>= 2.0), libjpeg8 (>= 8c), liblzma5 (>= 5.1.1alpha+20120614), libwebp6 (>= 0.5.1), libzstd1 (>= 1.3.2), zlib1g (>= 1:1.1.4)\n"
+    },
+    {
+      "name": "libtiffxx5_4.1.0+git191117-2ubuntu0.20.04.14+getpatched1_amd64.deb",
+      "sha256": "c74155be75c91da2cbd48e8036543c698c359d87b868f30b3922c291d581aef5",
+      "bytes": 23552,
+      "control": "Package: libtiffxx5\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\nDepends: libc6 (>= 2.4), libstdc++6 (>= 5), libtiff5 (>= 4.0.3)\n"
+    }
+  ]
+}

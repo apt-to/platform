@@ -1,0 +1,24 @@
+{
+  "source": "tiff",
+  "targetId": "debian-trixie-amd64",
+  "suite": "trixie",
+  "architecture": "amd64",
+  "component": "main",
+  "binaryPackages": [
+    "libtiff-tools"
+  ],
+  "version": "4.7.0-3+deb13u3+getpatched1",
+  "sourcePackageFetched": true,
+  "inReleaseVerified": true,
+  "releaseGpgVerified": true,
+  "byHashSha256": true,
+  "temporaryTestKeyFingerprint": "A1004B47073E8E2AD89097C3E441F81531DD0216",
+  "supportScope": "debian-trixie-amd64",
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "runnerCaBundleSource": "linux-system-default",
+  "runnerCaBundleSha256": "e05a523d99de77c6b1f2c7b7c3af502c8378f29e6e8484358ec55f96b0972ad6",
+  "releaseSha256": "33dd02827d518dc3d6a8d9ef1f1078f9805e077acf53c262eede4a60701d5fd2",
+  "inReleaseSha256": "a3986d4dea1ac709272fc12ea68d50b1da2a19bb5dcd423ac8f90f14d4da5e9c",
+  "clientBaseImage": "debian:trixie@sha256:2dc419c6d7fe3dad0a2f9fd469c34cc90b0f9ba642d8fde837fe3d7d34a0e7f1",
+  "publication": "none; repository and temporary signing key were discarded after the isolated target client test"
+}

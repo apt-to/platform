@@ -1,0 +1,57 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "3f1f39d202f55bb97a0b83da9d0eba7562cbb9daae67cda823fd9c342eaa61fa",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [
+    {
+      "affected_versions": [
+        "4.5.0-6+deb12u4"
+      ],
+      "fixed_versions": [
+        "4.5.0-6+deb12u4+getpatched1"
+      ],
+      "id": "CVE-2025-61144",
+      "package": "libtiff-tools",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-61144"
+      ],
+      "severity": "MEDIUM",
+      "summary": "tiffcrop out-of-bounds read while producing level-2 debug output",
+      "version": "4.5.0-6+deb12u4"
+    }
+  ],
+  "findingsById": [
+    "CVE-2025-61144"
+  ],
+  "imageId": "sha256:3ed2814c30994bbfe99776b0638a30e77b31b83a6aa339f4f597401cfc83b9da",
+  "packagePolicySha256": "8876707f110b549b766885bdbd02c6c0cfbab40d451755db3ec23b38caf9d23c",
+  "regressionImageIds": {
+    "baseline": "sha256:3ed2814c30994bbfe99776b0638a30e77b31b83a6aa339f4f597401cfc83b9da",
+    "patched": "sha256:062339d89e0a600255ab769793a469e68fa2f94ee0e7936da220d3c6360f15f9"
+  },
+  "regressionReportSha256": {
+    "baseline": "648ebb6a7ffc7428331742629b3d603c25236f93ed2e25e7aa879c79c7addcfa",
+    "patched": "8bee7c8454e73685dca6717ea56d17ad76db3d827333d4fb041a13f489dd47a2"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "debian-bookworm-amd64"
+    }
+  ],
+  "release": "bookworm",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.5.0-6+deb12u4"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "f9ff7371081a1944addeff1ed89dbf821eaa5d107e4157f9a32929208faea2da",
+  "summary": {
+    "findingCount": 1,
+    "scannedPackages": 1,
+    "vulnerablePackages": 1
+  },
+  "targetId": "debian-bookworm-amd64"
+}

@@ -25,3 +25,7 @@ The hosted runs below used platform verifier commit `a499703d3f0313b196cc8ad9a0d
 | Debian Trixie amd64 (`4.7.0-3+deb13u3`) | [41136558678](https://github.com/getpatched/platform/actions/runs/41136558678) | Not reproduced; exit 1, zero Memcheck errors | Reproduced | `34e13f76f8e72871b2681dde8cfd0b6cf3b15d0a68a213e1a9f4496c4be15e0e` |
 
 Each complete baseline artifact is retained under the matching `evidence/tiff-hosted-baseline-<run>/` directory. These workflow runs stopped before patched builds and scans because the 61143 baseline did not meet its reproduction gate. The 61143 patch is therefore removed from all three active target recipes; this is an applicability exclusion, not a claim of remediation. Run the follow-up candidates with only the reproduced 61144 patch before considering any release.
+
+## Completed patched verification — 30 October 2026
+
+The replacement nonpublishing runs passed for Focal [41139546571](https://github.com/getpatched/platform/actions/runs/41139546571), Bookworm [41138824705](https://github.com/getpatched/platform/actions/runs/41138824705), and Trixie [41138827880](https://github.com/getpatched/platform/actions/runs/41138827880). See [`tiff-hosted-verification-2026-10-30.md`](tiff-hosted-verification-2026-10-30.md) for verifier/source commits, report hashes, candidate scan outcomes, and retained artifacts. Publication remained disabled.

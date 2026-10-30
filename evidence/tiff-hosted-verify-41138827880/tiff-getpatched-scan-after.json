@@ -1,0 +1,38 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "321f46367278dfeeb8d6fef8d25e9866d181d7469c8db825a531b18cd16b9382",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [],
+  "findingsById": [],
+  "imageId": "sha256:2edbdcc7a477989f52c760dbf2433e3209c6daafffd5e7b37614ebf73ef76f32",
+  "packagePolicySha256": "8876707f110b549b766885bdbd02c6c0cfbab40d451755db3ec23b38caf9d23c",
+  "regressionImageIds": {
+    "baseline": "sha256:f8f22f16a2e5b47e9326746fcb617a5cece0a2d95d70d50f3176b949fc9f7949",
+    "patched": "sha256:2edbdcc7a477989f52c760dbf2433e3209c6daafffd5e7b37614ebf73ef76f32"
+  },
+  "regressionReportSha256": {
+    "baseline": "22e5ef1b74c4ed4201e5f2b1bf5eb3f11ddfdeb9c9386404a8906402f848c926",
+    "patched": "72bc9c76c3c203effcd9e4dcab8b618adca15bcc13ce401cc2106a4ecb2e2fa6"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "debian-trixie-amd64"
+    }
+  ],
+  "release": "trixie",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.7.0-3+deb13u3+getpatched1"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "586cf41141bc4404acf5ff9e7b7545a127339d999741c2a6a6a318c198a093f9",
+  "summary": {
+    "findingCount": 0,
+    "scannedPackages": 1,
+    "vulnerablePackages": 0
+  },
+  "targetId": "debian-trixie-amd64"
+}

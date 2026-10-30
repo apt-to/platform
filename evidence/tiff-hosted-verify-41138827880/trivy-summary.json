@@ -1,0 +1,103 @@
+{
+  "note": "Supporting scan output; not proof that the package-specific patched regression is fixed. Raw reports are retained by the hosted workflow and their hashes below.",
+  "reports": {
+    "after": {
+      "candidateCves": {
+        "CVE-2025-61143": [
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3+getpatched1",
+            "PkgName": "libtiff-tools",
+            "Severity": "LOW",
+            "Status": "affected"
+          },
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3",
+            "PkgName": "libtiff6",
+            "Severity": "LOW",
+            "Status": "affected"
+          }
+        ],
+        "CVE-2025-61144": [
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3+getpatched1",
+            "PkgName": "libtiff-tools",
+            "Severity": "LOW",
+            "Status": "affected"
+          },
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3",
+            "PkgName": "libtiff6",
+            "Severity": "LOW",
+            "Status": "affected"
+          }
+        ]
+      },
+      "databaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+      "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "imageId": "sha256:2edbdcc7a477989f52c760dbf2433e3209c6daafffd5e7b37614ebf73ef76f32",
+      "reportSha256": "06f0feb8b789b5dfee2843017476b45d65fcdd9a39238b8f42f0c7eba95aca38",
+      "severityCounts": {
+        "CRITICAL": 1,
+        "HIGH": 130,
+        "LOW": 883,
+        "MEDIUM": 721,
+        "UNKNOWN": 57
+      },
+      "vulnerabilityCount": 1792
+    },
+    "before": {
+      "candidateCves": {
+        "CVE-2025-61143": [
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3",
+            "PkgName": "libtiff-tools",
+            "Severity": "LOW",
+            "Status": "affected"
+          },
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3",
+            "PkgName": "libtiff6",
+            "Severity": "LOW",
+            "Status": "affected"
+          }
+        ],
+        "CVE-2025-61144": [
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3",
+            "PkgName": "libtiff-tools",
+            "Severity": "LOW",
+            "Status": "affected"
+          },
+          {
+            "FixedVersion": null,
+            "InstalledVersion": "4.7.0-3+deb13u3",
+            "PkgName": "libtiff6",
+            "Severity": "LOW",
+            "Status": "affected"
+          }
+        ]
+      },
+      "databaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+      "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "imageId": "sha256:f8f22f16a2e5b47e9326746fcb617a5cece0a2d95d70d50f3176b949fc9f7949",
+      "reportSha256": "0e723cfd3fb6c2d787a4c978dd1f63cb8841521643ccf6dfed18d05bfcc041bf",
+      "severityCounts": {
+        "CRITICAL": 1,
+        "HIGH": 130,
+        "LOW": 883,
+        "MEDIUM": 721,
+        "UNKNOWN": 57
+      },
+      "vulnerabilityCount": 1792
+    }
+  },
+  "scanner": "Trivy",
+  "schemaVersion": 1
+}

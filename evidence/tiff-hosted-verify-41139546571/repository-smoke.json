@@ -1,0 +1,25 @@
+{
+  "source": "tiff",
+  "targetId": "ubuntu-focal-amd64",
+  "suite": "focal",
+  "architecture": "amd64",
+  "component": "main",
+  "binaryPackages": [
+    "libtiff5",
+    "libtiff-tools"
+  ],
+  "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1",
+  "sourcePackageFetched": true,
+  "inReleaseVerified": true,
+  "releaseGpgVerified": true,
+  "byHashSha256": true,
+  "temporaryTestKeyFingerprint": "776AF3A8680D86B0F995CF676A4CC8570B7E019E",
+  "supportScope": "ubuntu-focal-amd64",
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "runnerCaBundleSource": "linux-system-default",
+  "runnerCaBundleSha256": "e05a523d99de77c6b1f2c7b7c3af502c8378f29e6e8484358ec55f96b0972ad6",
+  "releaseSha256": "792db42f16014af5853668e7aa567b162f1e99d79c17afb790fce8c5187832e6",
+  "inReleaseSha256": "ce08525c1609a39863f63bbcff950e2cb556a735fc89b9f17246051bc8616cb3",
+  "clientBaseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "publication": "none; repository and temporary signing key were discarded after the isolated target client test"
+}

@@ -1,0 +1,59 @@
+{
+  "source": "tiff",
+  "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1",
+  "sourceCommit": "1424643349b442fefdbda9462d1d55e5461a148a",
+  "targetId": "ubuntu-focal-amd64",
+  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "runnerCaBundleSource": "linux-system-default",
+  "runnerCaBundleSha256": "e05a523d99de77c6b1f2c7b7c3af502c8378f29e6e8484358ec55f96b0972ad6",
+  "archiveSnapshot": "20261025T000000Z",
+  "builderImageId": "sha256:144ce013acd35bac7f91442ca3f2ab96f1d5a2fe734b487d864d242e45bb54c2",
+  "toolchainInventory": "build-toolchain.tsv",
+  "publication": "none; binary outputs remained inside the disposable container",
+  "releaseSerial": 1,
+  "sourceDescriptor": {
+    "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+    "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c"
+  },
+  "downloadedSourceAssets": [
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+      "bytes": 2251,
+      "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c"
+    },
+    {
+      "name": "tiff_4.1.0+git191117.orig.tar.xz",
+      "bytes": 1533524,
+      "sha256": "67e1d045e994adb7144b0cca228d70dd6d520aaf8c75c342064bc0fd601e6e42"
+    },
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.debian.tar.xz",
+      "bytes": 53440,
+      "sha256": "3c89b7298f5ac1521f5524ce0b6948514a11065a20bd9d6c92ff71b3d56bec13"
+    },
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+      "bytes": 2251,
+      "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c"
+    }
+  ],
+  "patches": [
+    {
+      "id": "cve-2025-61144-focal",
+      "kind": "security",
+      "file": "CVE-2025-61144-focal.patch",
+      "sha256": "f669281532d1da467e40e9a31581b26450cdeedf63dc245b54f923a57ab2bfc2",
+      "cves": [
+        "CVE-2025-61144"
+      ],
+      "upstream": {
+        "repository": "https://gitlab.com/libtiff/libtiff",
+        "commit": "88cf9dbb48f6e172629795ecffae35d5052f68aa",
+        "url": "https://gitlab.com/libtiff/libtiff/-/commit/88cf9dbb48f6e172629795ecffae35d5052f68aa"
+      },
+      "sourceVersion": "4.1.0+git191117-2ubuntu0.20.04.14"
+    }
+  ],
+  "recipeManifestSha256": "d03a0d91b57c46fc6309d9ede9fc71196fffb814728408be2259862ec93f7a85"
+}

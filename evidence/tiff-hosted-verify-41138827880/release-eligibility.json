@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "source": "tiff",
+  "targetId": "debian-trixie-amd64",
+  "sourceVersion": "4.7.0-3+deb13u3+getpatched1",
+  "releaseSerial": 1,
+  "supportScope": "debian-trixie-amd64",
+  "verificationChecksPassed": true,
+  "releaseEligible": false,
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "reason": "repository publication is disabled for this target"
+}
