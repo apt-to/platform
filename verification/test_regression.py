@@ -2,12 +2,24 @@
 import json
 from pathlib import Path
 import signal
+import sys
 import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced, parse_callback_url, libgit2_redirect_reproduced)
+                        tiff_baseline_reproduced, parse_callback_url, libgit2_redirect_reproduced, execute)
+
+
+class ExecuteTimeout(unittest.TestCase):
+    def test_timeout_preserves_partial_output(self):
+        result = execute([
+            sys.executable, "-c",
+            "import time; print('partial output', flush=True); time.sleep(1)",
+        ], timeout=0.05)
+        self.assertTrue(result["timedOut"])
+        self.assertIsNone(result["returncode"])
+        self.assertIn("partial output", result["stdout"])
 
 
 def libpng_memcheck(test_id, executable, arguments, cve, returncode=0, memory_log="ERROR SUMMARY: 0 errors\n"):
