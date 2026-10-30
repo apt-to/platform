@@ -5,7 +5,7 @@ import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced)
+                        tiff_baseline_reproduced, parse_callback_url)
 
 
 class BaselineClassification(unittest.TestCase):
@@ -146,6 +146,16 @@ class ConsumerVersionCheck(unittest.TestCase):
             {"returncode": 1, "timedOut": False, "stderr": "pdfinfo version 0.86.1"}, "pdfinfo version"))
         self.assertFalse(consumer_version_succeeded(
             {"returncode": None, "timedOut": True, "stderr": "pdfinfo version 0.86.1"}, "pdfinfo version"))
+
+
+class CallbackUrlParsing(unittest.TestCase):
+    def test_extracts_single_callback_line_without_python_39_string_methods(self):
+        self.assertEqual(parse_callback_url("other output\ncallback_url=http://127.0.0.1:8080/repo\n"),
+                         "http://127.0.0.1:8080/repo")
+
+    def test_rejects_missing_or_ambiguous_callback_lines(self):
+        self.assertIsNone(parse_callback_url("no callback"))
+        self.assertIsNone(parse_callback_url("callback_url=first\ncallback_url=second\n"))
 
 
 if __name__ == "__main__":

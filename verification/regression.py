@@ -90,6 +90,12 @@ def compile_libgit2_probe(source, binary, patched):
     return binary
 
 
+def parse_callback_url(stdout):
+    prefix = "callback_url="
+    callback_lines = [line for line in stdout.splitlines() if line.startswith(prefix)]
+    return callback_lines[0][len(prefix):] if len(callback_lines) == 1 else None
+
+
 def run_libgit2_redirect_regression(binary, temp, phase):
     class RedirectHandler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -131,8 +137,7 @@ def run_libgit2_redirect_regression(binary, temp, phase):
         result = execute([
             str(binary), initial_origin + "/repository", str(temp / "redirect-clone"),
         ], timeout=30, env=environment)
-        callback_lines = [line for line in result["stdout"].splitlines() if line.startswith("callback_url=")]
-        result["callbackUrl"] = callback_lines[-1].removeprefix("callback_url=") if len(callback_lines) == 1 else None
+        result["callbackUrl"] = parse_callback_url(result["stdout"])
         return result, initial_origin, target_origin
     finally:
         for server in servers:
