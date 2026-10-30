@@ -32,10 +32,10 @@ jobs:
               else
                 echo "Pinned image CA bundle is missing"
               fi
-              apt-get update
-              apt-get install -y --no-install-recommends openssl
               mkdir -p /etc/ssl/certs
               cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt
+              apt-get update
+              apt-get install -y --no-install-recommends openssl
               openssl s_client -connect snapshot.debian.org:443 -servername snapshot.debian.org \
                 -verify_hostname snapshot.debian.org -verify_return_error \
                 -CAfile /etc/ssl/certs/ca-certificates.crt -brief </dev/null

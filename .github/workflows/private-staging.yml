@@ -52,6 +52,8 @@ jobs:
           if (eligibility.get("schemaVersion") != 1 or
               eligibility.get("targetId") != target or
               eligibility.get("supportScope") != target or
+              eligibility.get("candidateStatus") != "development-verified-production-release-pending" or
+              eligibility.get("candidateVerified") is not True or
               eligibility.get("verificationChecksPassed") is not True or
               eligibility.get("releaseEligible") is not True):
               raise SystemExit("release staging blocked: target package verification is incomplete")

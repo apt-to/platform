@@ -100,6 +100,12 @@ def package_target_policy(config, package, target_id):
     policy = targets.get(target_id) if isinstance(targets, dict) else None
     if not isinstance(policy, dict):
         raise ValueError(f"package {package} is not configured for target {target_id}")
+    candidate_status = policy.get("candidateStatus")
+    if candidate_status not in (
+        "unverified-development-candidate",
+        "development-verified-production-release-pending",
+    ):
+        raise ValueError(f"package {package}/{target_id} has an invalid candidate status")
     binary_packages = policy.get("binaryPackages")
     advisory_packages = policy.get("advisoryPackages", binary_packages)
     if (not isinstance(binary_packages, list) or not binary_packages

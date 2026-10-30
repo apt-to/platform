@@ -168,7 +168,8 @@ def validate_release_policy(policy, config):
     if (policy["baseVersion"] != expected["baselineVersion"] or
         policy["sponsorDelayHours"] != expected["releaseAccess"]["sponsorDelayHours"] or
         policy["version"] != expected["packageVersion"] or
-        policy["releaseSerial"] != expected["releaseSerial"]):
+        policy["releaseSerial"] != expected["releaseSerial"] or
+        policy["candidateStatus"] != expected["candidateStatus"]):
         raise RuntimeError("Packaging policy disagrees with project configuration")
     if (expected["targetCve"] not in policy["targetCves"]
             or policy["targetCves"] != expected["targetCves"]
@@ -183,8 +184,17 @@ def validate_release_policy(policy, config):
 
 
 def release_eligibility(policy, verification_checks_passed=False, publication_enabled=False):
-    if verification_checks_passed is not True:
-        raise RuntimeError("Release candidate is unavailable until all public target verification checks pass")
+    checks_passed = verification_checks_passed is True
+    candidate_verified = policy.get("candidateStatus") == "development-verified-production-release-pending"
+    release_eligible = checks_passed and publication_enabled is True and candidate_verified
+    if not checks_passed:
+        reason = "target verification checks have not passed"
+    elif not candidate_verified:
+        reason = "candidate status is not approved for release"
+    elif not publication_enabled:
+        reason = "repository publication is disabled for this target"
+    else:
+        reason = None
     return {
         "schemaVersion": 1,
         "source": policy["source"],
@@ -192,10 +202,12 @@ def release_eligibility(policy, verification_checks_passed=False, publication_en
         "sourceVersion": policy["version"],
         "releaseSerial": policy["releaseSerial"],
         "supportScope": policy["targetId"],
-        "verificationChecksPassed": verification_checks_passed,
-        "releaseEligible": publication_enabled,
+        "candidateStatus": policy.get("candidateStatus"),
+        "candidateVerified": candidate_verified,
+        "verificationChecksPassed": checks_passed,
+        "releaseEligible": release_eligible,
         "ubuntuProEsmCompatibility": policy.get("ubuntuProEsmCompatibility", "not-applicable"),
-        "reason": None if publication_enabled else "repository publication is disabled for this target",
+        "reason": reason,
     }
 
 
