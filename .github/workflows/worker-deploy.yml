@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: getpatched/packaging-poppler
-          ref: 08a8c260a334482fd89b9612dbc5bcaaa7246771
+          ref: 8880bbbdb51e223a35612a10eeb7a46e52a66306
           path: packaging-poppler
           persist-credentials: false
       - name: Check Worker syntax and tests
