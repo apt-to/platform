@@ -89,6 +89,20 @@ class TiffBaselineClassification(unittest.TestCase):
         }
         self.assertTrue(tiff_baseline_reproduced(check, self.TIFF_STACK))
 
+    def test_malformed_tiff_stack_signatures_cannot_weaken_baseline_proof(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": 97,
+            "timedOut": False,
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123==    at 0x114980: ??? (in /usr/bin/tiffcrop)\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n",
+        }
+        for malformed in (["0x114980"], ["0x114980", "0x116FB2"],
+                          ["0x114980", "not-an-offset", "0x10AC12"],
+                          ["0x114980", "0x114980", "0x10AC12"],
+                          ["0x114980", 123, "0x10AC12"]):
+            with self.subTest(signature=malformed):
+                self.assertFalse(tiff_baseline_reproduced(check, malformed))
+
     def test_unrelated_uninitialised_value_in_same_binary_is_not_a_reproduction(self):
         check = {
             "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],

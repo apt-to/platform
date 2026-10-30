@@ -49,6 +49,16 @@ def schematron_baseline_reproduced(check):
     )
 
 
+def valid_tiff_baseline_stack_signature(expected_stack_frames):
+    return (
+        isinstance(expected_stack_frames, list)
+        and len(expected_stack_frames) == 3
+        and all(isinstance(offset, str) and re.fullmatch(r"0x[0-9a-fA-F]{1,16}", offset)
+                for offset in expected_stack_frames)
+        and len(set(expected_stack_frames)) == 3
+    )
+
+
 def tiff_baseline_reproduced(check, expected_stack_frames):
     log = check.get("memoryLog", "")
     command = check.get("command", [])
@@ -64,7 +74,7 @@ def tiff_baseline_reproduced(check, expected_stack_frames):
         and any(Path(arg).name == "multisample.tif" for arg in command)
     )
     if (check.get("timedOut", False) or check.get("returncode") != 97 or not exact_probe
-            or not isinstance(expected_stack_frames, list) or not expected_stack_frames):
+            or not valid_tiff_baseline_stack_signature(expected_stack_frames)):
         return False
 
     error_blocks = re.finditer(

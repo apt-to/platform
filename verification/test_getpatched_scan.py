@@ -3,7 +3,6 @@ import json
 import hashlib
 from pathlib import Path
 import subprocess
-import shutil
 import sys
 import tempfile
 import unittest
@@ -44,6 +43,22 @@ SCANNER_SPEC.loader.exec_module(SCANNER_MODULE)
 
 
 class GetPatchedScannerContract(unittest.TestCase):
+    def make_tiff_recipe(self, root, target_id="ubuntu-focal-amd64", signature=("0x114980", "0x116FB2", "0x10AC12")):
+        root = Path(root)
+        (root / "patches").mkdir(parents=True, exist_ok=True)
+        (root / "targets").mkdir(parents=True, exist_ok=True)
+        patch_id = "cve-2025-61144-focal" if target_id == "ubuntu-focal-amd64" else "cve-2025-61144-debian"
+        (root / "package-manifest.json").write_text(json.dumps({
+            "schemaVersion": 3, "patchMetadata": "patches/metadata.json",
+            "targets": [{"id": target_id, "file": "targets/target.json"}],
+        }))
+        (root / "targets/target.json").write_text(json.dumps({"id": target_id, "patches": [patch_id]}))
+        signature_map = {target_id: list(signature)} if signature is not None else {}
+        (root / "patches/metadata.json").write_text(json.dumps({"patches": [{
+            "id": patch_id, "cves": ["CVE-2025-61144"],
+            "tests": [{"id": "tiffcrop-debug-sample-bounds", "baselineStackSignatures": signature_map}],
+        }]}))
+
     def test_tiff_baseline_requires_checked_in_signature_for_exact_target(self):
         check = {
             "cve": "CVE-2025-61144", "passed": True, "returncode": 97, "timedOut": False,
@@ -53,6 +68,26 @@ class GetPatchedScannerContract(unittest.TestCase):
         self.assertTrue(SCANNER_MODULE.tiff_baseline_reproduced(check, ["0x114980", "0x116FB2", "0x10AC12"]))
         self.assertFalse(SCANNER_MODULE.tiff_baseline_reproduced(check, None))
         self.assertFalse(SCANNER_MODULE.tiff_baseline_reproduced(check, ["0xDEADBEEF"]))
+        for malformed in (["0x114980"], ["0x114980", "0x116FB2"],
+                          ["0x114980", "not-an-offset", "0x10AC12"],
+                          ["0x114980", "0x114980", "0x10AC12"]):
+            self.assertFalse(SCANNER_MODULE.tiff_baseline_reproduced(check, malformed))
+        with tempfile.TemporaryDirectory(prefix="getpatched-trusted-tiff-signature-") as directory:
+            recipe = Path(directory) / "recipe"
+            self.make_tiff_recipe(recipe)
+            self.assertEqual(SCANNER_MODULE.tiff_baseline_stack_signature(recipe, "ubuntu-focal-amd64"),
+                             ["0x114980", "0x116FB2", "0x10AC12"])
+            self.assertIsNone(SCANNER_MODULE.tiff_baseline_stack_signature(recipe, "debian-bookworm-amd64"))
+            self.make_tiff_recipe(recipe, signature=None)
+            self.assertIsNone(SCANNER_MODULE.tiff_baseline_stack_signature(recipe, "ubuntu-focal-amd64"))
+            for malformed in (["0x114980"], ["0x114980", "0x116FB2", "not-an-offset"]):
+                self.make_tiff_recipe(recipe, signature=malformed)
+                self.assertIsNone(SCANNER_MODULE.tiff_baseline_stack_signature(recipe, "ubuntu-focal-amd64"))
+            metadata_path = recipe / "patches/metadata.json"
+            metadata = json.loads(metadata_path.read_text())
+            metadata["patches"].append(json.loads(json.dumps(metadata["patches"][0])))
+            metadata_path.write_text(json.dumps(metadata))
+            self.assertIsNone(SCANNER_MODULE.tiff_baseline_stack_signature(recipe, "ubuntu-focal-amd64"))
 
     def test_poppler_candidate_accepts_pdfinfo_version_on_stderr(self):
         cve_check = {
@@ -322,18 +357,7 @@ Architecture: i386
         with tempfile.TemporaryDirectory(prefix="getpatched-tiff-regression-proof-") as directory:
             proof = Path(directory)
             recipe_directory = proof / "recipe"
-            real_recipe = ROOT.parent / "packaging-tiff"
-            recipe_directory.mkdir()
-            shutil.copytree(real_recipe, recipe_directory, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".git"))
-            target = json.loads((recipe_directory / "targets/ubuntu/focal-amd64.json").read_text())
-            metadata_path = recipe_directory / "patches/metadata.json"
-            metadata = json.loads(metadata_path.read_text())
-            selected_patch = next(patch for patch in metadata["patches"] if patch["id"] == "cve-2025-61144-focal")
-            selected_patch["tests"][0]["baselineStackSignatures"] = {
-                "ubuntu-focal-amd64": ["0x114980", "0x116FB2", "0x10AC12"]
-            }
-            metadata_path.write_text(json.dumps(metadata))
-            (recipe_directory / "targets/ubuntu/focal-amd64.json").write_text(json.dumps(target))
+            self.make_tiff_recipe(recipe_directory)
             verification_feed = proof / "verification-advisory.json"
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", candidate)):
                 null_command = [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + str(proof / "null-output.log"), *TIFF_NULL_OUTPUT_COMMAND[6:]]
@@ -442,7 +466,7 @@ Architecture: i386
             canonical = Path(directory) / "canonical.json"
             canonical.write_bytes(FEED.read_bytes())
             recipe_directory = Path(directory) / "recipe"
-            shutil.copytree(ROOT.parent / "packaging-tiff", recipe_directory, ignore=shutil.ignore_patterns(".git"))
+            self.make_tiff_recipe(recipe_directory)
             (Path(directory) / "images.json").write_text(json.dumps({"baselineImageId": "image-baseline", "patchedImageId": "image-patched"}))
             (Path(directory) / "policy.json").write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64"}))
             (Path(directory) / "status").write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n")
@@ -513,7 +537,7 @@ raise SystemExit(3)
                                effective_feed_output=canonical, docker_stub_dir=stub,
                                docker_report_dir=directory, docker_status_file=Path(directory) / "status")
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("does not reproduce all configured tiffcrop paths", result.stderr)
+            self.assertIn("must not overwrite the canonical advisory feed", result.stderr)
             self.assertEqual(hashlib.sha256(canonical.read_bytes()).hexdigest(), before)
 
     def test_candidate_generic_passing_reports_without_target_cve_proof_are_rejected(self):
@@ -550,11 +574,7 @@ raise SystemExit(3)
         with tempfile.TemporaryDirectory(prefix="getpatched-candidate-feed-required-") as directory:
             proof = Path(directory)
             recipe_directory = proof / "recipe"
-            shutil.copytree(ROOT.parent / "packaging-tiff", recipe_directory, ignore=shutil.ignore_patterns(".git"))
-            recipe_metadata = json.loads((recipe_directory / "patches/metadata.json").read_text())
-            selected = next(item for item in recipe_metadata["patches"] if item["id"] == "cve-2025-61144-focal")
-            selected["tests"][0]["baselineStackSignatures"] = {"ubuntu-focal-amd64": ["0x114980", "0x116FB2", "0x10AC12"]}
-            (recipe_directory / "patches/metadata.json").write_text(json.dumps(recipe_metadata))
+            self.make_tiff_recipe(recipe_directory)
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
                 checks = [{"cve": "CVE-2025-61144", "passed": True, "returncode": 97 if phase == "baseline" else 0,
                            "timedOut": False, "command": TIFF_BASELINE_COMMAND,
