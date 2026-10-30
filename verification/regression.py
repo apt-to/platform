@@ -100,6 +100,117 @@ def tiff_patched_regression_succeeded(check):
     )
 
 
+def valgrind_invalid_access_blocks(log):
+    pattern = re.compile(
+        r"(?ms)^==\d+== (?P<kind>Invalid (?:read|write) of size \d+)\n"
+        r"(?P<body>.*?)(?=^==\d+== (?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)"
+    )
+    return list(pattern.finditer(log))
+
+
+def memcheck_log_path_matches(check, command):
+    memory_log_path = check.get("memoryLogPath")
+    return (
+        isinstance(memory_log_path, str) and bool(memory_log_path)
+        and len(command) > 5
+        and command[5] == "--log-file=" + memory_log_path
+    )
+
+
+def tiff_null_output_baseline_reproduced(check):
+    command = check.get("command", [])
+    log = check.get("memoryLog", "")
+    output = Path(command[-1]) if command else Path("/")
+    debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
+    exact_probe = (
+        len(command) == 11
+        and Path(command[0]).name == "valgrind"
+        and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+        and memcheck_log_path_matches(check, command)
+        and Path(command[6]).name == "tiffcrop"
+        and command[7] == "-D"
+        and debug_dump.startswith("format:txt,level:2,input:")
+        and Path(command[9]).name == "multisample.tif"
+        and output.parent.name == "missing-output-parent"
+    )
+    expected_fault = any(
+        block.group("kind") == "Invalid read of size 8"
+        and ("Address 0x8" in block.group("body") or "Address 0x0" in block.group("body"))
+        and re.search(r"(?m)^==\d+==\s+(?:at|by) .*TIFFFileName", block.group("body"))
+        for block in valgrind_invalid_access_blocks(log)
+    )
+    return (
+        not check.get("timedOut", False)
+        and check.get("returncode") == 97
+        and exact_probe
+        and expected_fault
+        and re.search(r"(?m)^==\d+== ERROR SUMMARY: [1-9]\d* errors?", log)
+    )
+
+
+def tiff_null_output_patched_succeeded(check):
+    command = check.get("command", [])
+    log = check.get("memoryLog", "")
+    output_text = check.get("stdout", "") + check.get("stderr", "")
+    output_path = command[-1] if command else ""
+    return (
+        not check.get("timedOut", False)
+        and check.get("returncode") == 1
+        and len(command) == 11
+        and Path(command[0]).name == "valgrind"
+        and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+        and memcheck_log_path_matches(check, command)
+        and Path(command[6]).name == "tiffcrop"
+        and command[7] == "-D"
+        and command[8].startswith("format:txt,level:2,input:")
+        and Path(command[9]).name == "multisample.tif"
+        and Path(command[-1]).parent.name == "missing-output-parent"
+        and output_path in output_text
+        and "No such file or directory" in output_text
+        and "ERROR SUMMARY: 0 errors" in log
+    )
+
+
+def tiffdither_overrun_baseline_reproduced(check):
+    command = check.get("command", [])
+    log = check.get("memoryLog", "")
+    expected_fault = any(
+        block.group("kind") == "Invalid read of size 1"
+        and re.search(r"(?m)^==\d+==\s+(?:at|by) .*fsdither", block.group("body"))
+        for block in valgrind_invalid_access_blocks(log)
+    )
+    return (
+        not check.get("timedOut", False)
+        and check.get("returncode") == 97
+        and len(command) == 9
+        and Path(command[0]).name == "valgrind"
+        and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+        and memcheck_log_path_matches(check, command)
+        and Path(command[6]).name == "tiffdither"
+        and Path(command[7]).name == "subscanline.tif"
+        and expected_fault
+        and re.search(r"(?m)^==\d+== ERROR SUMMARY: [1-9]\d* errors?", log)
+    )
+
+
+def tiffdither_patched_succeeded(check):
+    command = check.get("command", [])
+    output = check.get("stdout", "") + check.get("stderr", "")
+    return (
+        not check.get("timedOut", False)
+        and check.get("returncode") == 1
+        and len(command) == 9
+        and Path(command[0]).name == "valgrind"
+        and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+        and memcheck_log_path_matches(check, command)
+        and Path(command[6]).name == "tiffdither"
+        and Path(command[7]).name == "subscanline.tif"
+        and Path(command[8]).name == "dither-output.tif"
+        and "ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
+        and "Image width exceeds scanline size." in output
+    )
+
+
 def consumer_version_succeeded(check, expected_banner):
     output = check.get("stdout", "") + check.get("stderr", "")
     return not check.get("timedOut", False) and check.get("returncode") == 0 and expected_banner in output
@@ -390,6 +501,25 @@ def main():
                 raise RuntimeError("TIFF regression fixture is missing or exceeds its size bound")
             dump_prefix = temp / "tiffcrop-debug"
             output = temp / "tiffcrop-output.tif"
+            missing_output = temp / "missing-output-parent" / "output.tif"
+            null_log = temp / "tiffcrop-null-output.valgrind"
+            null_check = execute([
+                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                "--read-var-info=yes", "--log-file=" + str(null_log),
+                "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
+                str(fixture), str(missing_output),
+            ])
+            null_check["memoryLog"] = null_log.read_text() if null_log.exists() else ""
+            null_check["memoryLogPath"] = str(null_log)
+            null_check["cve"] = "CVE-2025-61143"
+            null_check["testId"] = "tiffcrop-null-output-debug-log"
+            null_check["passed"] = (
+                tiff_null_output_baseline_reproduced(null_check)
+                if args.phase == "baseline"
+                else tiff_null_output_patched_succeeded(null_check)
+            )
+            checks.append(null_check)
+
             command = [
                 "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
                 str(fixture), str(output),
@@ -400,7 +530,10 @@ def main():
                 "--read-var-info=yes", "--log-file=" + str(memory_log), *command,
             ])
             check["memoryLog"] = memory_log.read_text() if memory_log.exists() else ""
+            check["memoryLogPath"] = str(memory_log)
             check["cve"] = "CVE-2025-61144"
+            check["testId"] = "tiffcrop-debug-sample-bounds"
+            check["baselineStackFrames"] = tiff_baseline_stack_frames
             check["passed"] = (
                 tiff_baseline_reproduced(check, tiff_baseline_stack_frames)
                 if args.phase == "baseline"
@@ -408,6 +541,25 @@ def main():
                 and output.is_file() and output.stat().st_size > 0
             )
             checks.append(check)
+
+            dither_fixture = fixtures / "subscanline.tif"
+            if not dither_fixture.is_file() or not 0 < dither_fixture.stat().st_size < 1024 * 1024:
+                raise RuntimeError("TIFF dither regression fixture is missing or exceeds its size bound")
+            dither_log = temp / "tiffdither.valgrind"
+            dither_check = execute([
+                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                "--read-var-info=yes", "--log-file=" + str(dither_log),
+                "tiffdither", str(dither_fixture), str(temp / "dither-output.tif"),
+            ])
+            dither_check["memoryLog"] = dither_log.read_text() if dither_log.exists() else ""
+            dither_check["memoryLogPath"] = str(dither_log)
+            dither_check["testId"] = "tiffdither-scanline-width-bound"
+            dither_check["passed"] = (
+                tiffdither_overrun_baseline_reproduced(dither_check)
+                if args.phase == "baseline"
+                else tiffdither_patched_succeeded(dither_check)
+            )
+            checks.append(dither_check)
 
             if args.phase == "patched":
                 consumer = execute(["tiffinfo", str(output)])

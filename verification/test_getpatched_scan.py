@@ -10,14 +10,33 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = ROOT / "scripts" / "getpatched-scan.py"
 FEED = ROOT / "advisories" / "getpatched-osv.json"
-TIFF_BASELINE_COMMAND = ["valgrind", "--tool=memcheck", "tiffcrop", "-D",
-                         "format:txt,level:2,input:fixture", "multisample.tif", "output.tif"]
+TIFF_BASELINE_COMMAND = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--read-var-info=yes",
+                         "tiffcrop", "-D", "format:txt,level:2,input:fixture", "multisample.tif", "output.tif"]
 TIFF_BASELINE_LOG = (
-    "==123== Invalid read of size 8\n"
-    "==123==    at 0x123: loadImage (tools/tiffcrop.c:5493)\n"
-    "==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n"
-    "==123== Stack variable srcbuffs\n"
+    "==123== Use of uninitialised value of size 8\n"
+    "==123==    at 0x114980: debug_dump (in /usr/bin/tiffcrop)\n"
+    "==123==    by 0x116FB2: process (in /usr/bin/tiffcrop)\n"
+    "==123==    by 0x10AC12: main (in /usr/bin/tiffcrop)\n"
+    "==123==    by 0xABC: __libc_start_main (in /usr/lib/libc.so.6)\n"
     "==123== ERROR SUMMARY: 1 errors\n"
+)
+TIFF_NULL_OUTPUT_COMMAND = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                            "--read-var-info=yes", "--log-file=/tmp/null-output.log", "tiffcrop", "-D",
+                            "format:txt,level:2,input:/tmp/dump", "/recipe/multisample.tif",
+                            "/tmp/missing-output-parent/output.tif"]
+TIFF_NULL_OUTPUT_BASELINE_LOG = (
+    "==123== Invalid read of size 8\n"
+    "==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n"
+    "==123== Address 0x8 is not stack'd, malloc'd or (recently) free'd\n"
+    "==123== ERROR SUMMARY: 1 errors from 1 contexts\n"
+)
+TIFF_DITHER_COMMAND = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                       "--read-var-info=yes", "--log-file=/tmp/dither.log", "tiffdither",
+                       "/recipe/tests/fixtures/subscanline.tif", "/tmp/dither-output.tif"]
+TIFF_DITHER_BASELINE_LOG = (
+    "==123== Invalid read of size 1\n"
+    "==123==    at 0x123: fsdither (in /usr/bin/tiffdither)\n"
+    "==123== ERROR SUMMARY: 1 errors from 1 contexts\n"
 )
 import importlib.util
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -296,14 +315,31 @@ Architecture: i386
             proof = Path(directory)
             verification_feed = proof / "verification-advisory.json"
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", candidate)):
-                checks = []
                 cve_check = {
                     "command": TIFF_BASELINE_COMMAND,
                     "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
                     "timedOut": False, "cve": "CVE-2025-61144", "passed": True,
                     "memoryLog": TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
+                    "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"],
                 }
-                checks.append(cve_check)
+                null_output_check = {
+                    "command": TIFF_NULL_OUTPUT_COMMAND,
+                    "returncode": 97 if phase == "baseline" else 1, "stdout": "",
+                    "stderr": "" if phase == "baseline" else "/tmp/missing-output-parent/output.tif: No such file or directory\n",
+                    "memoryLogPath": "/tmp/null-output.log",
+                    "timedOut": False, "cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log",
+                    "passed": True,
+                    "memoryLog": TIFF_NULL_OUTPUT_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
+                }
+                dither_check = {
+                    "command": TIFF_DITHER_COMMAND,
+                    "returncode": 97 if phase == "baseline" else 1, "stdout": "",
+                    "stderr": "" if phase == "baseline" else "Image width exceeds scanline size.\n",
+                    "memoryLogPath": "/tmp/dither.log",
+                    "timedOut": False, "testId": "tiffdither-scanline-width-bound", "passed": True,
+                    "memoryLog": TIFF_DITHER_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
+                }
+                checks = [cve_check, null_output_check, dither_check]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "output.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "stderr": "", "timedOut": False, "passed": True})
@@ -361,7 +397,7 @@ Architecture: i386
             )
             verification_feed_hash = hashlib.sha256(verification_feed.read_bytes()).hexdigest()
         self.assertEqual(baseline_result.returncode, 1, baseline_result.stderr)
-        self.assertEqual(json.loads(baseline_result.stdout)["findingsById"], ["CVE-2025-61144"])
+        self.assertEqual(set(json.loads(baseline_result.stdout)["findingsById"]), {"CVE-2025-61143", "CVE-2025-61144"})
         self.assertEqual(mismatched_inventory.returncode, 2)
         self.assertIn("does not match the verified candidate image", mismatched_inventory.stderr)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -374,7 +410,7 @@ Architecture: i386
         self.assertEqual(report["regressionImageIds"], {"baseline": "image-baseline", "patched": "image-patched"})
 
         self.assertEqual(nonzero_patched_check.returncode, 2)
-        self.assertIn("TIFF patched evidence lacks clean CVE regression", nonzero_patched_check.stderr)
+        self.assertIn("TIFF patched evidence lacks clean CVE/dither regressions", nonzero_patched_check.stderr)
 
     def test_candidate_feed_output_cannot_alias_canonical_feed(self):
         with tempfile.TemporaryDirectory(prefix="getpatched-candidate-feed-alias-") as directory:
@@ -387,8 +423,22 @@ Architecture: i386
                                                TIFF_BASELINE_LOG),
                                               ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1", 0,
                                                "ERROR SUMMARY: 0 errors\n")):
-                checks = [{"cve": "CVE-2025-61144", "passed": True, "returncode": code, "timedOut": False,
-                           "command": TIFF_BASELINE_COMMAND, "memoryLog": log}]
+                is_baseline = phase == "baseline"
+                checks = [
+                    {"cve": "CVE-2025-61144", "passed": True, "returncode": code, "timedOut": False,
+                     "command": TIFF_BASELINE_COMMAND, "memoryLog": log,
+                     "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"]},
+                    {"cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log", "passed": True,
+                     "returncode": 97 if is_baseline else 1, "timedOut": False, "command": TIFF_NULL_OUTPUT_COMMAND,
+                     "stderr": "" if is_baseline else "/tmp/missing-output-parent/output.tif: No such file or directory\n",
+                     "memoryLogPath": "/tmp/null-output.log",
+                     "memoryLog": TIFF_NULL_OUTPUT_BASELINE_LOG if is_baseline else "ERROR SUMMARY: 0 errors\n"},
+                    {"testId": "tiffdither-scanline-width-bound", "passed": True,
+                     "returncode": 97 if is_baseline else 1, "timedOut": False, "command": TIFF_DITHER_COMMAND,
+                     "stderr": "" if is_baseline else "Image width exceeds scanline size.\n",
+                     "memoryLogPath": "/tmp/dither.log",
+                     "memoryLog": TIFF_DITHER_BASELINE_LOG if is_baseline else "ERROR SUMMARY: 0 errors\n"},
+                ]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "fixture.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "timedOut": False, "passed": True})
@@ -470,7 +520,20 @@ raise SystemExit(3)
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
                 checks = [{"cve": "CVE-2025-61144", "passed": True, "returncode": 97 if phase == "baseline" else 0,
                            "timedOut": False, "command": TIFF_BASELINE_COMMAND,
-                           "memoryLog": (TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n")}]
+                           "memoryLog": (TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n"),
+                           "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"]},
+                          {"cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log", "passed": True,
+                           "returncode": 97 if phase == "baseline" else 1, "timedOut": False,
+                           "command": TIFF_NULL_OUTPUT_COMMAND,
+                           "stderr": "" if phase == "baseline" else "/tmp/missing-output-parent/output.tif: No such file or directory\n",
+                           "memoryLogPath": "/tmp/null-output.log",
+                           "memoryLog": (TIFF_NULL_OUTPUT_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n")},
+                          {"testId": "tiffdither-scanline-width-bound", "passed": True,
+                           "returncode": 97 if phase == "baseline" else 1, "timedOut": False,
+                           "command": TIFF_DITHER_COMMAND,
+                           "stderr": "" if phase == "baseline" else "Image width exceeds scanline size.\n",
+                           "memoryLogPath": "/tmp/dither.log",
+                           "memoryLog": (TIFF_DITHER_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n")}]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "fixture.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "timedOut": False, "passed": True})

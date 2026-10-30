@@ -20,6 +20,8 @@ sys.path.insert(0, str(ROOT / "verification"))
 from regression import (consumer_version_succeeded, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         libpng_patched_checks_succeeded, poppler_uaf_reproduced,
                         schematron_baseline_reproduced, tiff_baseline_reproduced,
+                        tiffdither_overrun_baseline_reproduced, tiffdither_patched_succeeded,
+                        tiff_null_output_baseline_reproduced, tiff_null_output_patched_succeeded,
                         tiff_patched_regression_succeeded)
 
 DEFAULT_FEED = ROOT / "advisories" / "getpatched-osv.json"
@@ -278,15 +280,26 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
         validate_followup_assessment_checks(target, checks, phase)
         if source == "tiff":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
+            null_output_check = cve_checks.get("CVE-2025-61143")
+            dither_check = next((check for check in checks
+                                 if check.get("testId") == "tiffdither-scanline-width-bound"), {})
+            sample_bounds_checks = [check for check in target_checks if check.get("cve") == "CVE-2025-61144"]
             if phase == "baseline":
-                if not all(tiff_baseline_reproduced(check) for check in target_checks):
-                    raise ValueError("TIFF baseline evidence does not reproduce the configured tiffcrop issue")
-            elif (not all(check.get("passed") is True and tiff_patched_regression_succeeded(check)
-                          for check in target_checks)
+                if (not all(tiff_baseline_reproduced(check, check.get("baselineStackFrames"))
+                            for check in sample_bounds_checks)
+                        or ("CVE-2025-61143" in target["targetCves"]
+                            and not tiff_null_output_baseline_reproduced(null_output_check or {}))
+                        or not tiffdither_overrun_baseline_reproduced(dither_check)):
+                    raise ValueError("TIFF baseline evidence does not reproduce all configured tiffcrop/tiffdither paths")
+            elif (("CVE-2025-61143" in target["targetCves"]
+                   and (not null_output_check or not tiff_null_output_patched_succeeded(null_output_check)))
+                  or not all(check.get("passed") is True and tiff_patched_regression_succeeded(check)
+                             for check in sample_bounds_checks)
+                  or dither_check.get("passed") is not True or not tiffdither_patched_succeeded(dither_check)
                   or not any(check.get("passed") is True and check.get("returncode") == 0
                              and check.get("command", [None])[0] == "tiffinfo"
                              and "Image Width" in check.get("stdout", "") for check in checks)):
-                raise ValueError("TIFF patched evidence lacks clean CVE regression and a tiffinfo consumer check")
+                raise ValueError("TIFF patched evidence lacks clean CVE/dither regressions and a tiffinfo consumer check")
         elif source == "libxml2":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
             if phase == "baseline":

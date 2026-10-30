@@ -8,7 +8,9 @@ import unittest
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced, parse_callback_url, libgit2_redirect_reproduced, execute)
+                        tiff_baseline_reproduced, tiff_null_output_baseline_reproduced,
+                        tiff_null_output_patched_succeeded, tiffdither_overrun_baseline_reproduced,
+                        tiffdither_patched_succeeded, parse_callback_url, libgit2_redirect_reproduced, execute)
 
 
 class ExecuteTimeout(unittest.TestCase):
@@ -186,6 +188,97 @@ class TiffBaselineClassification(unittest.TestCase):
         }
         self.assertFalse(tiff_baseline_reproduced(warning_only, self.TIFF_STACK))
         self.assertFalse(tiff_baseline_reproduced(timed_out, self.TIFF_STACK))
+
+
+class Tiff61143Classification(unittest.TestCase):
+    def test_null_output_failure_requires_the_exact_debug_probe_and_null_dereference(self):
+        command = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                   "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-D",
+                   "format:txt,level:2,input:/tmp/dump", "/recipe/tests/fixtures/multisample.tif",
+                   "/tmp/missing-output-parent/output.tif"]
+        check = {
+            "command": command, "returncode": 97, "timedOut": False,
+            "memoryLogPath": "/tmp/probe.log",
+            "memoryLog": "==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n==123== Address 0x8 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n",
+        }
+        self.assertTrue(tiff_null_output_baseline_reproduced(check))
+        unrelated = dict(check, memoryLog="==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/lib/libother.so)\n==123== Address 0x8 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiff_null_output_baseline_reproduced(unrelated))
+        generic_tiffcrop = dict(check, memoryLog="==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/bin/tiffcrop)\n==123== Address 0x8 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiff_null_output_baseline_reproduced(generic_tiffcrop))
+        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, memoryLogPath="/tmp/other.log")))
+        split_contexts = dict(check, memoryLog=(
+            "==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/lib/libother.so)\n"
+            "==123== Address 0x8 is not stack'd, malloc'd or (recently) free'd\n"
+            "==123== Use of uninitialised value of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n"
+            "==123== ERROR SUMMARY: 2 errors from 2 contexts\n"))
+        self.assertFalse(tiff_null_output_baseline_reproduced(split_contexts))
+        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, command=[*command[:-1], "/tmp/output.tif"])))
+
+    def test_patched_null_output_failure_is_clean(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                        "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-D",
+                        "format:txt,level:2,input:/tmp/dump", "/recipe/multisample.tif",
+                        "/tmp/missing-output-parent/output.tif"],
+            "returncode": 1, "timedOut": False,
+            "memoryLogPath": "/tmp/probe.log",
+            "stderr": "/tmp/missing-output-parent/output.tif: No such file or directory\n",
+            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+        }
+        self.assertTrue(tiff_null_output_patched_succeeded(check))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, stderr="unexpected success\n")))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, returncode=0)))
+        altered_probe = dict(check, command=[*check["command"]])
+        altered_probe["command"][8] = "format:txt,level:0,input:/tmp/dump"
+        self.assertFalse(tiff_null_output_patched_succeeded(altered_probe))
+        altered_log = dict(check, command=[*check["command"]])
+        altered_log["command"][5] = "--other-log=/tmp/probe.log"
+        self.assertFalse(tiff_null_output_patched_succeeded(altered_log))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, memoryLogPath="/tmp/other.log")))
+
+    def test_tiffdither_width_overrun_requires_the_one_byte_fixture(self):
+        command = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                   "--read-var-info=yes", "--log-file=/tmp/dither.log", "tiffdither",
+                   "/recipe/tests/fixtures/subscanline.tif", "/tmp/dither.tif"]
+        baseline = {
+            "command": command, "returncode": 97, "timedOut": False,
+            "memoryLogPath": "/tmp/dither.log",
+            "memoryLog": "==123== Invalid read of size 1\n==123==    at 0x123: fsdither (in /usr/bin/tiffdither)\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n",
+        }
+        self.assertTrue(tiffdither_overrun_baseline_reproduced(baseline))
+        generic_tiffdither = dict(baseline, memoryLog="==123== Invalid read of size 1\n==123==    at 0x123: unrelated (in /usr/bin/tiffdither)\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiffdither_overrun_baseline_reproduced(generic_tiffdither))
+        wrong_size = dict(baseline, memoryLog="==123== Invalid read of size 4\n==123==    at 0x123: fsdither (in /usr/bin/tiffdither)\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiffdither_overrun_baseline_reproduced(wrong_size))
+        wrong_access = dict(baseline, memoryLog="==123== Invalid write of size 1\n==123==    at 0x123: fsdither (in /usr/bin/tiffdither)\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiffdither_overrun_baseline_reproduced(wrong_access))
+        self.assertFalse(tiffdither_overrun_baseline_reproduced(dict(baseline, memoryLogPath="/tmp/other.log")))
+        split_contexts = dict(baseline, memoryLog=(
+            "==123== Invalid read of size 1\n==123==    at 0x123: unrelated (in /usr/lib/libother.so)\n"
+            "==123== Use of uninitialised value of size 8\n==123==    at 0x123: fsdither (in /usr/bin/tiffdither)\n"
+            "==123== ERROR SUMMARY: 2 errors from 2 contexts\n"))
+        self.assertFalse(tiffdither_overrun_baseline_reproduced(split_contexts))
+        self.assertFalse(tiffdither_overrun_baseline_reproduced(dict(baseline, command=[*command[:-2], "other.tif", command[-1]])))
+
+    def test_patched_tiffdither_rejects_oversized_row_without_memcheck_errors(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                        "--read-var-info=yes", "--log-file=/tmp/dither.log", "tiffdither",
+                        "/recipe/tests/fixtures/subscanline.tif", "/tmp/dither-output.tif"],
+            "returncode": 1, "timedOut": False, "stderr": "Image width exceeds scanline size.\n",
+            "memoryLogPath": "/tmp/dither.log",
+            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+        }
+        self.assertTrue(tiffdither_patched_succeeded(check))
+        self.assertFalse(tiffdither_patched_succeeded(dict(check, returncode=0, stderr="")))
+        altered_log = dict(check, command=[*check["command"]])
+        altered_log["command"][5] = "--other-log=/tmp/dither.log"
+        self.assertFalse(tiffdither_patched_succeeded(altered_log))
+        self.assertFalse(tiffdither_patched_succeeded(dict(check, memoryLogPath="/tmp/other.log")))
+        altered_output = dict(check, command=[*check["command"]])
+        altered_output["command"][8] = "/tmp/unrelated.tif"
+        self.assertFalse(tiffdither_patched_succeeded(altered_output))
 
 class LibpngBaselineClassification(unittest.TestCase):
     def test_padded_stride_followup_requires_a_clean_memcheck_result(self):
