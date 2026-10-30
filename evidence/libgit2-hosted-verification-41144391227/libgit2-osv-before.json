@@ -1,0 +1,11 @@
+{
+  "request": {
+    "package": {
+      "name": "libgit2",
+      "ecosystem": "Ubuntu:20.04:LTS"
+    },
+    "version": "0.28.4+dfsg.1-2ubuntu0.1"
+  },
+  "endpoint": "https://api.osv.dev/v1/query",
+  "response": {}
+}

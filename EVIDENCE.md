@@ -1,5 +1,12 @@
 # GetPatched evidence index
 
+## libgit2 Focal policy-aligned verification rerun — 31 October 2026
+
+- Hosted verification run [41144391227](https://github.com/getpatched/platform/actions/runs/41144391227) used the same public recipe commit `ec3e0081bfef46cc0dc7344a5877cdfa1905be5c` and Focal source `0.28.4+dfsg.1-2ubuntu0.1`. It passed the exact-source package build, all three installed baseline/patched regressions, the package-aware advisory comparison, consumer checks, and isolated signed APT binary/source retrieval.
+- The run's `package-policy.json` and `release-eligibility.json` now agree with the PR catalogue: `candidateStatus` is `development-verified-production-release-pending`, `candidateVerified` and `verificationChecksPassed` are true, and `releaseEligible` is false because repository publication is disabled. No binaries or production APT metadata were published.
+- The 29-file verification artifact is retained at [`evidence/libgit2-hosted-verification-41144391227/`](evidence/libgit2-hosted-verification-41144391227/); the complete three-file source package is at [`evidence/libgit2-hosted-source-41144391227/`](evidence/libgit2-hosted-source-41144391227/). GitHub artifact IDs are [13020379350](https://github.com/getpatched/platform/actions/runs/41144391227/artifacts/13020379350) and [13020179540](https://github.com/getpatched/platform/actions/runs/41144391227/artifacts/13020179540). The workflow-reported archive SHA-256 values are `1c744201c65c9918193d918ac4bdc1fe360bc534d9cab292b9e2a1b948ad8b5f` and `dcc4d209becc35867283fca2fb99c3135d177e5140f8f27ca6c693bffcdbff45`, respectively. Per-file SHA-256 manifests are beside the retained files.
+- This rerun resolves the earlier evidence-status mismatch. It covers Ubuntu Focal amd64 only; Jammy, arm64, other package streams, and production repository acceptance remain outstanding.
+
 ## libgit2 Focal exact-package verification — 31 October 2026
 
 - Hosted verification run [41142564467](https://github.com/getpatched/platform/actions/runs/41142564467) used package recipe commit `ec3e0081bfef46cc0dc7344a5877cdfa1905be5c`, source baseline `0.28.4+dfsg.1-2ubuntu0.1`, and output `0.28.4+dfsg.1-2ubuntu0.1+getpatched1` for Ubuntu Focal amd64. The build job completed successfully, including source-pin validation, real source/binary package build, installed baseline and patched regressions, package-aware scans, consumer checks, and isolated signed APT client verification. Publication was explicitly disabled.

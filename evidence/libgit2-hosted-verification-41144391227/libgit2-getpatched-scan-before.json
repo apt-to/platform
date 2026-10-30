@@ -1,0 +1,140 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/libgit2-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "9a19f4f6b8dd96c2da8af187457c3bd6dabdae45e9c5c1e3cc84c41c10f9cdb3",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [
+    {
+      "affected_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1"
+      ],
+      "fixed_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1+getpatched1"
+      ],
+      "id": "CVE-2026-53584",
+      "package": "libgit2-28",
+      "references": [
+        "https://ubuntu.com/security/CVE-2026-53584"
+      ],
+      "severity": "MEDIUM",
+      "summary": "libgit2 submodule path traversal can write outside a repository worktree",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "affected_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1"
+      ],
+      "fixed_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1+getpatched1"
+      ],
+      "id": "CVE-2026-53585",
+      "package": "libgit2-28",
+      "references": [
+        "https://ubuntu.com/security/CVE-2026-53585"
+      ],
+      "severity": "MEDIUM",
+      "summary": "libgit2 delta object size header can trigger excessive memory allocation",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "affected_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1"
+      ],
+      "fixed_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1+getpatched1"
+      ],
+      "id": "CVE-2026-53586",
+      "package": "libgit2-28",
+      "references": [
+        "https://ubuntu.com/security/CVE-2026-53586"
+      ],
+      "severity": "MEDIUM",
+      "summary": "libgit2 HTTP redirect authentication can disclose credentials to another host",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "affected_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1"
+      ],
+      "fixed_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1+getpatched1"
+      ],
+      "id": "CVE-2026-53584",
+      "package": "libgit2-dev",
+      "references": [
+        "https://ubuntu.com/security/CVE-2026-53584"
+      ],
+      "severity": "MEDIUM",
+      "summary": "libgit2 submodule path traversal can write outside a repository worktree",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "affected_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1"
+      ],
+      "fixed_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1+getpatched1"
+      ],
+      "id": "CVE-2026-53585",
+      "package": "libgit2-dev",
+      "references": [
+        "https://ubuntu.com/security/CVE-2026-53585"
+      ],
+      "severity": "MEDIUM",
+      "summary": "libgit2 delta object size header can trigger excessive memory allocation",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "affected_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1"
+      ],
+      "fixed_versions": [
+        "0.28.4+dfsg.1-2ubuntu0.1+getpatched1"
+      ],
+      "id": "CVE-2026-53586",
+      "package": "libgit2-dev",
+      "references": [
+        "https://ubuntu.com/security/CVE-2026-53586"
+      ],
+      "severity": "MEDIUM",
+      "summary": "libgit2 HTTP redirect authentication can disclose credentials to another host",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1"
+    }
+  ],
+  "findingsById": [
+    "CVE-2026-53584",
+    "CVE-2026-53585",
+    "CVE-2026-53586"
+  ],
+  "imageId": "sha256:c379a4f62e1b14c327c6e1b1a71b9b47a44fb48b6df661e2a8c9c598189bc5ff",
+  "packagePolicySha256": "838b70ddb1420a27825a23d5d50abb6b43a3d072e0aae351c5263e87b067f50b",
+  "regressionImageIds": {
+    "baseline": "sha256:c379a4f62e1b14c327c6e1b1a71b9b47a44fb48b6df661e2a8c9c598189bc5ff",
+    "patched": "sha256:32de458282d22fcb552d075da002db713b0801486b068c3408c6ef268dfde634"
+  },
+  "regressionReportSha256": {
+    "baseline": "58dbfe1e160f2c8a6e3b991dd04eb173a099aaea927d305e80bedbd70428ccc1",
+    "patched": "e7cdeab35512e523f34552796db19f2617d07a236ab6548a4b22bd13ce555234"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "libgit2",
+      "targetId": "ubuntu-focal-amd64"
+    }
+  ],
+  "release": "focal",
+  "scannedPackageVersions": {
+    "libgit2-28": "0.28.4+dfsg.1-2ubuntu0.1",
+    "libgit2-dev": "0.28.4+dfsg.1-2ubuntu0.1"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "793fd0eb6fcd1f878b532c5376c89731fff4e36e577050a4b14aa7c68b988fdc",
+  "summary": {
+    "findingCount": 6,
+    "scannedPackages": 2,
+    "vulnerablePackages": 2
+  },
+  "targetId": "ubuntu-focal-amd64"
+}

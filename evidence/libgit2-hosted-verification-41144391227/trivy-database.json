@@ -1,0 +1,4 @@
+{
+  "reference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+  "sha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31"
+}
