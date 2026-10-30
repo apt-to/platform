@@ -1,3 +1,5 @@
+import { handleSecurityPage, notFoundJson } from "./security-pages.js";
+
 const STATE_PREFIX = "release-state/";
 const MAX_RETRIES = 5;
 const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
@@ -2298,6 +2300,8 @@ export default {
       if (!env.ASSETS) return new Response("account page is not configured", { status: 503 });
       return env.ASSETS.fetch(request);
     }
+    const securityPage = await handleSecurityPage(request, env);
+    if (securityPage) return securityPage;
     if (request.method === "GET" && url.pathname === "/api/me") {
       try { return await accountStatus(request, env); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 500); }
@@ -2469,8 +2473,18 @@ export default {
       try { return await registerRelease(request, env); }
       catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
     }
-    if (url.pathname.startsWith("/api/")) return json({ error: "not found" }, 404);
-    if (env.ASSETS) return env.ASSETS.fetch(request);
+    if (url.pathname.startsWith("/api/")) {
+      if (url.pathname.endsWith(".json")) return notFoundJson(request);
+      return json({ error: "not found" }, 404);
+    }
+    if (env.ASSETS) {
+      const asset = await env.ASSETS.fetch(request);
+      if (url.pathname.endsWith(".json") && (asset.status === 404 || asset.headers.get("content-type")?.includes("text/html"))) {
+        return notFoundJson(request);
+      }
+      return asset;
+    }
+    if (url.pathname.endsWith(".json")) return notFoundJson(request);
     return json({ error: "not found" }, 404);
   },
   async scheduled(_event, env, context) {

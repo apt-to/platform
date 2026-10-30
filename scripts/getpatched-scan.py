@@ -18,8 +18,9 @@ from platform_policy import package_ecosystem, package_target_policy, target_pro
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "verification"))
 from regression import (consumer_version_succeeded, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
-                        poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced)
+                        libpng_patched_checks_succeeded, poppler_uaf_reproduced,
+                        schematron_baseline_reproduced, tiff_baseline_reproduced,
+                        tiff_patched_regression_succeeded)
 
 DEFAULT_FEED = ROOT / "advisories" / "getpatched-osv.json"
 MAX_STATUS_BYTES = 16 * 1024 * 1024
@@ -280,12 +281,10 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
             if phase == "baseline":
                 if not all(tiff_baseline_reproduced(check) for check in target_checks):
                     raise ValueError("TIFF baseline evidence does not reproduce the configured tiffcrop issue")
-            elif (not all(check.get("returncode") in (0, 1) and not check.get("timedOut")
-                          and check.get("command", [None])[0] == "valgrind"
-                          and "tiffcrop" in check.get("command", []) for check in target_checks)
-                  or not all("ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
-                             for check in target_checks)
-                  or not any(check.get("command", [None])[0] == "tiffinfo"
+            elif (not all(check.get("passed") is True and tiff_patched_regression_succeeded(check)
+                          for check in target_checks)
+                  or not any(check.get("passed") is True and check.get("returncode") == 0
+                             and check.get("command", [None])[0] == "tiffinfo"
                              and "Image Width" in check.get("stdout", "") for check in checks)):
                 raise ValueError("TIFF patched evidence lacks clean CVE regression and a tiffinfo consumer check")
         elif source == "libxml2":
@@ -314,12 +313,7 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
                         or not libpng_stride_read_reproduced(cve_checks.get("CVE-2026-22801", {}))):
                     raise ValueError("libpng baseline evidence does not reproduce both configured memory-safety issues")
             else:
-                if (not all(check.get("returncode") == 0 and not check.get("timedOut")
-                            and "ERROR SUMMARY: 0 errors" in check.get("memoryLog", "") for check in target_checks)
-                        or not any(check.get("testId") == "CVE-2026-22695-padded-stride"
-                                   and check.get("passed") is True for check in checks)
-                        or not any(Path(check.get("command", [""])[0]).name == "compare-interlaced-read"
-                                   and check.get("returncode") == 0 for check in checks)):
+                if not libpng_patched_checks_succeeded(checks):
                     raise ValueError("libpng patched evidence lacks clean CVE checks, padded-stride follow-up, or Adam7 pixel comparison")
         elif source == "poppler":
             check = cve_checks["CVE-2025-52885"]

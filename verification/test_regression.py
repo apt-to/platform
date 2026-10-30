@@ -5,8 +5,24 @@ import signal
 import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
+                        libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
                         tiff_baseline_reproduced, parse_callback_url, libgit2_redirect_reproduced)
+
+
+def libpng_memcheck(test_id, executable, arguments, cve, returncode=0, memory_log="ERROR SUMMARY: 0 errors\n"):
+    root = Path("/tmp/getpatched-regression-fixture")
+    return {
+        "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                    "--read-var-info=yes", f"--log-file={root / (executable + '.valgrind')}",
+                    str(root / executable), *(str(root / argument) for argument in arguments)],
+        "testId": test_id,
+        "cve": cve,
+        "returncode": returncode,
+        "timedOut": False,
+        "memoryLog": memory_log,
+        "passed": returncode == 0 and "ERROR SUMMARY: 0 errors" in memory_log,
+    }
 
 
 class BaselineClassification(unittest.TestCase):
@@ -128,24 +144,86 @@ class LibpngBaselineClassification(unittest.TestCase):
         self.assertFalse(libpng_followup_read_is_clean(error))
 
     def test_specific_simplified_read_overwrite_is_a_reproduction(self):
-        check = {"returncode": 97, "timedOut": False,
-                 "memoryLog": "Invalid write of size 4\nat png_image_finish_read\nlibpng16.so.16"}
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+                                "CVE-2025-65018", 97,
+                                "Invalid write of size 4\nat png_image_finish_read\nlibpng16.so.16")
         self.assertTrue(libpng_overwrite_reproduced(check))
 
     def test_unrelated_write_does_not_match(self):
-        check = {"returncode": 97, "timedOut": False,
-                 "memoryLog": "Invalid write of size 4\nat unrelated\nlibpng16.so.16"}
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+                                "CVE-2025-65018", 97,
+                                "Invalid write of size 4\nat unrelated\nlibpng16.so.16")
         self.assertFalse(libpng_overwrite_reproduced(check))
 
     def test_specific_negative_stride_read_is_a_reproduction(self):
-        check = {"returncode": 97, "timedOut": False,
-                 "memoryLog": "Invalid read of size 4\nat png_image_write_to_file\nlibpng16.so.16"}
+        check = libpng_memcheck("write-negative-stride.c", "write-negative-stride", [],
+                                "CVE-2026-22801", 97,
+                                "Invalid read of size 4\nat png_image_write_to_file\nlibpng16.so.16")
         self.assertTrue(libpng_stride_read_reproduced(check))
 
     def test_passing_exit_cannot_be_counted_as_baseline_reproduction(self):
-        check = {"returncode": 0, "timedOut": False,
-                 "memoryLog": "Invalid read png_image_write_to_file libpng16.so.16"}
+        check = libpng_memcheck("write-negative-stride.c", "write-negative-stride", [],
+                                "CVE-2026-22801", 0,
+                                "Invalid read png_image_write_to_file libpng16.so.16")
         self.assertFalse(libpng_stride_read_reproduced(check))
+
+    def test_mislabeled_probe_or_missing_fixture_cannot_reproduce_libpng_cve(self):
+        wrong_probe = libpng_memcheck("read-interlaced-rgba.c", "unrelated", ["adam7.png"],
+                                      "CVE-2025-65018", 97,
+                                      "Invalid write png_image_finish_read libpng16.so.16")
+        wrong_fixture = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["flat.png"],
+                                        "CVE-2025-65018", 97,
+                                        "Invalid write png_image_finish_read libpng16.so.16")
+        self.assertFalse(libpng_overwrite_reproduced(wrong_probe))
+        self.assertFalse(libpng_overwrite_reproduced(wrong_fixture))
+
+    def test_patched_libpng_gate_binds_all_cve_checks_and_adam7_comparison(self):
+        checks = [
+            libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"], "CVE-2025-65018"),
+            libpng_memcheck("CVE-2026-22695-padded-stride-follow-up", "read-padded-stride", ["adam7.png"], "CVE-2026-22695"),
+            libpng_memcheck("write-negative-stride.c", "write-negative-stride", [], "CVE-2026-22801"),
+            {"testId": "adam7-pixel-equality", "command": [
+                "/tmp/getpatched-regression-fixture/compare-interlaced-read",
+                "/tmp/getpatched-regression-fixture/adam7.png",
+                "/tmp/getpatched-regression-fixture/flat.png",
+            ], "returncode": 0, "timedOut": False, "passed": True,
+                "stdout": "differing channels: 0 / 3072\n"},
+        ]
+        self.assertTrue(libpng_patched_checks_succeeded(checks))
+        wrong_probe = json.loads(json.dumps(checks))
+        wrong_probe[0]["command"][6] = "/tmp/getpatched-regression-fixture/unrelated"
+        self.assertFalse(libpng_patched_checks_succeeded(wrong_probe))
+        wrong_fixture = json.loads(json.dumps(checks))
+        wrong_fixture[1]["command"][7] = "/tmp/getpatched-regression-fixture/flat.png"
+        self.assertFalse(libpng_patched_checks_succeeded(wrong_fixture))
+        duplicate = checks + [checks[0]]
+        self.assertFalse(libpng_patched_checks_succeeded(duplicate))
+
+
+class TiffPatchedClassification(unittest.TestCase):
+    def valid_check(self):
+        return {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                        "--read-var-info=yes", "--log-file=/tmp/tiffcrop-valgrind.log", "tiffcrop", "-D",
+                        "format:txt,level:2,input:/tmp/tiffcrop-debug", "/tmp/multisample.tif", "/tmp/output.tif"],
+            "returncode": 0,
+            "timedOut": False,
+            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+        }
+
+    def test_patched_tiff_requires_zero_exit_and_clean_memcheck(self):
+        self.assertTrue(tiff_patched_regression_succeeded(self.valid_check()))
+        bad_exit = self.valid_check()
+        bad_exit["returncode"] = 1
+        self.assertFalse(tiff_patched_regression_succeeded(bad_exit))
+        memory_error = self.valid_check()
+        memory_error["memoryLog"] = "ERROR SUMMARY: 1 errors\n"
+        self.assertFalse(tiff_patched_regression_succeeded(memory_error))
+
+    def test_unrelated_tiff_command_is_not_patched_evidence(self):
+        check = self.valid_check()
+        check["command"][6] = "tiffinfo"
+        self.assertFalse(tiff_patched_regression_succeeded(check))
 
 
 class PopplerBaselineClassification(unittest.TestCase):

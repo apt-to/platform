@@ -1,0 +1,143 @@
+.record-main {
+  max-width: 980px;
+  padding-top: clamp(46px, 7vw, 84px);
+  padding-bottom: 88px;
+}
+
+.record-eyebrow {
+  margin-bottom: 15px;
+  color: var(--muted);
+  font: 500 10px/1.5 var(--mono);
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.record-main h1 {
+  max-width: 900px;
+  margin-bottom: 16px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.record-summary {
+  max-width: 760px;
+  margin-bottom: 24px;
+  color: var(--muted);
+  font-size: clamp(16px, 2vw, 19px);
+  line-height: 1.65;
+}
+
+.record-status-row {
+  min-height: 54px;
+  margin-bottom: 36px;
+  padding: 12px 15px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border-left: 3px solid var(--green);
+  background: var(--green-soft);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.record-badge { width: 66px; height: 20px; flex: 0 0 auto; }
+.record-status-empty { color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+.record-status-partial { color: var(--amber); font: 10px var(--mono); text-transform: uppercase; }
+
+.record-section {
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line-dark);
+}
+
+.record-section h2 {
+  margin-bottom: 17px;
+  font-size: 21px;
+}
+
+.record-facts {
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.record-facts > div {
+  min-height: 46px;
+  padding: 11px 0;
+  display: grid;
+  grid-template-columns: minmax(130px, .34fr) minmax(0, 1fr);
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.record-facts dt, .record-test-list dt {
+  color: var(--muted);
+  font: 10px/1.6 var(--mono);
+  text-transform: uppercase;
+}
+
+.record-facts dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 12px; }
+.record-facts code, .record-targets code, .record-json-link code { color: var(--ink); font: 11px/1.6 var(--mono); }
+.record-facts a, .record-reference a, .record-json-link a { color: var(--green); }
+
+.record-targets, .record-links { margin: 0; padding: 0; list-style: none; }
+
+.record-targets li {
+  padding: 14px 0;
+  display: grid;
+  grid-template-columns: minmax(180px, .8fr) minmax(0, 1.2fr);
+  gap: 8px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.record-targets li:last-child { border-bottom: 1px solid var(--line); }
+.record-targets li > div { min-width: 0; display: grid; gap: 4px; }
+.record-targets strong { font-size: 13px; font-weight: 600; }
+.record-targets span, .record-targets small { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.record-targets a { color: var(--green); font-size: 11px; }
+
+.record-links li {
+  min-height: 48px;
+  padding: 10px 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.record-links li:last-child { border-bottom: 1px solid var(--line); }
+.record-links a { color: var(--green); font-size: 12px; font-weight: 600; text-decoration: none; }
+.record-links span { color: var(--muted); font: 10px var(--mono); }
+.record-muted { color: var(--muted); font-size: 12px; }
+
+.record-test-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.record-test-list article { padding: 16px; background: var(--paper-raised); border: 1px solid var(--line); }
+.record-test-list h3 { margin-bottom: 13px; font: 11px/1.5 var(--mono); overflow-wrap: anywhere; }
+.record-test-list dl { margin: 0; }
+.record-test-list dt { margin-top: 12px; }
+.record-test-list dd { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.record-reference p { margin-bottom: 10px; font-size: 12px; }
+.record-json-link { margin-top: 32px; font-size: 11px; }
+
+.record-footer {
+  min-height: 62px;
+  padding: 16px clamp(22px, 5vw, 80px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  border-top: 1px solid var(--line);
+  background: var(--paper-raised);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.record-footer a { color: var(--ink); font-weight: 700; text-decoration: none; }
+
+@media (max-width: 680px) {
+  .record-main { padding-top: 42px; padding-bottom: 62px; }
+  .record-targets li { grid-template-columns: 1fr; gap: 10px; }
+  .record-facts > div { grid-template-columns: 1fr; gap: 4px; }
+  .record-footer { align-items: flex-start; flex-direction: column; gap: 8px; }
+}

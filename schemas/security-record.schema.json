@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://getpatched.dev/schemas/security-record.schema.json",
+  "title": "GetPatched security record response",
+  "oneOf": [
+    { "$ref": "#/$defs/vulnerability" },
+    { "$ref": "#/$defs/patch" }
+  ],
+  "$defs": {
+    "target": {
+      "type": "object",
+      "required": ["id", "displayName", "sourceVersion", "packageVersion", "releaseStatus", "status", "verification", "access", "delayHours", "patched"],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "distribution": { "type": ["string", "null"] },
+        "releaseVersion": { "type": ["string", "null"] },
+        "codename": { "type": ["string", "null"] },
+        "architecture": { "type": ["string", "null"] },
+        "displayName": { "type": "string" },
+        "sourceVersion": { "type": ["string", "null"] },
+        "packageVersion": { "type": ["string", "null"] },
+        "releaseStatus": { "type": ["string", "null"] },
+        "status": { "type": ["string", "null"] },
+        "verification": { "type": ["string", "null"] },
+        "access": { "type": ["string", "null"] },
+        "delayHours": { "type": ["integer", "null"] },
+        "patched": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "vulnerability": {
+      "type": "object",
+      "required": ["schemaVersion", "type", "id", "slug", "summary", "patched", "status", "url", "badgeUrl", "patches", "targets"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "type": { "const": "vulnerability" },
+        "id": { "type": "string", "pattern": "^CVE-[0-9]{4}-[0-9]+$" },
+        "slug": { "type": "string", "pattern": "^cve-[0-9]{4}-[0-9]+$" },
+        "summary": { "type": "string" },
+        "ubuntuPriority": { "type": ["string", "null"] },
+        "cvssV3": { "type": ["number", "null"] },
+        "advisoryUrl": { "type": ["string", "null"], "format": "uri" },
+        "patched": { "type": "boolean" },
+        "status": { "enum": ["patch-available", "partial-coverage", "patch-unverified", "no-patch"] },
+        "url": { "type": "string", "format": "uri" },
+        "badgeUrl": { "type": "string", "format": "uri" },
+        "patches": { "type": "array", "items": { "type": "object" } },
+        "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } }
+      },
+      "additionalProperties": false
+    },
+    "patch": {
+      "type": "object",
+      "required": ["schemaVersion", "type", "id", "slug", "kind", "title", "description", "source", "sha256", "fileUrl", "upstream", "tests", "patched", "url", "badgeUrl", "vulnerabilities", "targets"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "type": { "const": "patch" },
+        "id": { "type": "string" },
+        "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "kind": { "enum": ["security", "build-compatibility"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "source": { "type": "string" },
+        "sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "fileUrl": { "type": ["string", "null"], "format": "uri" },
+        "upstream": { "type": ["object", "null"] },
+        "tests": { "type": "array", "items": { "type": "object" } },
+        "patched": { "type": "boolean" },
+        "url": { "type": "string", "format": "uri" },
+        "badgeUrl": { "type": "string", "format": "uri" },
+        "vulnerabilities": { "type": "array", "items": { "type": "object" } },
+        "targets": { "type": "array", "items": { "$ref": "#/$defs/target" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

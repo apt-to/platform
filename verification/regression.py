@@ -64,21 +64,55 @@ def tiff_baseline_reproduced(check):
     )
 
 
+def tiff_patched_regression_succeeded(check):
+    command = check.get("command", [])
+    return (
+        not check.get("timedOut", False)
+        and check.get("returncode") == 0
+        and command
+        and Path(command[0]).name == "valgrind"
+        and "--tool=memcheck" in command
+        and "tiffcrop" in [Path(argument).name for argument in command]
+        and any(argument.startswith("format:txt,level:2,input:") for argument in command)
+        and any(Path(argument).name == "multisample.tif" for argument in command)
+        and "ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
+    )
+
+
 def consumer_version_succeeded(check, expected_banner):
     output = check.get("stdout", "") + check.get("stderr", "")
     return not check.get("timedOut", False) and check.get("returncode") == 0 and expected_banner in output
 
 
+def libpng_probe_command_matches(check, test_id, executable, arguments):
+    command = check.get("command")
+    prefix = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+    if (check.get("testId") != test_id or not isinstance(command, list)
+            or command[:5] != prefix or len(command) != 7 + len(arguments)
+            or not command[5].startswith("--log-file=")):
+        return False
+    binary = Path(command[6])
+    log = Path(command[5].split("=", 1)[1])
+    if binary.name != executable or log.name != binary.name + ".valgrind":
+        return False
+    return all(
+        Path(argument).name == expected and Path(argument).parent == binary.parent
+        for argument, expected in zip(command[7:], arguments, strict=True)
+    )
+
+
 def libpng_overwrite_reproduced(check):
     log = check.get("memoryLog", "")
-    return (not check.get("timedOut", False) and check.get("returncode") == 97
+    return (libpng_probe_command_matches(check, "read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"])
+            and not check.get("timedOut", False) and check.get("returncode") == 97
             and "Invalid write" in log and "png_image_finish_read" in log
             and "libpng16.so." in log)
 
 
 def libpng_stride_read_reproduced(check):
     log = check.get("memoryLog", "")
-    return (not check.get("timedOut", False) and check.get("returncode") == 97
+    return (libpng_probe_command_matches(check, "write-negative-stride.c", "write-negative-stride", [])
+            and not check.get("timedOut", False) and check.get("returncode") == 97
             and "Invalid read" in log and "png_image_write_to_file" in log
             and "libpng16.so." in log)
 
@@ -87,6 +121,43 @@ def libpng_followup_read_is_clean(check):
     log = check.get("memoryLog", "")
     return (not check.get("timedOut", False) and check.get("returncode") == 0
             and "ERROR SUMMARY: 0 errors" in log)
+
+
+def libpng_patched_checks_succeeded(checks):
+    expected = {
+        "CVE-2025-65018": ("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"]),
+        "CVE-2026-22695": ("CVE-2026-22695-padded-stride-follow-up", "read-padded-stride", ["adam7.png"]),
+        "CVE-2026-22801": ("write-negative-stride.c", "write-negative-stride", []),
+    }
+    by_cve = {}
+    for cve in expected:
+        matches = [check for check in checks if check.get("cve") == cve]
+        if len(matches) != 1:
+            return False
+        by_cve[cve] = matches[0]
+    for cve, (test_id, executable, arguments) in expected.items():
+        check = by_cve[cve]
+        if (check.get("passed") is not True
+                or not libpng_probe_command_matches(check, test_id, executable, arguments)
+                or check.get("timedOut") is not False
+                or check.get("returncode") != 0
+                or "ERROR SUMMARY: 0 errors" not in check.get("memoryLog", "")):
+            return False
+    comparisons = [check for check in checks if check.get("testId") == "adam7-pixel-equality"]
+    if len(comparisons) != 1:
+        return False
+    comparison = comparisons[0]
+    command = comparison.get("command", [])
+    return (
+        comparison.get("passed") is True
+        and not comparison.get("timedOut", False)
+        and comparison.get("returncode") == 0
+        and isinstance(command, list) and len(command) == 3
+        and Path(command[0]).name == "compare-interlaced-read"
+        and [Path(argument).name for argument in command[1:]] == ["adam7.png", "flat.png"]
+        and Path(command[0]).parent == Path(command[1]).parent == Path(command[2]).parent
+        and "differing channels: 0 / 3072" in comparison.get("stdout", "")
+    )
 
 
 def poppler_uaf_reproduced(check):
@@ -296,7 +367,7 @@ def main():
             check["passed"] = (
                 tiff_baseline_reproduced(check)
                 if args.phase == "baseline"
-                else check["returncode"] == 0
+                else tiff_patched_regression_succeeded(check)
                 and output.is_file() and output.stat().st_size > 0
             )
             checks.append(check)
@@ -332,6 +403,7 @@ def main():
                                      str(binary), *([str(adam7)] if cve == "CVE-2025-65018" else [])])
                     check["memoryLog"] = log.read_text() if log.exists() else ""
                     check["cve"] = cve
+                    check["testId"] = source
                     check["passed"] = (libpng_overwrite_reproduced(check) if expected == "Invalid write"
                                        else libpng_stride_read_reproduced(check))
                     checks.append(check)
@@ -368,6 +440,7 @@ def main():
                 comparison = compile_probe("compare-interlaced-read.c")
                 check = execute([str(comparison), str(adam7), str(flat)])
                 check["passed"] = check["returncode"] == 0 and "differing channels: 0 / 3072" in check["stdout"]
+                check["testId"] = "adam7-pixel-equality"
                 checks.append(check)
                 checks[1]["cve"] = "CVE-2026-22695"
                 checks[1]["testId"] = "CVE-2026-22695-padded-stride-follow-up"

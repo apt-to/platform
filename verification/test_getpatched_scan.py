@@ -348,6 +348,17 @@ Architecture: i386
                 policy_file=policy_file, docker_stub_dir=docker_stub, docker_report_dir=proof,
                 docker_status_file=image_status_file, effective_feed_output=verification_feed,
             )
+            patched_report_path = proof / "patched-regression.json"
+            patched_report = json.loads(patched_report_path.read_text())
+            patched_report["checks"][0]["returncode"] = 1
+            patched_report_path.write_text(json.dumps(patched_report))
+            nonzero_patched_check = self.scan(
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: " + candidate + "\nArchitecture: amd64\n",
+                target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="image-patched",
+                regression_phase="after", scan_images=scan_images, recipe_directory=proof,
+                policy_file=policy_file, docker_stub_dir=docker_stub, docker_report_dir=proof,
+                docker_status_file=patched_status_file, effective_feed_output=verification_feed,
+            )
             verification_feed_hash = hashlib.sha256(verification_feed.read_bytes()).hexdigest()
         self.assertEqual(baseline_result.returncode, 1, baseline_result.stderr)
         self.assertEqual(json.loads(baseline_result.stdout)["findingsById"], ["CVE-2025-61144"])
@@ -361,6 +372,9 @@ Architecture: i386
         self.assertEqual(report["regressionVerifiedCandidate"], [{"source": "tiff", "targetId": "ubuntu-focal-amd64"}])
         self.assertEqual(set(report["regressionReportSha256"]), {"baseline", "patched"})
         self.assertEqual(report["regressionImageIds"], {"baseline": "image-baseline", "patched": "image-patched"})
+
+        self.assertEqual(nonzero_patched_check.returncode, 2)
+        self.assertIn("TIFF patched evidence lacks clean CVE regression", nonzero_patched_check.stderr)
 
     def test_candidate_feed_output_cannot_alias_canonical_feed(self):
         with tempfile.TemporaryDirectory(prefix="getpatched-candidate-feed-alias-") as directory:
