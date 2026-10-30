@@ -236,6 +236,7 @@
           "packageEcosystem": "Ubuntu:20.04:LTS",
           "packageVersion": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
           "releaseSerial": 1,
+          "ubuntuProEsmCompatibility": "not-applicable",
           "binaryPackages": ["libgit2-28", "libgit2-dev"],
           "targetCve": "CVE-2026-53584",
           "targetCves": ["CVE-2026-53584", "CVE-2026-53585", "CVE-2026-53586"],
@@ -245,7 +246,7 @@
             "CVE-2026-53585": "https://ubuntu.com/security/CVE-2026-53585",
             "CVE-2026-53586": "https://ubuntu.com/security/CVE-2026-53586"
           },
-          "candidateStatus": "unverified-development-candidate",
+          "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {
             "policy": "public-after-checks",
             "sponsorDelayHours": 0,

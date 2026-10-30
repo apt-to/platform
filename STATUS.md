@@ -1,5 +1,18 @@
 # GetPatched implementation status
 
+## Latest verified checkpoint — 31 Oct 2026, 00:35 Europe/Copenhagen
+
+- **libgit2 / Ubuntu Focal amd64:** policy-aligned hosted run [41144391227](https://github.com/getpatched/platform/actions/runs/41144391227) passed against public recipe commit `ec3e0081bfef46cc0dc7344a5877cdfa1905be5c`. It built `0.28.4+dfsg.1-2ubuntu0.1+getpatched1`, passed the three installed baseline/patched regressions, the package-aware advisory comparison, consumer checks, and isolated signed APT client retrieval. Its report confirms `candidateVerified=true` and `verificationChecksPassed=true`; `releaseEligible=false` because publication is disabled. No binaries or production metadata were published.
+- Run report and source artifacts are retained under `evidence/libgit2-hosted-verification-41144391227/` and `evidence/libgit2-hosted-source-41144391227/`, with per-file SHA-256 manifests. GitHub artifact IDs are `13020379350` (verification) and `13020179540` (source). The earlier detailed scan/regression and package checks remain recorded below, with their original raw evidence retained under the `41142564467` evidence directories.
+- Run report and raw scanner/source artifacts are downloaded under `evidence/libgit2-hosted-verification-41142564467/` and `evidence/libgit2-hosted-source-41142564467/`; per-file SHA-256 manifests are included. The original GitHub artifact IDs are verification `13020361971` and source `13019967418`.
+- The Focal target is now marked `development-verified-production-release-pending`, has zero-hour public-after-checks access, and is listed on the website with per-CVE, per-patch HTML/JSON/badge records. This describes verified development artifacts only; production release remains disabled.
+- Debian Bookworm's current security source `1.5.1+ds-1+deb12u2` already fixes CVE-2026-53584/53585/53586; Debian maintainers state CVE-2026-53587 does not apply to 1.5.1. Debian Trixie is fixed. Ubuntu 20.04 and 22.04 tracker records show ESM-only fixes for 53584; 24.04 and 26.04 are publicly fixed. Ubuntu Focal is explicitly not affected by CVE-2026-53587. A separate Ubuntu Jammy public-source target still needs its own recipe and verification, so libgit2 distro coverage is incomplete.
+- Focused policy/catalogue/release-candidate/scanner tests pass 38/38. No publishing workflow ran. Production APT endpoints and release-routing prerequisites remain open; arm64 and the other package streams remain unverified or blocked by the specific evidence recorded below.
+
+### Next actions
+
+1. Complete the final review/CI for PR #87, merge and deploy the public Focal catalogue, then create a Jammy recipe only from a source index whose hashes match a verified Ubuntu `InRelease`. Keep production publication disabled until the remaining streams and live signed-repository gates pass.
+
 ## Latest verified checkpoint — 30 Oct 2026, 22:58 UTC
 
 - **Poppler / Ubuntu Focal amd64:** hosted verification run [41096967773](https://github.com/getpatched/platform/actions/runs/41096967773) passed its exact-source build, installed baseline and patched regressions, package-aware scan, consumer check, and isolated signed APT/source-client retrieval. No package was published.

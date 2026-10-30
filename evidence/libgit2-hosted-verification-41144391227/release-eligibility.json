@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "source": "libgit2",
+  "targetId": "ubuntu-focal-amd64",
+  "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+  "releaseSerial": 1,
+  "supportScope": "ubuntu-focal-amd64",
+  "candidateStatus": "development-verified-production-release-pending",
+  "candidateVerified": true,
+  "verificationChecksPassed": true,
+  "releaseEligible": false,
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "reason": "repository publication is disabled for this target"
+}

@@ -175,6 +175,120 @@
           "publicLicenseScope": "getpatched-authored-contributions-only"
         }
       }
+    },
+    {
+      "source": "libgit2",
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baseVersion": "0.28.4+dfsg.1-2ubuntu0.1",
+          "version": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+          "cves": ["CVE-2026-53584", "CVE-2026-53585", "CVE-2026-53586"],
+          "vulnerabilities": [
+            {
+              "id": "CVE-2026-53584",
+              "slug": "cve-2026-53584",
+              "summary": "Malicious submodule paths can escape the repository worktree.",
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2026-53584",
+              "patchSlugs": ["cve-2026-53584-focal"],
+              "patched": true
+            },
+            {
+              "id": "CVE-2026-53585",
+              "slug": "cve-2026-53585",
+              "summary": "A malicious pack delta can declare an excessive object size and cause memory exhaustion.",
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2026-53585",
+              "patchSlugs": ["cve-2026-53585-focal"],
+              "patched": true
+            },
+            {
+              "id": "CVE-2026-53586",
+              "slug": "cve-2026-53586",
+              "summary": "An HTTP redirect can cause credentials for the original host to be exposed to another host.",
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2026-53586",
+              "patchSlugs": ["cve-2026-53586-focal"],
+              "patched": true
+            }
+          ],
+          "patches": [
+            {
+              "id": "cve-2026-53584-focal",
+              "slug": "cve-2026-53584-focal",
+              "kind": "security",
+              "title": "Reject submodule filesystem paths outside the repository",
+              "description": "Rejects traversal paths read from .gitmodules before submodule operations can escape the worktree.",
+              "sha256": "68fac34287ea839bf425864959c8a19a2b874c79a04af33ee51c5d1f2c31d216",
+              "fileUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/focal/patches/CVE-2026-53584-focal.patch",
+              "cves": ["CVE-2026-53584"],
+              "upstream": {
+                "repository": "https://github.com/libgit2/libgit2",
+                "commit": "419637d3587396f5d139d6d88480eab3cd81e7a1",
+                "url": "https://github.com/libgit2/libgit2/commit/419637d3587396f5d139d6d88480eab3cd81e7a1"
+              },
+              "tests": [{
+                "id": "CVE-2026-53584-submodule-path-escape",
+                "baselineExpectation": "The installed baseline creates a malicious subrepository outside its worktree.",
+                "patchedExpectation": "The installed patched package rejects the path and creates no escaped directory."
+              }]
+            },
+            {
+              "id": "cve-2026-53585-focal",
+              "slug": "cve-2026-53585-focal",
+              "kind": "security",
+              "title": "Bound declared object size while unpacking pack data",
+              "description": "Rejects an oversized declared delta result before allocating its memory.",
+              "sha256": "2063f9e1442d693a738acffa7ac9a491daa71b2f2fd322e18e96954c24dcac0c",
+              "fileUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/focal/patches/CVE-2026-53585-focal.patch",
+              "cves": ["CVE-2026-53585"],
+              "upstream": {
+                "repository": "https://github.com/libgit2/libgit2",
+                "commit": "c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae",
+                "url": "https://github.com/libgit2/libgit2/commit/c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae"
+              },
+              "tests": [{
+                "id": "CVE-2026-53585-pack-object-size",
+                "baselineExpectation": "The installed baseline accepts a compact pack declaring a 100 MiB delta result.",
+                "patchedExpectation": "The installed patched package rejects the object at a configured 42 MiB cap."
+              }]
+            },
+            {
+              "id": "cve-2026-53586-focal",
+              "slug": "cve-2026-53586-focal",
+              "kind": "security",
+              "title": "Pass redirected server URL to the credential callback",
+              "description": "Passes the actual redirected origin to the credential callback so credentials are not sent to an untrusted host.",
+              "sha256": "58d26adfe51215153e369416241dcfcfd100da1c52b9a9c71b0e65b0f23ee677",
+              "fileUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/focal/patches/CVE-2026-53586-focal.patch",
+              "cves": ["CVE-2026-53586"],
+              "upstream": {
+                "repository": "https://github.com/libgit2/libgit2",
+                "commit": "c1507abc44647b3acd832a33a5b1c8c9f5ba8821",
+                "url": "https://github.com/libgit2/libgit2/commit/c1507abc44647b3acd832a33a5b1c8c9f5ba8821"
+              },
+              "tests": [{
+                "id": "CVE-2026-53586-redirect-credential-origin",
+                "baselineExpectation": "After redirect, the vulnerable callback receives the trusted origin and the redirected fixture server receives the dummy credential.",
+                "patchedExpectation": "After redirect, the callback receives the redirected origin and the fixture server receives no Authorization header."
+              }]
+            }
+          ],
+          "access": "public",
+          "delayHours": 0,
+          "sponsorEligibility": null,
+          "earlyBinaryLicenseId": null,
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "development-verified-production-release-pending",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41142564467",
+          "ubuntuProEsmCompatibility": "not-applicable",
+          "sourceUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/focal",
+          "patchUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/focal/patches/CVE-2026-53584-focal.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/focal/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-libgit2/releases",
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
+        }
+      }
     }
   ]
 }

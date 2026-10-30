@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "source": "libgit2",
+  "targetId": "ubuntu-focal-amd64",
+  "baseVersion": "0.28.4+dfsg.1-2ubuntu0.1",
+  "version": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+  "releaseSerial": 1,
+  "candidateStatus": "unverified-development-candidate",
+  "targetCve": "CVE-2026-53584",
+  "targetCves": [
+    "CVE-2026-53584",
+    "CVE-2026-53585",
+    "CVE-2026-53586"
+  ],
+  "sponsorDelayHours": 0,
+  "release": "focal",
+  "distribution": "Ubuntu",
+  "releaseVersion": "20.04",
+  "architecture": "amd64",
+  "advisoryEcosystem": "Ubuntu:20.04:LTS",
+  "packageEcosystem": "Ubuntu:20.04:LTS",
+  "releaseAccess": {
+    "policy": "public-after-checks",
+    "sponsorDelayHours": 0,
+    "sponsorEligibility": null,
+    "earlyBinaryLicenseId": null,
+    "publicContributionSpdx": "MIT",
+    "earlyUse": [
+      "private",
+      "commercial"
+    ],
+    "earlyRedistributionAllowed": false,
+    "publicLicenseScope": "getpatched-authored-contributions-only"
+  },
+  "publicContributionsSpdx": "MIT",
+  "earlyBinaryLicenseId": null,
+  "binaryPackages": [
+    "libgit2-28",
+    "libgit2-dev"
+  ],
+  "advisoryPackages": [
+    "libgit2-28",
+    "libgit2-dev"
+  ],
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "patches": [
+    "cve-2026-53584-focal",
+    "cve-2026-53585-focal",
+    "cve-2026-53586-focal"
+  ],
+  "buildPatches": []
+}

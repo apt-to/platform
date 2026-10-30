@@ -1,0 +1,44 @@
+{
+  "source": "libgit2",
+  "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+  "sourceCommit": "ec3e0081bfef46cc0dc7344a5877cdfa1905be5c",
+  "targetId": "ubuntu-focal-amd64",
+  "distribution": "focal",
+  "architecture": "amd64",
+  "publication": "not published; runner-local candidates for a protected staging job",
+  "packages": [
+    {
+      "name": "libgit2-28_0.28.4+dfsg.1-2ubuntu0.1+getpatched1_amd64.deb",
+      "package": "libgit2-28",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+      "architecture": "amd64",
+      "bytes": 407236,
+      "sha256": "a4b44bfb79a6bc987cd7a5c9ddc32c68c9accb0ec1a62604652c78cb77283320"
+    },
+    {
+      "name": "libgit2-dev_0.28.4+dfsg.1-2ubuntu0.1+getpatched1_amd64.deb",
+      "package": "libgit2-dev",
+      "version": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+      "architecture": "amd64",
+      "bytes": 714536,
+      "sha256": "85369308274297783e3e5de049ab2dafd9e06d4df8eb214b9a376901a6f51cbe"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1+getpatched1.debian.tar.xz",
+      "bytes": 28212,
+      "sha256": "aa099cac236e70fba651b617181d91d3d555f2db5566e21312c9d222c9d689a7"
+    },
+    {
+      "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1+getpatched1.dsc",
+      "bytes": 1468,
+      "sha256": "194901acc46be74e9b1f552d25cbc916f1bf9fb52472cd5994435d5f62373290"
+    },
+    {
+      "name": "libgit2_0.28.4+dfsg.1.orig.tar.xz",
+      "bytes": 2798048,
+      "sha256": "758517d1ff5124e732e999e2e50a501cb0d3c8bdcf64d1cec404ced6235c0bb7"
+    }
+  ]
+}

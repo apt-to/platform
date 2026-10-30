@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 2,
+  "purpose": "unpublished build verification; binaries not exported",
+  "source": "libgit2",
+  "targetId": "ubuntu-focal-amd64",
+  "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1",
+  "version": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+  "architecture": "amd64",
+  "packages": [
+    {
+      "name": "libgit2-28_0.28.4+dfsg.1-2ubuntu0.1+getpatched1_amd64.deb",
+      "sha256": "a4b44bfb79a6bc987cd7a5c9ddc32c68c9accb0ec1a62604652c78cb77283320",
+      "bytes": 407236,
+      "control": "Package: libgit2-28\nVersion: 0.28.4+dfsg.1-2ubuntu0.1+getpatched1\nArchitecture: amd64\nDepends: libc6 (>= 2.17), libgssapi-krb5-2 (>= 1.17), libhttp-parser2.9 (>= 2.1), libmbedcrypto3 (>= 2.13), libmbedtls12 (>= 2.13), libmbedx509-0 (>= 2.0), libssh2-1 (>= 1.7.0), zlib1g (>= 1:1.1.4)\n"
+    },
+    {
+      "name": "libgit2-dev_0.28.4+dfsg.1-2ubuntu0.1+getpatched1_amd64.deb",
+      "sha256": "85369308274297783e3e5de049ab2dafd9e06d4df8eb214b9a376901a6f51cbe",
+      "bytes": 714536,
+      "control": "Package: libgit2-dev\nVersion: 0.28.4+dfsg.1-2ubuntu0.1+getpatched1\nArchitecture: amd64\nDepends: libgit2-28 (= 0.28.4+dfsg.1-2ubuntu0.1+getpatched1), zlib1g-dev, libmbedtls-dev, libssh2-1-dev, libhttp-parser-dev\n"
+    }
+  ]
+}
