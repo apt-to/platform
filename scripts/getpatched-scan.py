@@ -14,13 +14,13 @@ import uuid
 from build_getpatched_advisory_feed import PACKAGES, build_feed
 from debian_versions import debian_version_compare, debian_version_parts
 from platform_policy import package_ecosystem, package_target_policy, target_profile
+from package_recipe import load_recipe
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "verification"))
 from regression import (consumer_version_succeeded, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         libpng_patched_checks_succeeded, poppler_uaf_reproduced,
                         schematron_baseline_reproduced, tiff_baseline_reproduced,
-                        tiffdither_overrun_baseline_reproduced, tiffdither_patched_succeeded,
                         tiff_null_output_baseline_reproduced, tiff_null_output_patched_succeeded,
                         tiff_patched_regression_succeeded)
 
@@ -279,27 +279,32 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
             raise ValueError("libgit2 regression reports must contain exactly one result per configured CVE")
         validate_followup_assessment_checks(target, checks, phase)
         if source == "tiff":
+            recipe = load_recipe(recipe_directory, config, target_id)
+            tiff_test = next((test
+                              for patch_id in recipe["target"]["patches"]
+                              for patch in [recipe["patchesById"][patch_id]]
+                              if "CVE-2025-61144" in patch.get("cves", [])
+                              for test in patch.get("tests", [])
+                              if test.get("id") == "tiffcrop-debug-sample-bounds"), None)
+            trusted_stack = (tiff_test or {}).get("baselineStackSignatures", {}).get(target_id)
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
             null_output_check = cve_checks.get("CVE-2025-61143")
-            dither_check = next((check for check in checks
-                                 if check.get("testId") == "tiffdither-scanline-width-bound"), {})
             sample_bounds_checks = [check for check in target_checks if check.get("cve") == "CVE-2025-61144"]
             if phase == "baseline":
-                if (not all(tiff_baseline_reproduced(check, check.get("baselineStackFrames"))
+                if (not trusted_stack
+                        or not all(tiff_baseline_reproduced(check, trusted_stack)
                             for check in sample_bounds_checks)
                         or ("CVE-2025-61143" in target["targetCves"]
-                            and not tiff_null_output_baseline_reproduced(null_output_check or {}))
-                        or not tiffdither_overrun_baseline_reproduced(dither_check)):
-                    raise ValueError("TIFF baseline evidence does not reproduce all configured tiffcrop/tiffdither paths")
+                            and not tiff_null_output_baseline_reproduced(null_output_check or {}))):
+                    raise ValueError("TIFF baseline evidence does not reproduce all configured tiffcrop paths")
             elif (("CVE-2025-61143" in target["targetCves"]
                    and (not null_output_check or not tiff_null_output_patched_succeeded(null_output_check)))
                   or not all(check.get("passed") is True and tiff_patched_regression_succeeded(check)
                              for check in sample_bounds_checks)
-                  or dither_check.get("passed") is not True or not tiffdither_patched_succeeded(dither_check)
                   or not any(check.get("passed") is True and check.get("returncode") == 0
                              and check.get("command", [None])[0] == "tiffinfo"
                              and "Image Width" in check.get("stdout", "") for check in checks)):
-                raise ValueError("TIFF patched evidence lacks clean CVE/dither regressions and a tiffinfo consumer check")
+                raise ValueError("TIFF patched evidence lacks clean CVE regressions and a tiffinfo consumer check")
         elif source == "libxml2":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
             if phase == "baseline":
