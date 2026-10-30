@@ -1,11 +1,28 @@
 """Protect classification of the real focal Schematron baseline crash."""
 import json
 from pathlib import Path
+import signal
 import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
+                        libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced)
+                        tiff_baseline_reproduced, parse_callback_url, libgit2_redirect_reproduced)
+
+
+def libpng_memcheck(test_id, executable, arguments, cve, returncode=0, memory_log="ERROR SUMMARY: 0 errors\n"):
+    root = Path("/tmp/getpatched-regression-fixture")
+    return {
+        "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                    "--read-var-info=yes", f"--log-file={root / (executable + '.valgrind')}",
+                    str(root / executable), *(str(root / argument) for argument in arguments)],
+        "testId": test_id,
+        "cve": cve,
+        "returncode": returncode,
+        "timedOut": False,
+        "memoryLog": memory_log,
+        "passed": returncode == 0 and "ERROR SUMMARY: 0 errors" in memory_log,
+    }
 
 
 class BaselineClassification(unittest.TestCase):
@@ -25,13 +42,53 @@ class BaselineClassification(unittest.TestCase):
 
 
 class TiffBaselineClassification(unittest.TestCase):
+    def test_generic_tiffcrop_debug_dump_sigsegv_is_not_proof(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": -signal.SIGSEGV,
+            "timedOut": False,
+        }
+        self.assertFalse(tiff_baseline_reproduced(check))
+
+    def test_sigsegv_outside_exact_tiffcrop_debug_dump_is_not_a_reproduction(self):
+        unrelated_command = {
+            "command": ["tiffinfo", "/fixture/multisample.tif"],
+            "returncode": -signal.SIGSEGV,
+            "timedOut": False,
+        }
+        wrong_debug_level = {
+            "command": ["tiffcrop", "-D", "format:txt,level:1,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": -signal.SIGSEGV,
+            "timedOut": False,
+        }
+        self.assertFalse(tiff_baseline_reproduced(unrelated_command))
+        self.assertFalse(tiff_baseline_reproduced(wrong_debug_level))
+
     def test_specific_out_of_bounds_sample_pointer_read_is_a_reproduction(self):
         check = {
+            "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
             "returncode": 97,
             "timedOut": False,
-            "memoryLog": "Invalid read of size 8\nat 0x123: loadImage (tools/tiffcrop.c:5493)\nAddress 0x... is 0 bytes after a block of size 64 alloc'd\nStack variable srcbuffs\n",
+            "memoryLog": "==123== Invalid read of size 8\n==123==    at 0x123: loadImage (tools/tiffcrop.c:5493)\n==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n==123== Stack variable srcbuffs\n==123== ERROR SUMMARY: 1 errors\n",
         }
         self.assertTrue(tiff_baseline_reproduced(check))
+
+    def test_evidence_from_separate_errors_cannot_be_combined(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": 97,
+            "timedOut": False,
+            "memoryLog": (
+                "==123== Invalid read of size 8\n"
+                "==123==    at 0x123: unrelated_function (other.c:10)\n"
+                "==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n\n"
+                "==123== Invalid read of size 4\n"
+                "==123==    at 0x456: loadImage (tools/tiffcrop.c:5493)\n"
+                "==123== Stack variable srcbuffs\n"
+                "==123== ERROR SUMMARY: 2 errors\n"
+            ),
+        }
+        self.assertFalse(tiff_baseline_reproduced(check))
 
     def test_unrelated_stack_read_size_does_not_match_the_sample_pointer_array(self):
         check = {
@@ -87,24 +144,86 @@ class LibpngBaselineClassification(unittest.TestCase):
         self.assertFalse(libpng_followup_read_is_clean(error))
 
     def test_specific_simplified_read_overwrite_is_a_reproduction(self):
-        check = {"returncode": 97, "timedOut": False,
-                 "memoryLog": "Invalid write of size 4\nat png_image_finish_read\nlibpng16.so.16"}
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+                                "CVE-2025-65018", 97,
+                                "Invalid write of size 4\nat png_image_finish_read\nlibpng16.so.16")
         self.assertTrue(libpng_overwrite_reproduced(check))
 
     def test_unrelated_write_does_not_match(self):
-        check = {"returncode": 97, "timedOut": False,
-                 "memoryLog": "Invalid write of size 4\nat unrelated\nlibpng16.so.16"}
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+                                "CVE-2025-65018", 97,
+                                "Invalid write of size 4\nat unrelated\nlibpng16.so.16")
         self.assertFalse(libpng_overwrite_reproduced(check))
 
     def test_specific_negative_stride_read_is_a_reproduction(self):
-        check = {"returncode": 97, "timedOut": False,
-                 "memoryLog": "Invalid read of size 4\nat png_image_write_to_file\nlibpng16.so.16"}
+        check = libpng_memcheck("write-negative-stride.c", "write-negative-stride", [],
+                                "CVE-2026-22801", 97,
+                                "Invalid read of size 4\nat png_image_write_to_file\nlibpng16.so.16")
         self.assertTrue(libpng_stride_read_reproduced(check))
 
     def test_passing_exit_cannot_be_counted_as_baseline_reproduction(self):
-        check = {"returncode": 0, "timedOut": False,
-                 "memoryLog": "Invalid read png_image_write_to_file libpng16.so.16"}
+        check = libpng_memcheck("write-negative-stride.c", "write-negative-stride", [],
+                                "CVE-2026-22801", 0,
+                                "Invalid read png_image_write_to_file libpng16.so.16")
         self.assertFalse(libpng_stride_read_reproduced(check))
+
+    def test_mislabeled_probe_or_missing_fixture_cannot_reproduce_libpng_cve(self):
+        wrong_probe = libpng_memcheck("read-interlaced-rgba.c", "unrelated", ["adam7.png"],
+                                      "CVE-2025-65018", 97,
+                                      "Invalid write png_image_finish_read libpng16.so.16")
+        wrong_fixture = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["flat.png"],
+                                        "CVE-2025-65018", 97,
+                                        "Invalid write png_image_finish_read libpng16.so.16")
+        self.assertFalse(libpng_overwrite_reproduced(wrong_probe))
+        self.assertFalse(libpng_overwrite_reproduced(wrong_fixture))
+
+    def test_patched_libpng_gate_binds_all_cve_checks_and_adam7_comparison(self):
+        checks = [
+            libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"], "CVE-2025-65018"),
+            libpng_memcheck("CVE-2026-22695-padded-stride-follow-up", "read-padded-stride", ["adam7.png"], "CVE-2026-22695"),
+            libpng_memcheck("write-negative-stride.c", "write-negative-stride", [], "CVE-2026-22801"),
+            {"testId": "adam7-pixel-equality", "command": [
+                "/tmp/getpatched-regression-fixture/compare-interlaced-read",
+                "/tmp/getpatched-regression-fixture/adam7.png",
+                "/tmp/getpatched-regression-fixture/flat.png",
+            ], "returncode": 0, "timedOut": False, "passed": True,
+                "stdout": "differing channels: 0 / 3072\n"},
+        ]
+        self.assertTrue(libpng_patched_checks_succeeded(checks))
+        wrong_probe = json.loads(json.dumps(checks))
+        wrong_probe[0]["command"][6] = "/tmp/getpatched-regression-fixture/unrelated"
+        self.assertFalse(libpng_patched_checks_succeeded(wrong_probe))
+        wrong_fixture = json.loads(json.dumps(checks))
+        wrong_fixture[1]["command"][7] = "/tmp/getpatched-regression-fixture/flat.png"
+        self.assertFalse(libpng_patched_checks_succeeded(wrong_fixture))
+        duplicate = checks + [checks[0]]
+        self.assertFalse(libpng_patched_checks_succeeded(duplicate))
+
+
+class TiffPatchedClassification(unittest.TestCase):
+    def valid_check(self):
+        return {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                        "--read-var-info=yes", "--log-file=/tmp/tiffcrop-valgrind.log", "tiffcrop", "-D",
+                        "format:txt,level:2,input:/tmp/tiffcrop-debug", "/tmp/multisample.tif", "/tmp/output.tif"],
+            "returncode": 0,
+            "timedOut": False,
+            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+        }
+
+    def test_patched_tiff_requires_zero_exit_and_clean_memcheck(self):
+        self.assertTrue(tiff_patched_regression_succeeded(self.valid_check()))
+        bad_exit = self.valid_check()
+        bad_exit["returncode"] = 1
+        self.assertFalse(tiff_patched_regression_succeeded(bad_exit))
+        memory_error = self.valid_check()
+        memory_error["memoryLog"] = "ERROR SUMMARY: 1 errors\n"
+        self.assertFalse(tiff_patched_regression_succeeded(memory_error))
+
+    def test_unrelated_tiff_command_is_not_patched_evidence(self):
+        check = self.valid_check()
+        check["command"][6] = "tiffinfo"
+        self.assertFalse(tiff_patched_regression_succeeded(check))
 
 
 class PopplerBaselineClassification(unittest.TestCase):
@@ -146,6 +265,56 @@ class ConsumerVersionCheck(unittest.TestCase):
             {"returncode": 1, "timedOut": False, "stderr": "pdfinfo version 0.86.1"}, "pdfinfo version"))
         self.assertFalse(consumer_version_succeeded(
             {"returncode": None, "timedOut": True, "stderr": "pdfinfo version 0.86.1"}, "pdfinfo version"))
+
+
+class CallbackUrlParsing(unittest.TestCase):
+    def test_extracts_single_callback_line_without_python_39_string_methods(self):
+        self.assertEqual(parse_callback_url("other output\ncallback_url=http://127.0.0.1:8080/repo\n"),
+                         "http://127.0.0.1:8080/repo")
+
+    def test_rejects_missing_or_ambiguous_callback_lines(self):
+        self.assertIsNone(parse_callback_url("no callback"))
+        self.assertIsNone(parse_callback_url("callback_url=first\ncallback_url=second\n"))
+
+
+class Libgit2RedirectEvidence(unittest.TestCase):
+    def test_baseline_requires_fixture_credential_to_reach_redirected_origin(self):
+        check = {
+            "returncode": 0, "timedOut": False,
+            "initialOrigin": "http://127.0.0.1:8001",
+            "redirectedOrigin": "http://127.0.0.1:8002",
+            "callbackUrls": ["http://127.0.0.1:8001/repository"],
+            "redirectedHostReceivedFixtureCredential": True,
+        }
+        self.assertTrue(libgit2_redirect_reproduced(check, "baseline"))
+        check["redirectedHostReceivedFixtureCredential"] = False
+        self.assertFalse(libgit2_redirect_reproduced(check, "baseline"))
+
+    def test_patched_run_requires_redirect_origin_and_no_authorization_header(self):
+        check = {
+            "returncode": 0, "timedOut": False,
+            "initialOrigin": "http://127.0.0.1:8001",
+            "redirectedOrigin": "http://127.0.0.1:8002",
+            "callbackUrls": ["http://127.0.0.1:8002/repository"],
+            "redirectedHostAuthorizationHeaderPresent": False,
+        }
+        self.assertTrue(libgit2_redirect_reproduced(check, "patched"))
+        check["redirectedHostAuthorizationHeaderPresent"] = True
+        self.assertFalse(libgit2_redirect_reproduced(check, "patched"))
+
+    def test_wrong_callback_origin_and_timeout_are_not_evidence(self):
+        check = {
+            "returncode": 0, "timedOut": False,
+            "initialOrigin": "http://127.0.0.1:8001",
+            "redirectedOrigin": "http://127.0.0.1:8002",
+            "callbackUrls": ["http://127.0.0.1:8003/repository"],
+            "redirectedHostReceivedFixtureCredential": True,
+        }
+        self.assertFalse(libgit2_redirect_reproduced(check, "baseline"))
+        check["callbackUrls"] = ["http://127.0.0.1:8002/repository"]
+        check["redirectedHostAuthorizationHeaderPresent"] = False
+        check["timedOut"] = True
+        self.assertFalse(libgit2_redirect_reproduced(check, "patched"))
 
 
 if __name__ == "__main__":

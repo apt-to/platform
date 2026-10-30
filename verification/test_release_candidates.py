@@ -5,6 +5,7 @@ import re
 import tempfile
 import unittest
 import sys
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/build-package.py"
@@ -14,6 +15,7 @@ SPEC.loader.exec_module(BUILD_PACKAGE)
 ROOT = SCRIPT.parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from platform_policy import package_target_policy, target_profile
+from build_getpatched_advisory_feed import build_feed
 
 TARGET_ID = "ubuntu-focal-amd64"
 CONFIG = json.loads((ROOT / "packages.json").read_text())
@@ -24,27 +26,85 @@ def source_policy(source):
     profile = target_profile(CONFIG, TARGET_ID)
     return {
         "source": source, "targetId": TARGET_ID,
+        "baselineVersion": package["baselineVersion"], "packageVersion": package["packageVersion"],
         "baseVersion": package["baselineVersion"], "version": package["packageVersion"],
         "releaseSerial": package["releaseSerial"], "targetCve": package["targetCve"],
         "targetCves": package["targetCves"],
         "ubuntuProEsmCompatibility": package.get("ubuntuProEsmCompatibility", "not-applicable"),
         "sponsorDelayHours": package["releaseAccess"]["sponsorDelayHours"],
-        "binaryPackages": package["binaryPackages"], "architecture": profile["architecture"],
-        "release": profile["codename"], "distribution": profile["distribution"],
+        "binaryPackages": package["binaryPackages"], "advisoryPackages": package["advisoryPackages"],
+        "architecture": profile["architecture"],
+        "release": profile["codename"], "codename": profile["codename"], "distribution": profile["distribution"],
         "releaseVersion": profile["releaseVersion"],
     }
 
 
 class ReleaseCandidateOutput(unittest.TestCase):
+    def test_poppler_advisory_scan_scope_excludes_docs_binary(self):
+        expected = source_policy("poppler")
+        self.assertIn("libpoppler-glib-doc", expected["binaryPackages"])
+        self.assertNotIn("libpoppler-glib-doc", expected["advisoryPackages"])
+        candidate_feed = build_feed(CONFIG, {("poppler", TARGET_ID)})
+        advisory = next(item for item in candidate_feed["vulns"] if item["id"] == "CVE-2025-52885")
+        affected_names = {item["package"]["name"] for item in advisory["affected"]}
+        self.assertEqual(affected_names, set(expected["advisoryPackages"]))
+        image_id = "sha256:" + "a" * 64
+        versions = {name: expected["baseVersion"] for name in expected["advisoryPackages"]}
+        findings = [{"id": cve, "package": name} for cve in expected["targetCves"]
+                    for name in expected["advisoryPackages"]]
+        report = {
+            "imageId": image_id,
+            "scannedPackageVersions": versions,
+            "findings": findings,
+            "findingsById": expected["targetCves"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with (mock.patch.object(BUILD_PACKAGE, "run", return_value=mock.Mock(stdout="")),
+                  mock.patch.object(BUILD_PACKAGE.subprocess, "run", return_value=mock.Mock(
+                      returncode=1, stdout=json.dumps(report), stderr=""))):
+                result = BUILD_PACKAGE.run_getpatched_scan(
+                    "baseline-image", image_id, "before", output, output,
+                    "poppler", expected, output,
+                )
+            self.assertTrue(result["report"].is_file())
+            self.assertEqual(json.loads(result["report"].read_text())["scannedPackageVersions"], versions)
+
+            incomplete = {**report, "scannedPackageVersions": {key: value for key, value in versions.items()
+                                                                  if key != expected["advisoryPackages"][0]}}
+            with (mock.patch.object(BUILD_PACKAGE, "run", return_value=mock.Mock(stdout="")),
+                  mock.patch.object(BUILD_PACKAGE.subprocess, "run", return_value=mock.Mock(
+                      returncode=1, stdout=json.dumps(incomplete), stderr=""))):
+                with self.assertRaisesRegex(RuntimeError, "expected advisory package"):
+                    BUILD_PACKAGE.run_getpatched_scan(
+                        "baseline-image", image_id, "before", output, output,
+                        "poppler", expected, output,
+                    )
+
+    def test_advisory_packages_must_be_a_subset_of_generated_binaries(self):
+        invalid = json.loads(json.dumps(CONFIG))
+        invalid["packages"]["poppler"]["targets"][TARGET_ID]["advisoryPackages"].append("not-a-binary")
+        with self.assertRaisesRegex(ValueError, "invalid advisory package scope"):
+            package_target_policy(invalid, "poppler", TARGET_ID)
+
+    def test_patched_scan_installs_interdependent_local_packages_together(self):
+        containerfile = (ROOT / "build/patched-scan.Containerfile").read_text()
+        local_deb_loop = containerfile.index('for binary in $BINARY_PACKAGES; do')
+        local_install = containerfile.index('apt-get install -y --no-install-recommends $packages;')
+        version_check = containerfile.index('dpkg-query -W', local_install)
+        self.assertLess(local_deb_loop, local_install)
+        self.assertLess(local_install, version_check)
+        self.assertNotIn('apt-get install -y --no-install-recommends "$package"', containerfile)
+
     def test_latest_public_focal_candidates_are_eligible_after_verification(self):
         self.assertEqual(set(CONFIG["packages"]), {"libxml2", "libarchive", "libpng1.6", "libgit2", "tiff", "poppler"})
         workflow = (ROOT / ".github/workflows/package-verification.yml").read_text()
         options = re.search(r"options: \[([^]]+)\]", workflow).group(1)
-        runnable_candidates = {"libxml2", "libarchive", "libpng1.6", "tiff", "poppler"}
+        runnable_candidates = {"libxml2", "libarchive", "libpng1.6", "libgit2", "tiff", "poppler"}
         self.assertEqual(set(item.strip() for item in options.split(",")), runnable_candidates)
         self.assertTrue(runnable_candidates.issubset(CONFIG["packages"]))
         baseline_cli = (ROOT / "scripts/run-baseline.py").read_text()
-        self.assertNotIn('"libgit2"', baseline_cli)
+        self.assertIn('"libgit2"', baseline_cli)
         for source, package_record in CONFIG["packages"].items():
             package = package_record["targets"][TARGET_ID]
             if source in ("libxml2", "libarchive"):

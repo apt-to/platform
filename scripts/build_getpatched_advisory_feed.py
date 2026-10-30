@@ -66,7 +66,7 @@ def build_feed(config, verified_candidates=frozenset()):
                     "vendor_fixed_versions": vendor_fixed,
                     "fixed_versions": [fixed, *vendor_fixed] if candidate_verified else vendor_fixed,
                 },
-            } for binary in sorted(package["binaryPackages"]))
+            } for binary in sorted(package["advisoryPackages"]))
             reference = {"type": "ADVISORY", "url": package.get("advisories", {}).get(cve, package["advisory"])}
             if reference not in advisory["references"]:
                 advisory["references"].append(reference)

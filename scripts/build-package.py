@@ -114,7 +114,8 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected,
     command.extend(["--regression-directory", str(output), "--regression-phase", phase,
                     "--scan-images", str(output / "scan-images.json"),
                     "--recipe-directory", str(recipe_directory),
-                    "--policy-file", str(output / "package-policy.json")])
+                    "--policy-file", str(output / "package-policy.json"),
+                    "--effective-feed-output", str(output / (package + "-verification-advisory-osv.json"))])
     # Candidate mode independently reruns both installed regression suites inside
     # the baseline and patched images before classifying either scan.
     scan = subprocess.run(command, capture_output=True, text=True, timeout=900, check=False)
@@ -125,16 +126,17 @@ def run_getpatched_scan(image, image_id, phase, output, temp, package, expected,
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     target_cves = set(expected["targetCves"])
     versions = report.get("scannedPackageVersions", {})
-    if report.get("imageId") != image_id or not set(expected["binaryPackages"]).issubset(versions):
-        raise RuntimeError("GetPatched scan did not identify every expected installed binary package and image")
+    advisory_packages = set(expected["advisoryPackages"])
+    if report.get("imageId") != image_id or not advisory_packages.issubset(versions):
+        raise RuntimeError("GetPatched scan did not identify every expected advisory package and image")
     expected_version = expected["baselineVersion"] if phase == "before" else expected["packageVersion"]
-    if any(versions[name] != expected_version for name in expected["binaryPackages"]):
+    if any(versions[name] != expected_version for name in advisory_packages):
         raise RuntimeError("GetPatched scan identified an unexpected installed package version")
     target_findings = set(report.get("findingsById", [])) & target_cves
     finding_pairs = {(finding.get("id"), finding.get("package")) for finding in report.get("findings", [])}
-    expected_pairs = {(cve, binary) for cve in target_cves for binary in expected["binaryPackages"]}
+    expected_pairs = {(cve, binary) for cve in target_cves for binary in advisory_packages}
     if phase == "before" and (not target_cves.issubset(target_findings) or not expected_pairs.issubset(finding_pairs)):
-        raise RuntimeError("GetPatched advisory scan did not detect every target CVE for every installed binary on the vulnerable baseline")
+        raise RuntimeError("GetPatched advisory scan did not detect every target CVE for every vulnerable binary on the baseline")
     if phase == "after" and target_findings:
         raise RuntimeError("GetPatched advisory scan reported target findings on the tested patched image")
     return {"report": report_path, "status": status_path}
@@ -405,6 +407,7 @@ def main():
                 "beforeScanMetadata": str(output / (package + "-trivy-before-metadata.json")),
                 "afterScanMetadata": str(output / (package + "-trivy-after-metadata.json")), "scanImages": str(output / "scan-images.json"),
                 "aptToFeed": str(ROOT / "advisories/getpatched-osv.json"),
+                "aptToVerificationFeed": str(output / (package + "-verification-advisory-osv.json")),
                 "beforeAptToScan": str(getpatched_scan_paths["before"]["report"]), "afterAptToScan": str(getpatched_scan_paths["after"]["report"]),
                 "beforeAptToStatus": str(getpatched_scan_paths["before"]["status"]), "afterAptToStatus": str(getpatched_scan_paths["after"]["status"]),
             }

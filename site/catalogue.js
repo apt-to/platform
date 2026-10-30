@@ -11,7 +11,8 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 }[character]));
 
 function packageRow(item) {
-  const cves = item.cves.map((cve) => `<a href="https://ubuntu.com/security/${encodeURIComponent(cve)}">${escapeHtml(cve)}</a>`).join("<span class=\"cve-separator\"> / </span>");
+  const cves = item.cves.map((cve) => `<a href="/vulnerabilities/${encodeURIComponent(cve.toLowerCase())}">${escapeHtml(cve)}</a>`).join("<span class=\"cve-separator\"> / </span>");
+  const patchLinks = (item.patches || []).map((patch) => `<a href="/patches/${encodeURIComponent(patch.slug)}">${patch.kind === "security" ? "Patch details" : "Build patch"} ↗</a>`).join("");
   const policy = item.access === "sponsor"
     ? `<span class="policy-dot policy-sponsor"></span><span class="policy-main">Sponsor first</span><span class="policy-detail">Any active individual GitHub Sponsors tier, no minimum · public ${escapeHtml(item.delayHours)} hours later</span><small>Private and commercial use; no redistribution of official early binaries</small>`
     : `<span class="policy-dot policy-public"></span><span class="policy-main">Public immediately</span><span class="policy-detail">After release checks pass</span>`;
@@ -26,7 +27,7 @@ function packageRow(item) {
     <td data-label="DEVELOPMENT CHECKS">${checks}</td>
     <td class="row-action" data-label="PACKAGE EVIDENCE"><nav class="evidence-links" aria-label="${escapeHtml(item.source)} package evidence">
       <a href="${escapeHtml(item.sourceUrl)}">Source ↗</a>
-      <a href="${escapeHtml(item.patchUrl)}">Patch ↗</a>
+      ${patchLinks || `<a href="${escapeHtml(item.patchUrl)}">Patch ↗</a>`}
       <a href="${escapeHtml(item.testsUrl)}">Tests ↗</a>
       <a href="${escapeHtml(item.releasesUrl)}">Releases ↗</a>
       <span class="release-status">${escapeHtml(item.releaseStatus)}</span>

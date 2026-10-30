@@ -18,8 +18,9 @@ from platform_policy import package_ecosystem, package_target_policy, target_pro
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "verification"))
 from regression import (consumer_version_succeeded, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
-                        poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced)
+                        libpng_patched_checks_succeeded, poppler_uaf_reproduced,
+                        schematron_baseline_reproduced, tiff_baseline_reproduced,
+                        tiff_patched_regression_succeeded)
 
 DEFAULT_FEED = ROOT / "advisories" / "getpatched-osv.json"
 MAX_STATUS_BYTES = 16 * 1024 * 1024
@@ -52,6 +53,53 @@ def poppler_patched_checks_succeeded(cve_check, checks):
         and "ERROR SUMMARY: 0 errors" in cve_check.get("memoryLog", "")
         and any(item.get("passed") is True and item.get("command", [None])[0] == "pdfinfo"
                 and consumer_version_succeeded(item, "pdfinfo version") for item in checks)
+    )
+
+
+def libgit2_regression_checks_succeeded(cve_checks, phase):
+    path_check = cve_checks.get("CVE-2026-53584", {})
+    pack_check = cve_checks.get("CVE-2026-53585", {})
+    redirect_check = cve_checks.get("CVE-2026-53586", {})
+    checks = (
+        (path_check, "CVE-2026-53584"),
+        (pack_check, "CVE-2026-53585"),
+        (redirect_check, "CVE-2026-53586"),
+    )
+    if any(check.get("cve") != cve or check.get("passed") is not True
+           or check.get("returncode") != 0 or check.get("timedOut") is not False
+           for check, cve in checks):
+        return False
+    callback_origins = redirect_check.get("callbackOrigin")
+    if not isinstance(callback_origins, list) or not callback_origins:
+        return False
+    expected_origin = redirect_check.get("initialOrigin") if phase == "baseline" else redirect_check.get("redirectedOrigin")
+    if any(origin != expected_origin for origin in callback_origins):
+        return False
+    if redirect_check.get("initialOrigin") == redirect_check.get("redirectedOrigin"):
+        return False
+    if phase == "baseline":
+        return (
+            path_check.get("baselinePathEscapeReproduced") is True
+            and path_check.get("outsideDirectoryCreated") is True
+            and path_check.get("result") == "result=created:escaped-submodule-directory"
+            and pack_check.get("baselineAcceptedLargeObject") is True
+            and pack_check.get("result") == "result=accepted:large-object"
+            and pack_check.get("declaredObjectSize") == 100 * 1024 * 1024
+            and redirect_check.get("baselineCredentialLeakReproduced") is True
+            and redirect_check.get("redirectedHostAuthorizationHeaderPresent") is True
+            and redirect_check.get("redirectedHostReceivedFixtureCredential") is True
+        )
+    return (
+        path_check.get("patchedPathRejected") is True
+        and path_check.get("outsideDirectoryCreated") is False
+        and path_check.get("result") == "result=rejected:invalid-submodule-path"
+        and pack_check.get("rejectedLargeObject") is True
+        and pack_check.get("result") == "result=rejected:overly-large-object"
+        and pack_check.get("configuredObjectLimit") == 42 * 1024 * 1024
+        and pack_check.get("declaredObjectSize", 0) > pack_check.get("configuredObjectLimit", 0)
+        and redirect_check.get("patchedCredentialLeakPrevented") is True
+        and redirect_check.get("redirectedHostAuthorizationHeaderPresent") is False
+        and redirect_check.get("redirectedHostReceivedFixtureCredential") is False
     )
 
 
@@ -222,17 +270,21 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
         cve_checks = {check.get("cve"): check for check in checks if check.get("cve")}
         if not set(target["targetCves"]).issubset(cve_checks):
             raise ValueError("candidate regression reports do not cover every configured target CVE")
+        if source == "libgit2" and any(
+            sum(check.get("cve") == cve for check in checks) != 1
+            for cve in target["targetCves"]
+        ):
+            raise ValueError("libgit2 regression reports must contain exactly one result per configured CVE")
         validate_followup_assessment_checks(target, checks, phase)
         if source == "tiff":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
             if phase == "baseline":
                 if not all(tiff_baseline_reproduced(check) for check in target_checks):
                     raise ValueError("TIFF baseline evidence does not reproduce the configured tiffcrop issue")
-            elif (not all(check.get("returncode") in (0, 1) and not check.get("timedOut")
-                          and check.get("command", [None])[0] == "tiffcrop" for check in target_checks)
-                  or not all("ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
-                             for check in target_checks)
-                  or not any(check.get("command", [None])[0] == "tiffinfo"
+            elif (not all(check.get("passed") is True and tiff_patched_regression_succeeded(check)
+                          for check in target_checks)
+                  or not any(check.get("passed") is True and check.get("returncode") == 0
+                             and check.get("command", [None])[0] == "tiffinfo"
                              and "Image Width" in check.get("stdout", "") for check in checks)):
                 raise ValueError("TIFF patched evidence lacks clean CVE regression and a tiffinfo consumer check")
         elif source == "libxml2":
@@ -261,12 +313,7 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
                         or not libpng_stride_read_reproduced(cve_checks.get("CVE-2026-22801", {}))):
                     raise ValueError("libpng baseline evidence does not reproduce both configured memory-safety issues")
             else:
-                if (not all(check.get("returncode") == 0 and not check.get("timedOut")
-                            and "ERROR SUMMARY: 0 errors" in check.get("memoryLog", "") for check in target_checks)
-                        or not any(check.get("testId") == "CVE-2026-22695-padded-stride"
-                                   and check.get("passed") is True for check in checks)
-                        or not any(Path(check.get("command", [""])[0]).name == "compare-interlaced-read"
-                                   and check.get("returncode") == 0 for check in checks)):
+                if not libpng_patched_checks_succeeded(checks):
                     raise ValueError("libpng patched evidence lacks clean CVE checks, padded-stride follow-up, or Adam7 pixel comparison")
         elif source == "poppler":
             check = cve_checks["CVE-2025-52885"]
@@ -275,6 +322,10 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
                     raise ValueError("Poppler baseline evidence does not reproduce the configured StructTreeRoot use-after-free")
             elif not poppler_patched_checks_succeeded(check, checks):
                 raise ValueError("Poppler patched evidence lacks a clean CVE regression and pdfinfo consumer check")
+        elif source == "libgit2":
+            if not libgit2_regression_checks_succeeded(cve_checks, phase):
+                description = "baseline evidence does not reproduce" if phase == "baseline" else "patched evidence does not prove"
+                raise ValueError(f"libgit2 {description} all three configured issues/fixes")
         else:
             raise ValueError("candidate regression runner has no package-specific evidence classifier")
     directory.mkdir(parents=True, exist_ok=True)
@@ -289,7 +340,7 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
     }
 
 
-def scan(status_path, feed_path, release, architecture, image_id=None, target_id=None, regression_directory=None, regression_phase=None, scan_images_path=None, recipe_directory=None, policy_path=None):
+def scan(status_path, feed_path, release, architecture, image_id=None, target_id=None, regression_directory=None, regression_phase=None, scan_images_path=None, recipe_directory=None, policy_path=None, effective_feed_output=None):
     verified_candidates = frozenset()
     regression_hashes = None
     if regression_directory is not None:
@@ -305,6 +356,24 @@ def scan(status_path, feed_path, release, architecture, image_id=None, target_id
             raise ValueError("candidate regression proof does not match the scanned image and phase")
         verified_candidates = frozenset({(source, target_id)})
     feed = load_feed(feed_path, verified_candidates)
+    if verified_candidates:
+        if effective_feed_output is None:
+            raise ValueError("candidate verification requires an output path for its exact advisory feed")
+        effective_feed_bytes = (json.dumps(feed, indent=2, sort_keys=True) + "\n").encode()
+        if len(effective_feed_bytes) > MAX_FEED_BYTES:
+            raise ValueError("verification advisory feed exceeds the 4 MiB scanner limit")
+        effective_feed_path = Path(effective_feed_output)
+        if effective_feed_path.resolve() == Path(feed_path).resolve():
+            raise ValueError("candidate verification feed output must not overwrite the canonical advisory feed")
+        effective_feed_path.parent.mkdir(parents=True, exist_ok=True)
+        effective_feed_path.write_bytes(effective_feed_bytes)
+        reported_feed_path = effective_feed_path
+        effective_feed_sha256 = hashlib.sha256(effective_feed_bytes).hexdigest()
+        feed_mode = "candidate-verification-only"
+    else:
+        reported_feed_path = Path(feed_path)
+        effective_feed_sha256 = hashlib.sha256(reported_feed_path.read_bytes()).hexdigest()
+        feed_mode = "canonical"
     candidates = {
         affected.get("ecosystem_specific", {}).get("target_id")
         for advisory in feed["vulns"] for affected in advisory["affected"]
@@ -385,7 +454,8 @@ def scan(status_path, feed_path, release, architecture, image_id=None, target_id
     return {
         "schemaVersion": 1, "scanner": "getpatched-dpkg-osv/1", "targetId": target_id, "release": release, "architecture": architecture,
         "imageId": image_id,
-        "advisoryFeed": str(feed_path), "advisoryFeedSha256": hashlib.sha256(Path(feed_path).read_bytes()).hexdigest(),
+        "advisoryFeed": str(reported_feed_path), "advisoryFeedMode": feed_mode,
+        "advisoryFeedSha256": effective_feed_sha256,
         "packagePolicySha256": hashlib.sha256(PACKAGES.read_bytes()).hexdigest(),
         "statusFileSha256": hashlib.sha256(status_bytes).hexdigest(),
         "scannedPackageVersions": dict(sorted(scanned.items())), "findings": findings,
@@ -416,11 +486,12 @@ def main():
     parser.add_argument("--scan-images", type=Path, help="paired baseline and patched image IDs produced by the build runner")
     parser.add_argument("--recipe-directory", type=Path, help="package recipe mounted read-only for independent installed regression execution")
     parser.add_argument("--policy-file", type=Path, help="build policy used by the independent installed regression runner")
+    parser.add_argument("--effective-feed-output", type=Path, help="retain the exact candidate-only advisory feed used for installed regression scans")
     args = parser.parse_args()
     try:
         report = scan(args.status_file, args.feed, args.release, args.architecture, args.image_id, args.target_id,
                       args.regression_directory, args.regression_phase, args.scan_images,
-                      args.recipe_directory, args.policy_file)
+                      args.recipe_directory, args.policy_file, args.effective_feed_output)
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError, subprocess.SubprocessError) as error:
         print("GetPatched scan failed: " + str(error), file=sys.stderr)
         return 2

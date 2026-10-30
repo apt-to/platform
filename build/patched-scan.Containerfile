@@ -13,7 +13,7 @@ RUN set -eu; \
     test -n "$APT_SOURCES_B64"; \
     printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
     apt-get update; \
-    apt-get install -y --no-install-recommends build-essential python3 valgrind; \
+    apt-get install -y --no-install-recommends build-essential python3 valgrind pkg-config; \
     apt-get -y dist-upgrade; \
     case "$SOURCE_PACKAGE" in \
       libxml2) binaries="libxml2 libxml2-utils" ;; \
@@ -32,10 +32,14 @@ RUN set -eu; \
 COPY getpatched/ /tmp/getpatched/
 RUN set -eu; \
     test -n "$BINARY_PACKAGES"; \
+    packages=""; \
     for binary in $BINARY_PACKAGES; do \
       package="$(find /tmp/getpatched -maxdepth 1 -name "${binary}_*.deb" -print -quit)"; \
       test -n "$package"; \
-      apt-get install -y --no-install-recommends "$package"; \
+      packages="${packages}${packages:+ }$package"; \
+    done; \
+    apt-get install -y --no-install-recommends $packages; \
+    for binary in $BINARY_PACKAGES; do \
       test "$(dpkg-query -W -f='${Version}' "$binary")" = "$EXPECTED_VERSION"; \
     done; \
     rm -rf /tmp/getpatched /var/lib/apt/lists/*

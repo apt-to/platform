@@ -22,8 +22,55 @@
       "source": "libxml2",
       "targets": {
         "ubuntu-focal-amd64": {
+          "baseVersion": "2.9.10+dfsg-5ubuntu0.20.04.10",
           "version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
           "cves": ["CVE-2025-49794", "CVE-2025-49796"],
+          "vulnerabilities": [
+            {
+              "id": "CVE-2025-49794",
+              "slug": "cve-2025-49794",
+              "summary": "A use-after-free in libxml2 can occur while parsing certain XPath elements in XML Schematron documents.",
+              "ubuntuPriority": "medium",
+              "cvssV3": 9.1,
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2025-49794",
+              "patchSlugs": ["cve-2025-49794-49796"],
+              "patched": true
+            },
+            {
+              "id": "CVE-2025-49796",
+              "slug": "cve-2025-49796",
+              "summary": "Processing certain sch:name elements in XML can trigger memory corruption in libxml2.",
+              "ubuntuPriority": "medium",
+              "cvssV3": 9.1,
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2025-49796",
+              "patchSlugs": ["cve-2025-49794-49796"],
+              "patched": true
+            }
+          ],
+          "patches": [
+            {
+              "id": "cve-2025-49794-49796",
+              "slug": "cve-2025-49794-49796",
+              "kind": "security",
+              "title": "Keep XPath namespace nodes alive during Schematron reporting",
+              "description": "Preserves the XPath result for the duration of Schematron report generation and checks node types before reading element fields.",
+              "sha256": "4ad0454ea7c0dcab6de5519b84ef49d84b849924c7717a215481a0f9f7632f73",
+              "fileUrl": "https://github.com/getpatched/packaging-libxml2/blob/getpatched/focal/patches/CVE-2025-49794-49796.patch",
+              "cves": ["CVE-2025-49794", "CVE-2025-49796"],
+              "upstream": {
+                "repository": "https://gitlab.gnome.org/GNOME/libxml2",
+                "commit": "81cef8c5b5aec2acdf5707e57a6db0c8d1d0abca",
+                "url": "https://gitlab.gnome.org/GNOME/libxml2/-/commit/81cef8c5b5aec2acdf5707e57a6db0c8d1d0abca"
+              },
+              "tests": [
+                {
+                  "id": "schematron-invalid-read-regression",
+                  "baselineExpectation": "Valgrind identifies the Schematron invalid read on the vulnerable Focal binaries.",
+                  "patchedExpectation": "The installed Focal backport completes both cases without invalid reads, and a normal xmllint consumer check passes."
+                }
+              ]
+            }
+          ],
           "access": "sponsor",
           "delayHours": 168,
           "sponsorEligibility": "any-active-individual-github-sponsorship-tier",
@@ -50,8 +97,63 @@
       "source": "libarchive",
       "targets": {
         "ubuntu-focal-amd64": {
+          "baseVersion": "3.4.0-2ubuntu1.5",
           "version": "3.4.0-2ubuntu1.5+getpatched1",
           "cves": ["CVE-2026-4111"],
+          "vulnerabilities": [
+            {
+              "id": "CVE-2026-4111",
+              "slug": "cve-2026-4111",
+              "summary": "A specially crafted RAR5 archive can make libarchive's decompression loop consume CPU without making forward progress.",
+              "ubuntuPriority": "medium",
+              "cvssV3": 7.5,
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2026-4111",
+              "patchSlugs": ["cve-2026-4111"],
+              "patched": true
+            }
+          ],
+          "patches": [
+            {
+              "id": "cve-2026-4111",
+              "slug": "cve-2026-4111",
+              "kind": "security",
+              "title": "Reject RAR5 filter blocks larger than half the decoder window",
+              "description": "Rejects an oversized filter block before decoding can enter a state without forward progress.",
+              "sha256": "c28af7bc479260c9147b56b70216f3fead4f3aeeb5e7358e09b25449357a9d48",
+              "fileUrl": "https://github.com/getpatched/packaging-libarchive/blob/getpatched/focal/patches/CVE-2026-4111.patch",
+              "cves": ["CVE-2026-4111"],
+              "upstream": {
+                "repository": "https://github.com/libarchive/libarchive",
+                "commit": "ec19fcbd20b18bd3b0fdcf2b3fb97789cd1bf575",
+                "url": "https://github.com/libarchive/libarchive/commit/ec19fcbd20b18bd3b0fdcf2b3fb97789cd1bf575"
+              },
+              "tests": [
+                {
+                  "id": "rar5-filter-loop-regression",
+                  "baselineExpectation": "The vulnerable Focal archive probe times out on the bounded RAR5 fixture.",
+                  "patchedExpectation": "The installed Focal backport rejects the fixture within the five-second limit; normal bsdtar create/extract checks pass."
+                }
+              ]
+            },
+            {
+              "id": "zstd-test-size-tolerance",
+              "slug": "zstd-test-size-tolerance",
+              "kind": "build-compatibility",
+              "title": "Allow two-byte Zstandard output variation in a tiny-input test",
+              "description": "Allows only the two-byte compression-size difference produced by Focal zstd while retaining the archive readback checks.",
+              "sha256": "0efbd115dbd3912108e7cf7f9286cdf50de4c4e223b5d893ac5c0c2b932ed2c3",
+              "fileUrl": "https://github.com/getpatched/packaging-libarchive/blob/getpatched/focal/patches/zstd-test-two-byte-tolerance.patch",
+              "cves": [],
+              "upstream": null,
+              "tests": [
+                {
+                  "id": "upstream-zstd-filter-roundtrip",
+                  "baselineExpectation": "The Focal zstd output size differs by two bytes from upstream's expected size.",
+                  "patchedExpectation": "The size tolerance is limited to two bytes and archive readback assertions continue to run."
+                }
+              ]
+            }
+          ],
           "access": "public",
           "delayHours": 0,
           "sponsorEligibility": null,

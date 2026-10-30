@@ -9,6 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from platform_policy import package_target_policy, scanner_config, target_profile
+from build_getpatched_advisory_feed import build_feed
 
 
 def load(path):
@@ -17,6 +18,19 @@ def load(path):
 
 def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def verification_advisory_feed(data, config):
+    canonical = load(data["aptToFeed"])
+    if canonical != build_feed(config):
+        raise ValueError("canonical GetPatched advisory feed does not match the reviewed package policy")
+    verification = load(data["aptToVerificationFeed"])
+    expected = build_feed(config, frozenset({(data["source"], data["targetId"])}))
+    if verification != expected:
+        raise ValueError("candidate verification feed does not match the exact configured source and target")
+    if verification.get("schema_version") != "1.6.0" or not isinstance(verification.get("vulns"), list):
+        raise ValueError("candidate verification feed is not OSV-format")
+    return verification
 
 
 def osv_targets(path, package, ecosystem, version, targets, *, required):
@@ -65,7 +79,7 @@ def main():
     args = parser.parse_args()
     try:
         data = load(args.input)
-        required = ("source", "targetId", "baselineVersion", "patchedVersion", "targetCves", "beforeTrivy", "afterTrivy", "beforeOsv", "afterOsv", "baselineRegression", "patchedRegression", "buildProvenance", "binaryManifest", "packagePolicy", "databaseSha256", "sourceCommit", "beforeScanMetadata", "afterScanMetadata", "scanImages", "aptToFeed", "beforeAptToScan", "afterAptToScan", "beforeAptToStatus", "afterAptToStatus")
+        required = ("source", "targetId", "baselineVersion", "patchedVersion", "targetCves", "beforeTrivy", "afterTrivy", "beforeOsv", "afterOsv", "baselineRegression", "patchedRegression", "buildProvenance", "binaryManifest", "packagePolicy", "databaseSha256", "sourceCommit", "beforeScanMetadata", "afterScanMetadata", "scanImages", "aptToFeed", "aptToVerificationFeed", "beforeAptToScan", "afterAptToScan", "beforeAptToStatus", "afterAptToStatus")
         missing = [key for key in required if key not in data]
         if missing:
             raise ValueError("required evidence fields missing: " + ", ".join(missing))
@@ -136,24 +150,27 @@ def main():
                 if len(matches) != 1 or matches[0].get("ID") != binary + "@" + expected_version:
                     raise ValueError(f"{phase} Trivy report does not identify {binary} at the expected version")
             scan_metadata[phase] = {"imageId": sidecar["imageId"], "databaseSha256": sidecar["databaseSha256"], "reportSha256": sidecar["reportSha256"]}
-        getpatched_feed = load(data["aptToFeed"])
-        if getpatched_feed.get("schema_version") != "1.6.0" or not isinstance(getpatched_feed.get("vulns"), list):
-            raise ValueError("GetPatched advisory feed is not OSV-format")
+        getpatched_feed = verification_advisory_feed(data, config)
+        verification_feed_sha256 = sha256(data["aptToVerificationFeed"])
         feed_ids = {item.get("id") for item in getpatched_feed["vulns"]}
         if not set(targets).issubset(feed_ids):
             raise ValueError("GetPatched advisory feed is missing configured target CVEs")
         getpatched_scans = {}
+        expected_advisory_names = package["advisoryPackages"]
         for phase in ("before", "after"):
             scan = load(data[phase + "AptToScan"])
             expected_version = data["baselineVersion"] if phase == "before" else data["patchedVersion"]
             package_versions = scan.get("scannedPackageVersions")
             if (scan.get("scanner") != "getpatched-dpkg-osv/1" or scan.get("targetId") != data["targetId"] or
                     scan.get("release") != profile["codename"] or scan.get("architecture") != profile["architecture"] or scan.get("imageId") != expected_ids[phase] or
-                    scan.get("advisoryFeedSha256") != sha256(data["aptToFeed"]) or
+                    scan.get("advisoryFeedMode") != "candidate-verification-only" or
+                    scan.get("advisoryFeed") != str(data["aptToVerificationFeed"]) or
+                    scan.get("advisoryFeedSha256") != verification_feed_sha256 or
+                    scan.get("regressionVerifiedCandidate") != [{"source": data["source"], "targetId": data["targetId"]}] or
                     scan.get("packagePolicySha256") != sha256(Path(__file__).resolve().parents[1] / "packages.json") or
                     scan.get("statusFileSha256") != sha256(data[phase + "AptToStatus"]) or
                     not isinstance(package_versions, dict) or
-                    any(package_versions.get(name) != expected_version for name in expected_binary_names)):
+                    any(package_versions.get(name) != expected_version for name in expected_advisory_names)):
                 raise ValueError(f"{phase} GetPatched scan does not bind the expected feed, image, package identities and versions")
             findings = scan.get("findings")
             if not isinstance(findings, list):
@@ -165,9 +182,9 @@ def main():
             if not isinstance(summary_ids, list) or set(summary_ids) != findings_by_id:
                 raise ValueError(f"{phase} GetPatched scan finding summary disagrees with its detailed findings")
             finding_pairs = {(item.get("id"), item.get("package")) for item in findings}
-            expected_pairs = {(cve, binary) for cve in targets for binary in expected_binary_names}
+            expected_pairs = {(cve, binary) for cve in targets for binary in expected_advisory_names}
             if phase == "before" and (not set(targets).issubset(findings_by_id) or not expected_pairs.issubset(finding_pairs)):
-                raise ValueError("before GetPatched scan did not detect every configured target CVE for every binary package")
+                raise ValueError("before GetPatched scan did not detect every configured target CVE for every vulnerable binary package")
             if phase == "after" and findings_by_id & set(targets):
                 raise ValueError(f"{phase} GetPatched scan does not prove the expected target advisory state")
             getpatched_scans[phase] = {
@@ -193,7 +210,7 @@ def main():
             "scanner": {"image": scanner["image"], "databaseReference": scanner["databaseReference"], "databaseSha256": data["databaseSha256"], "before": scan_metadata["before"], "after": scan_metadata["after"]},
             "canonicalOsv": {"ecosystem": profile["advisoryEcosystem"], "before": {"responseSha256": sha256(data["beforeOsv"]), "targetRecords": before_osv, "missingTargetIds": missing_osv_targets(before_osv), "allRecordIds": baseline_records}, "after": {"responseSha256": sha256(data["afterOsv"]), "targetRecords": after_osv, "missingTargetIds": missing_osv_targets(after_osv), "allRecordIds": patched_records}},
             "trivy": {"before": {"sha256": sha256(data["beforeTrivy"]), "packageCount": len(before_pkgs), "findingCount": len(before_vulns), "targetFindings": [v for v in before_vulns if v.get("VulnerabilityID") in targets]}, "after": {"sha256": sha256(data["afterTrivy"]), "packageCount": len(after_pkgs), "findingCount": len(after_vulns), "targetFindings": [v for v in after_vulns if v.get("VulnerabilityID") in targets]}, "unrelatedFindings": unrelated},
-            "aptToAdvisoryIntegration": {"source": "GetPatched OSV-format feed scan of installed dpkg status plus distribution OSV vendor-reference queries and installed regression evidence", "scanner": "getpatched-dpkg-osv/1", "feedSha256": sha256(data["aptToFeed"]), "before": getpatched_scans["before"], "after": getpatched_scans["after"], "baselineTargetFindingIds": getpatched_scans["before"]["targetFindingIds"], "patchedTargetFindingIds": getpatched_scans["after"]["targetFindingIds"], "unrelatedFindingIds": sorted(set(getpatched_scans["before"]["unrelatedFindingIds"]) | set(getpatched_scans["after"]["unrelatedFindingIds"])), "rawTrivyBaselineTargetFindingIds": sorted(before_target_hits), "rawTrivyPatchedTargetFindingIds": sorted(after_target_hits), "findings": integrated_findings, "claim": "custom GetPatched advisory scan; raw vendor Trivy findings, including any target findings, remain separately preserved and do not determine backport eligibility"},
+            "aptToAdvisoryIntegration": {"source": "GetPatched OSV-format candidate feed scan of installed dpkg status plus distribution OSV vendor-reference queries and installed regression evidence", "scanner": "getpatched-dpkg-osv/1", "feedMode": "candidate-verification-only", "canonicalFeedSha256": sha256(data["aptToFeed"]), "verificationFeedSha256": verification_feed_sha256, "feedSha256": verification_feed_sha256, "before": getpatched_scans["before"], "after": getpatched_scans["after"], "baselineTargetFindingIds": getpatched_scans["before"]["targetFindingIds"], "patchedTargetFindingIds": getpatched_scans["after"]["targetFindingIds"], "unrelatedFindingIds": sorted(set(getpatched_scans["before"]["unrelatedFindingIds"]) | set(getpatched_scans["after"]["unrelatedFindingIds"])), "rawTrivyBaselineTargetFindingIds": sorted(before_target_hits), "rawTrivyPatchedTargetFindingIds": sorted(after_target_hits), "findings": integrated_findings, "claim": "isolated candidate verification feed, generated from the canonical feed and exact candidate policy; raw vendor Trivy findings, including any target findings, remain separately preserved and do not determine backport eligibility"},
             "regression": {"baseline": str(data["baselineRegression"]), "patched": str(data["patchedRegression"]), "targetCves": targets},
             "assessment": {"vendorPublishedVersionStatus": {"targetRecords": before_osv, "missingTargetIds": missing_osv_targets(before_osv), "interpretation": "public distribution OSV response preserved as vendor-reference evidence; target-record absence is not interpreted as clean or affected status"}, "aptToStatus": "backport regression and exact installed-package scan verified for configured target CVEs", "rawTrivyTargetFindingsAfter": sorted(after_target_hits), "unrelatedTrivyFindingsPreserved": True},
             "passed": True,

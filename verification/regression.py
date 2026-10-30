@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 """Verify bounded regressions against installed focal packages, before and after."""
 import argparse
+import base64
 import binascii
 import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
+import re
+import shlex
 import signal
 import subprocess
+import threading
 import tempfile
+from urllib.parse import urlsplit
 
 
-def execute(command, timeout=30):
+def execute(command, timeout=30, env=None):
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=env)
         return {"command": command, "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr, "timedOut": False}
     except subprocess.TimeoutExpired:
         return {"command": command, "returncode": None, "stdout": "", "stderr": "", "timedOut": True}
@@ -31,13 +38,44 @@ def schematron_baseline_reproduced(check):
 
 def tiff_baseline_reproduced(check):
     log = check.get("memoryLog", "")
+    command = check.get("command", [])
+    debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
+    exact_probe = (
+        command
+        and Path(command[0]).name == "valgrind"
+        and "tiffcrop" in command
+        and "format:txt" in debug_dump
+        and "level:2" in debug_dump
+        and any(Path(arg).name == "multisample.tif" for arg in command)
+    )
+    if check.get("timedOut", False) or check.get("returncode") != 97 or not exact_probe:
+        return False
+
+    error_blocks = re.finditer(
+        r"(?ms)^==\d+== Invalid read of size 8\n(?P<body>.*?)(?=^==\d+== "
+        r"(?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)",
+        log,
+    )
+    return any(
+        "0 bytes after a block of size 64" in block.group("body")
+        and re.search(r"(?m)^==\d+==\s+at .*\b(?:loadImage|combineSeparateSamplesBytes)\b", block.group("body"))
+        and "srcbuffs" in block.group("body")
+        for block in error_blocks
+    )
+
+
+def tiff_patched_regression_succeeded(check):
+    command = check.get("command", [])
     return (
         not check.get("timedOut", False)
-        and check.get("returncode") == 97
-        and "Invalid read of size 8" in log
-        and "0 bytes after a block of size 64" in log
-        and "loadImage" in log
-        and ("srcbuffs" in log or "combineSeparateSamplesBytes" in log)
+        and check.get("returncode") == 0
+        and command
+        and Path(command[0]).name == "valgrind"
+        and "--tool=memcheck" in command
+        and "tiffcrop" in [Path(argument).name for argument in command]
+        and any(argument.startswith("format:txt,level:2,input:") for argument in command)
+        and any(Path(argument).name == "multisample.tif" for argument in command)
+        and "ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
     )
 
 
@@ -46,16 +84,35 @@ def consumer_version_succeeded(check, expected_banner):
     return not check.get("timedOut", False) and check.get("returncode") == 0 and expected_banner in output
 
 
+def libpng_probe_command_matches(check, test_id, executable, arguments):
+    command = check.get("command")
+    prefix = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+    if (check.get("testId") != test_id or not isinstance(command, list)
+            or command[:5] != prefix or len(command) != 7 + len(arguments)
+            or not command[5].startswith("--log-file=")):
+        return False
+    binary = Path(command[6])
+    log = Path(command[5].split("=", 1)[1])
+    if binary.name != executable or log.name != binary.name + ".valgrind":
+        return False
+    return all(
+        Path(argument).name == expected and Path(argument).parent == binary.parent
+        for argument, expected in zip(command[7:], arguments, strict=True)
+    )
+
+
 def libpng_overwrite_reproduced(check):
     log = check.get("memoryLog", "")
-    return (not check.get("timedOut", False) and check.get("returncode") == 97
+    return (libpng_probe_command_matches(check, "read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"])
+            and not check.get("timedOut", False) and check.get("returncode") == 97
             and "Invalid write" in log and "png_image_finish_read" in log
             and "libpng16.so." in log)
 
 
 def libpng_stride_read_reproduced(check):
     log = check.get("memoryLog", "")
-    return (not check.get("timedOut", False) and check.get("returncode") == 97
+    return (libpng_probe_command_matches(check, "write-negative-stride.c", "write-negative-stride", [])
+            and not check.get("timedOut", False) and check.get("returncode") == 97
             and "Invalid read" in log and "png_image_write_to_file" in log
             and "libpng16.so." in log)
 
@@ -66,11 +123,148 @@ def libpng_followup_read_is_clean(check):
             and "ERROR SUMMARY: 0 errors" in log)
 
 
+def libpng_patched_checks_succeeded(checks):
+    expected = {
+        "CVE-2025-65018": ("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"]),
+        "CVE-2026-22695": ("CVE-2026-22695-padded-stride-follow-up", "read-padded-stride", ["adam7.png"]),
+        "CVE-2026-22801": ("write-negative-stride.c", "write-negative-stride", []),
+    }
+    by_cve = {}
+    for cve in expected:
+        matches = [check for check in checks if check.get("cve") == cve]
+        if len(matches) != 1:
+            return False
+        by_cve[cve] = matches[0]
+    for cve, (test_id, executable, arguments) in expected.items():
+        check = by_cve[cve]
+        if (check.get("passed") is not True
+                or not libpng_probe_command_matches(check, test_id, executable, arguments)
+                or check.get("timedOut") is not False
+                or check.get("returncode") != 0
+                or "ERROR SUMMARY: 0 errors" not in check.get("memoryLog", "")):
+            return False
+    comparisons = [check for check in checks if check.get("testId") == "adam7-pixel-equality"]
+    if len(comparisons) != 1:
+        return False
+    comparison = comparisons[0]
+    command = comparison.get("command", [])
+    return (
+        comparison.get("passed") is True
+        and not comparison.get("timedOut", False)
+        and comparison.get("returncode") == 0
+        and isinstance(command, list) and len(command) == 3
+        and Path(command[0]).name == "compare-interlaced-read"
+        and [Path(argument).name for argument in command[1:]] == ["adam7.png", "flat.png"]
+        and Path(command[0]).parent == Path(command[1]).parent == Path(command[2]).parent
+        and "differing channels: 0 / 3072" in comparison.get("stdout", "")
+    )
+
+
 def poppler_uaf_reproduced(check):
     log = check.get("memoryLog", "")
     return (not check.get("timedOut", False) and check.get("returncode") == 97
             and any(error in log for error in ("Invalid read", "Invalid write", "Invalid free"))
             and "StructTreeRoot" in log and "parentTreeAdd" in log)
+
+
+def compile_libgit2_probe(source, binary, patched):
+    flags = shlex.split(subprocess.check_output(
+        ["pkg-config", "--cflags", "--libs", "libgit2"], text=True
+    ))
+    command = ["cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-Wno-missing-field-initializers"]
+    if patched:
+        command.append("-DGETPATCHED_PATCHED=1")
+    command.extend([str(source), *flags, "-o", str(binary)])
+    subprocess.run(command, check=True, timeout=30)
+    return binary
+
+
+def parse_callback_urls(stdout):
+    prefix = "callback_url="
+    return [line[len(prefix):] for line in stdout.splitlines() if line.startswith(prefix)]
+
+
+def parse_callback_url(stdout):
+    urls = parse_callback_urls(stdout)
+    return urls[0] if len(urls) == 1 else None
+
+
+def libgit2_redirect_reproduced(check, phase):
+    if check.get("timedOut") or check.get("returncode") != 0:
+        return False
+    callback_urls = check.get("callbackUrls", [])
+    if not callback_urls:
+        return False
+    expected_origin = check.get("initialOrigin") if phase == "baseline" else check.get("redirectedOrigin")
+    callback_origins = []
+    for callback_url in callback_urls:
+        parsed = urlsplit(callback_url)
+        callback_origins.append(f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None)
+    if any(origin != expected_origin for origin in callback_origins):
+        return False
+    if phase == "baseline":
+        return check.get("redirectedHostReceivedFixtureCredential") is True
+    return check.get("redirectedHostAuthorizationHeaderPresent") is False
+
+
+def run_libgit2_redirect_regression(binary, temp, phase):
+    fixture_credential = "Basic " + base64.b64encode(b"getpatched-test:fixture-only-credential").decode("ascii")
+    target_state = {"authorizationHeaderPresent": False, "fixtureCredentialReceived": False}
+
+    class RedirectHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", target_origin + self.path)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, _format, *_args):
+            pass
+
+    class UnauthorizedHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            authorization = self.headers.get("Authorization")
+            target_state["authorizationHeaderPresent"] |= authorization is not None
+            target_state["fixtureCredentialReceived"] |= authorization == fixture_credential
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="getpatched-test"')
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, _format, *_args):
+            pass
+
+    initial_server = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    target_server = ThreadingHTTPServer(("127.0.0.1", 0), UnauthorizedHandler)
+    initial_server.daemon_threads = True
+    target_server.daemon_threads = True
+    target_origin = f"http://127.0.0.1:{target_server.server_address[1]}"
+    initial_origin = f"http://127.0.0.1:{initial_server.server_address[1]}"
+    servers = (initial_server, target_server)
+    threads = [threading.Thread(target=server.serve_forever, daemon=True) for server in servers]
+    try:
+        for thread in threads:
+            thread.start()
+        environment = {
+            key: value for key, value in os.environ.items()
+            if key.lower() not in {"http_proxy", "https_proxy", "all_proxy", "no_proxy"}
+        }
+        environment["NO_PROXY"] = "127.0.0.1,localhost"
+        environment["no_proxy"] = environment["NO_PROXY"]
+        environment["GETPATCHED_TRUSTED_ORIGIN"] = initial_origin
+        result = execute([
+            str(binary), initial_origin + "/repository", str(temp / "redirect-clone"),
+        ], timeout=30, env=environment)
+        result["callbackUrls"] = parse_callback_urls(result["stdout"])
+        result["redirectedHostAuthorizationHeaderPresent"] = target_state["authorizationHeaderPresent"]
+        result["redirectedHostReceivedFixtureCredential"] = target_state["fixtureCredentialReceived"]
+        return result, initial_origin, target_origin
+    finally:
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+        for thread in threads:
+            thread.join(timeout=2)
 
 
 def main():
@@ -92,6 +286,7 @@ def main():
         "libarchive": "libarchive13",
         "tiff": "libtiff-tools",
         "libpng1.6": "libpng16-16",
+        "libgit2": "libgit2-28",
         "poppler": "libpoppler97",
     }.get(package)
     if installed_name is None:
@@ -162,7 +357,7 @@ def main():
                 "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
                 str(fixture), str(output),
             ]
-            memory_log = temp / "tiffcrop.valgrind"
+            memory_log = temp / "tiffcrop-valgrind.log"
             check = execute([
                 "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
                 "--read-var-info=yes", "--log-file=" + str(memory_log), *command,
@@ -172,7 +367,7 @@ def main():
             check["passed"] = (
                 tiff_baseline_reproduced(check)
                 if args.phase == "baseline"
-                else check["returncode"] == 0 and "ERROR SUMMARY: 0 errors" in check["memoryLog"]
+                else tiff_patched_regression_succeeded(check)
                 and output.is_file() and output.stat().st_size > 0
             )
             checks.append(check)
@@ -208,6 +403,7 @@ def main():
                                      str(binary), *([str(adam7)] if cve == "CVE-2025-65018" else [])])
                     check["memoryLog"] = log.read_text() if log.exists() else ""
                     check["cve"] = cve
+                    check["testId"] = source
                     check["passed"] = (libpng_overwrite_reproduced(check) if expected == "Invalid write"
                                        else libpng_stride_read_reproduced(check))
                     checks.append(check)
@@ -244,6 +440,7 @@ def main():
                 comparison = compile_probe("compare-interlaced-read.c")
                 check = execute([str(comparison), str(adam7), str(flat)])
                 check["passed"] = check["returncode"] == 0 and "differing channels: 0 / 3072" in check["stdout"]
+                check["testId"] = "adam7-pixel-equality"
                 checks.append(check)
                 checks[1]["cve"] = "CVE-2026-22695"
                 checks[1]["testId"] = "CVE-2026-22695-padded-stride-follow-up"
@@ -271,6 +468,77 @@ def main():
                 consumer = execute(["pdfinfo", "-v"])
                 consumer["passed"] = consumer_version_succeeded(consumer, "pdfinfo version")
                 checks.append(consumer)
+        elif package == "libgit2":
+            patched = args.phase == "patched"
+            pack_probe = compile_libgit2_probe(
+                fixtures / "pack-size-limit.c", temp / "pack-size-limit", patched
+            )
+            pack_work = temp / "pack-indexer"
+            pack_work.mkdir()
+            pack_check = execute([
+                str(pack_probe), str(fixtures / "delta_100mb.pack"), str(pack_work)
+            ], timeout=45)
+            pack_check["cve"] = "CVE-2026-53585"
+            pack_check["declaredObjectSize"] = 100 * 1024 * 1024
+            pack_check["configuredObjectLimit"] = 42 * 1024 * 1024 if patched else None
+            pack_check["result"] = pack_check["stdout"].strip()
+            pack_check["rejectedLargeObject"] = patched and pack_check["result"] == "result=rejected:overly-large-object"
+            pack_check["baselineAcceptedLargeObject"] = not patched and pack_check["result"] == "result=accepted:large-object"
+            pack_check["passed"] = pack_check["returncode"] == 0 and not pack_check["timedOut"]
+            checks.append(pack_check)
+
+            submodule_probe = compile_libgit2_probe(
+                fixtures / "submodule-path.c", temp / "submodule-path", patched
+            )
+            repo_parent = temp / "submodule-workspace"
+            repo_parent.mkdir()
+            repo_path = repo_parent / "repo"
+            escaped_path = repo_parent / "escape-target"
+            submodule_check = execute([str(submodule_probe), str(repo_path)], timeout=20)
+            submodule_check["cve"] = "CVE-2026-53584"
+            submodule_check["outsideDirectoryCreated"] = escaped_path.is_dir()
+            submodule_check["result"] = submodule_check["stdout"].strip()
+            submodule_check["baselinePathEscapeReproduced"] = (
+                not patched and submodule_check["returncode"] == 0
+                and submodule_check["outsideDirectoryCreated"]
+                and submodule_check["result"] == "result=created:escaped-submodule-directory"
+            )
+            submodule_check["patchedPathRejected"] = (
+                patched and submodule_check["returncode"] == 0
+                and not submodule_check["outsideDirectoryCreated"]
+                and submodule_check["result"] == "result=rejected:invalid-submodule-path"
+            )
+            submodule_check["passed"] = (
+                submodule_check["baselinePathEscapeReproduced"] if not patched
+                else submodule_check["patchedPathRejected"]
+            )
+            checks.append(submodule_check)
+
+            redirect_probe = compile_libgit2_probe(
+                fixtures / "redirect-auth.c", temp / "redirect-auth", patched
+            )
+            redirect_result, initial_origin, target_origin = run_libgit2_redirect_regression(
+                redirect_probe, temp, args.phase
+            )
+            redirect_result["cve"] = "CVE-2026-53586"
+            redirect_result["initialOrigin"] = initial_origin
+            redirect_result["redirectedOrigin"] = target_origin
+            redirect_result["initialOrigin"] = initial_origin
+            redirect_result["redirectedOrigin"] = target_origin
+            redirect_result["callbackOrigin"] = []
+            for callback_url in redirect_result["callbackUrls"]:
+                callback = urlsplit(callback_url)
+                redirect_result["callbackOrigin"].append(
+                    f"{callback.scheme}://{callback.netloc}" if callback.scheme and callback.netloc else None
+                )
+            redirect_result["baselineCredentialLeakReproduced"] = (
+                not patched and libgit2_redirect_reproduced(redirect_result, "baseline")
+            )
+            redirect_result["patchedCredentialLeakPrevented"] = (
+                patched and libgit2_redirect_reproduced(redirect_result, "patched")
+            )
+            redirect_result["passed"] = libgit2_redirect_reproduced(redirect_result, args.phase)
+            checks.append(redirect_result)
         else:
             raise RuntimeError("Unsupported source package")
     report = {
