@@ -47,32 +47,42 @@ def schematron_baseline_reproduced(check):
     )
 
 
-def tiff_baseline_reproduced(check):
+def tiff_baseline_reproduced(check, expected_stack_frames):
     log = check.get("memoryLog", "")
     command = check.get("command", [])
     debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
+    memcheck_options = ("--tool=memcheck", "--error-exitcode=97", "--read-var-info=yes")
     exact_probe = (
         command
         and Path(command[0]).name == "valgrind"
+        and all(option in command for option in memcheck_options)
         and "tiffcrop" in command
         and "format:txt" in debug_dump
         and "level:2" in debug_dump
         and any(Path(arg).name == "multisample.tif" for arg in command)
     )
-    if check.get("timedOut", False) or check.get("returncode") != 97 or not exact_probe:
+    if (check.get("timedOut", False) or check.get("returncode") != 97 or not exact_probe
+            or not isinstance(expected_stack_frames, list) or not expected_stack_frames):
         return False
 
     error_blocks = re.finditer(
-        r"(?ms)^==\d+== Invalid read of size 8\n(?P<body>.*?)(?=^==\d+== "
+        r"(?ms)^==\d+== Use of uninitialised value of size 8\n(?P<body>.*?)(?=^==\d+== "
         r"(?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)",
         log,
     )
-    return any(
-        "0 bytes after a block of size 64" in block.group("body")
-        and re.search(r"(?m)^==\d+==\s+at .*\b(?:loadImage|combineSeparateSamplesBytes)\b", block.group("body"))
-        and "srcbuffs" in block.group("body")
-        for block in error_blocks
-    )
+    def matches_expected_stack(block):
+        frames = re.findall(r"(?m)^==\d+==\s+(?:at|by) .*?$", block.group("body"))
+        return len(frames) >= len(expected_stack_frames) and all(
+            re.match(
+                rf"^==\d+==\s+(?:at|by) {re.escape(offset)}:.*\(in /usr/bin/tiffcrop\)$",
+                frame,
+            )
+            for frame, offset in zip(frames, expected_stack_frames)
+        )
+
+    has_expected_tiffcrop_stack = any(matches_expected_stack(block) for block in error_blocks)
+    has_memcheck_errors = re.search(r"(?m)^==\d+== ERROR SUMMARY: [1-9]\d* errors?", log)
+    return has_expected_tiffcrop_stack and bool(has_memcheck_errors)
 
 
 def tiff_patched_regression_succeeded(check):
@@ -299,6 +309,13 @@ def main():
     manifest = json.loads((args.recipe / "package-manifest.json").read_text())
     policy = json.loads(args.policy.read_text())
     package = policy["source"]
+    tiff_baseline_stack_frames = None
+    if package == "tiff":
+        patch_metadata = json.loads((args.recipe / "patches/metadata.json").read_text())
+        regression = next((test for patch in patch_metadata.get("patches", [])
+                           for test in patch.get("tests", [])
+                           if test.get("id") == "tiffcrop-debug-sample-bounds"), None)
+        tiff_baseline_stack_frames = (regression or {}).get("baselineStackSignatures", {}).get(policy["targetId"])
     fixtures = args.recipe / manifest["regressionTests"]["fixturesDirectory"]
     expected = policy["baseVersion"] if args.phase == "baseline" else policy["version"]
     installed_name = {
@@ -385,7 +402,7 @@ def main():
             check["memoryLog"] = memory_log.read_text() if memory_log.exists() else ""
             check["cve"] = "CVE-2025-61144"
             check["passed"] = (
-                tiff_baseline_reproduced(check)
+                tiff_baseline_reproduced(check, tiff_baseline_stack_frames)
                 if args.phase == "baseline"
                 else tiff_patched_regression_succeeded(check)
                 and output.is_file() and output.stat().st_size > 0
