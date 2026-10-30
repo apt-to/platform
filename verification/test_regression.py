@@ -6,7 +6,7 @@ import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced, parse_callback_url)
+                        tiff_baseline_reproduced, parse_callback_url, libgit2_redirect_reproduced)
 
 
 class BaselineClassification(unittest.TestCase):
@@ -26,13 +26,13 @@ class BaselineClassification(unittest.TestCase):
 
 
 class TiffBaselineClassification(unittest.TestCase):
-    def test_exact_tiffcrop_debug_dump_sigsegv_is_a_reproduction(self):
+    def test_generic_tiffcrop_debug_dump_sigsegv_is_not_proof(self):
         check = {
-            "command": ["tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
             "returncode": -signal.SIGSEGV,
             "timedOut": False,
         }
-        self.assertTrue(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check))
 
     def test_sigsegv_outside_exact_tiffcrop_debug_dump_is_not_a_reproduction(self):
         unrelated_command = {
@@ -50,11 +50,29 @@ class TiffBaselineClassification(unittest.TestCase):
 
     def test_specific_out_of_bounds_sample_pointer_read_is_a_reproduction(self):
         check = {
+            "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
             "returncode": 97,
             "timedOut": False,
-            "memoryLog": "Invalid read of size 8\nat 0x123: loadImage (tools/tiffcrop.c:5493)\nAddress 0x... is 0 bytes after a block of size 64 alloc'd\nStack variable srcbuffs\n",
+            "memoryLog": "==123== Invalid read of size 8\n==123==    at 0x123: loadImage (tools/tiffcrop.c:5493)\n==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n==123== Stack variable srcbuffs\n==123== ERROR SUMMARY: 1 errors\n",
         }
         self.assertTrue(tiff_baseline_reproduced(check))
+
+    def test_evidence_from_separate_errors_cannot_be_combined(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": 97,
+            "timedOut": False,
+            "memoryLog": (
+                "==123== Invalid read of size 8\n"
+                "==123==    at 0x123: unrelated_function (other.c:10)\n"
+                "==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n\n"
+                "==123== Invalid read of size 4\n"
+                "==123==    at 0x456: loadImage (tools/tiffcrop.c:5493)\n"
+                "==123== Stack variable srcbuffs\n"
+                "==123== ERROR SUMMARY: 2 errors\n"
+            ),
+        }
+        self.assertFalse(tiff_baseline_reproduced(check))
 
     def test_unrelated_stack_read_size_does_not_match_the_sample_pointer_array(self):
         check = {
@@ -179,6 +197,46 @@ class CallbackUrlParsing(unittest.TestCase):
     def test_rejects_missing_or_ambiguous_callback_lines(self):
         self.assertIsNone(parse_callback_url("no callback"))
         self.assertIsNone(parse_callback_url("callback_url=first\ncallback_url=second\n"))
+
+
+class Libgit2RedirectEvidence(unittest.TestCase):
+    def test_baseline_requires_fixture_credential_to_reach_redirected_origin(self):
+        check = {
+            "returncode": 0, "timedOut": False,
+            "initialOrigin": "http://127.0.0.1:8001",
+            "redirectedOrigin": "http://127.0.0.1:8002",
+            "callbackUrls": ["http://127.0.0.1:8001/repository"],
+            "redirectedHostReceivedFixtureCredential": True,
+        }
+        self.assertTrue(libgit2_redirect_reproduced(check, "baseline"))
+        check["redirectedHostReceivedFixtureCredential"] = False
+        self.assertFalse(libgit2_redirect_reproduced(check, "baseline"))
+
+    def test_patched_run_requires_redirect_origin_and_no_authorization_header(self):
+        check = {
+            "returncode": 0, "timedOut": False,
+            "initialOrigin": "http://127.0.0.1:8001",
+            "redirectedOrigin": "http://127.0.0.1:8002",
+            "callbackUrls": ["http://127.0.0.1:8002/repository"],
+            "redirectedHostAuthorizationHeaderPresent": False,
+        }
+        self.assertTrue(libgit2_redirect_reproduced(check, "patched"))
+        check["redirectedHostAuthorizationHeaderPresent"] = True
+        self.assertFalse(libgit2_redirect_reproduced(check, "patched"))
+
+    def test_wrong_callback_origin_and_timeout_are_not_evidence(self):
+        check = {
+            "returncode": 0, "timedOut": False,
+            "initialOrigin": "http://127.0.0.1:8001",
+            "redirectedOrigin": "http://127.0.0.1:8002",
+            "callbackUrls": ["http://127.0.0.1:8003/repository"],
+            "redirectedHostReceivedFixtureCredential": True,
+        }
+        self.assertFalse(libgit2_redirect_reproduced(check, "baseline"))
+        check["callbackUrls"] = ["http://127.0.0.1:8002/repository"]
+        check["redirectedHostAuthorizationHeaderPresent"] = False
+        check["timedOut"] = True
+        self.assertFalse(libgit2_redirect_reproduced(check, "patched"))
 
 
 if __name__ == "__main__":

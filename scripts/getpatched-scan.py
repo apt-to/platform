@@ -68,6 +68,14 @@ def libgit2_regression_checks_succeeded(cve_checks, phase):
            or check.get("returncode") != 0 or check.get("timedOut") is not False
            for check, cve in checks):
         return False
+    callback_origins = redirect_check.get("callbackOrigin")
+    if not isinstance(callback_origins, list) or not callback_origins:
+        return False
+    expected_origin = redirect_check.get("initialOrigin") if phase == "baseline" else redirect_check.get("redirectedOrigin")
+    if any(origin != expected_origin for origin in callback_origins):
+        return False
+    if redirect_check.get("initialOrigin") == redirect_check.get("redirectedOrigin"):
+        return False
     if phase == "baseline":
         return (
             path_check.get("baselinePathEscapeReproduced") is True
@@ -76,10 +84,9 @@ def libgit2_regression_checks_succeeded(cve_checks, phase):
             and pack_check.get("baselineAcceptedLargeObject") is True
             and pack_check.get("result") == "result=accepted:large-object"
             and pack_check.get("declaredObjectSize") == 100 * 1024 * 1024
-            and redirect_check.get("baselineUsedOriginalOrigin") is True
-            and redirect_check.get("callbackReceivedExpectedOrigin") is True
-            and redirect_check.get("callbackOrigin") == redirect_check.get("initialOrigin")
-            and redirect_check.get("initialOrigin") != redirect_check.get("redirectedOrigin")
+            and redirect_check.get("baselineCredentialLeakReproduced") is True
+            and redirect_check.get("redirectedHostAuthorizationHeaderPresent") is True
+            and redirect_check.get("redirectedHostReceivedFixtureCredential") is True
         )
     return (
         path_check.get("patchedPathRejected") is True
@@ -89,10 +96,9 @@ def libgit2_regression_checks_succeeded(cve_checks, phase):
         and pack_check.get("result") == "result=rejected:overly-large-object"
         and pack_check.get("configuredObjectLimit") == 42 * 1024 * 1024
         and pack_check.get("declaredObjectSize", 0) > pack_check.get("configuredObjectLimit", 0)
-        and redirect_check.get("patchedUsedRedirectedOrigin") is True
-        and redirect_check.get("callbackReceivedExpectedOrigin") is True
-        and redirect_check.get("callbackOrigin") == redirect_check.get("redirectedOrigin")
-        and redirect_check.get("initialOrigin") != redirect_check.get("redirectedOrigin")
+        and redirect_check.get("patchedCredentialLeakPrevented") is True
+        and redirect_check.get("redirectedHostAuthorizationHeaderPresent") is False
+        and redirect_check.get("redirectedHostReceivedFixtureCredential") is False
     )
 
 
@@ -275,7 +281,8 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
                 if not all(tiff_baseline_reproduced(check) for check in target_checks):
                     raise ValueError("TIFF baseline evidence does not reproduce the configured tiffcrop issue")
             elif (not all(check.get("returncode") in (0, 1) and not check.get("timedOut")
-                          and check.get("command", [None])[0] == "tiffcrop" for check in target_checks)
+                          and check.get("command", [None])[0] == "valgrind"
+                          and "tiffcrop" in check.get("command", []) for check in target_checks)
                   or not all("ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
                              for check in target_checks)
                   or not any(check.get("command", [None])[0] == "tiffinfo"

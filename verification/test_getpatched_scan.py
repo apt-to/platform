@@ -10,6 +10,15 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = ROOT / "scripts" / "getpatched-scan.py"
 FEED = ROOT / "advisories" / "getpatched-osv.json"
+TIFF_BASELINE_COMMAND = ["valgrind", "--tool=memcheck", "tiffcrop", "-D",
+                         "format:txt,level:2,input:fixture", "multisample.tif", "output.tif"]
+TIFF_BASELINE_LOG = (
+    "==123== Invalid read of size 8\n"
+    "==123==    at 0x123: loadImage (tools/tiffcrop.c:5493)\n"
+    "==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n"
+    "==123== Stack variable srcbuffs\n"
+    "==123== ERROR SUMMARY: 1 errors\n"
+)
 import importlib.util
 sys.path.insert(0, str(ROOT / "scripts"))
 SCANNER_SPEC = importlib.util.spec_from_file_location("getpatched_scan", SCANNER)
@@ -43,9 +52,11 @@ class GetPatchedScannerContract(unittest.TestCase):
                                 "baselineAcceptedLargeObject": True, "result": "result=accepted:large-object",
                                 "declaredObjectSize": 100 * 1024 * 1024},
             "CVE-2026-53586": {"cve": "CVE-2026-53586", "passed": True, "returncode": 0, "timedOut": False,
-                                "baselineUsedOriginalOrigin": True, "callbackOrigin": "http://127.0.0.1:1001",
-                                "callbackReceivedExpectedOrigin": True,
-                                "initialOrigin": "http://127.0.0.1:1001", "redirectedOrigin": "http://127.0.0.1:1002"},
+                                "baselineCredentialLeakReproduced": True,
+                                "callbackOrigin": ["http://127.0.0.1:1001"],
+                                "initialOrigin": "http://127.0.0.1:1001", "redirectedOrigin": "http://127.0.0.1:1002",
+                                "redirectedHostAuthorizationHeaderPresent": True,
+                                "redirectedHostReceivedFixtureCredential": True},
         }
         patched = {
             "CVE-2026-53584": {"cve": "CVE-2026-53584", "passed": True, "returncode": 0, "timedOut": False,
@@ -55,23 +66,27 @@ class GetPatchedScannerContract(unittest.TestCase):
                                 "rejectedLargeObject": True, "result": "result=rejected:overly-large-object",
                                 "declaredObjectSize": 100 * 1024 * 1024, "configuredObjectLimit": 42 * 1024 * 1024},
             "CVE-2026-53586": {"cve": "CVE-2026-53586", "passed": True, "returncode": 0, "timedOut": False,
-                                "patchedUsedRedirectedOrigin": True, "callbackOrigin": "http://127.0.0.1:1002",
-                                "callbackReceivedExpectedOrigin": True,
-                                "initialOrigin": "http://127.0.0.1:1001", "redirectedOrigin": "http://127.0.0.1:1002"},
+                                "patchedCredentialLeakPrevented": True,
+                                "callbackOrigin": ["http://127.0.0.1:1002"],
+                                "initialOrigin": "http://127.0.0.1:1001", "redirectedOrigin": "http://127.0.0.1:1002",
+                                "redirectedHostAuthorizationHeaderPresent": False,
+                                "redirectedHostReceivedFixtureCredential": False},
         }
         self.assertTrue(SCANNER_MODULE.libgit2_regression_checks_succeeded(baseline, "baseline"))
         self.assertTrue(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
-        baseline["CVE-2026-53585"]["baselineAcceptedLargeObject"] = False
-        patched["CVE-2026-53586"]["patchedUsedRedirectedOrigin"] = False
+        baseline["CVE-2026-53585"]["baselineAcceptedLargeObject"] = True
+        baseline["CVE-2026-53586"]["redirectedHostReceivedFixtureCredential"] = False
+        patched["CVE-2026-53586"]["redirectedHostAuthorizationHeaderPresent"] = True
         self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(baseline, "baseline"))
         self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
-        patched["CVE-2026-53586"]["patchedUsedRedirectedOrigin"] = True
+        baseline["CVE-2026-53586"]["redirectedHostReceivedFixtureCredential"] = True
+        patched["CVE-2026-53586"]["redirectedHostAuthorizationHeaderPresent"] = False
         patched["CVE-2026-53585"]["cve"] = "CVE-2026-53584"
         self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
         patched["CVE-2026-53585"]["cve"] = "CVE-2026-53585"
-        patched["CVE-2026-53586"]["callbackReceivedExpectedOrigin"] = False
+        patched["CVE-2026-53586"]["callbackOrigin"] = ["http://127.0.0.1:1001"]
         self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
-        patched["CVE-2026-53586"]["callbackReceivedExpectedOrigin"] = True
+        patched["CVE-2026-53586"]["callbackOrigin"] = ["http://127.0.0.1:1002"]
         patched["CVE-2026-53584"]["timedOut"] = True
         self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
 
@@ -283,10 +298,10 @@ Architecture: i386
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", candidate)):
                 checks = []
                 cve_check = {
-                    "command": ["tiffcrop", "-D", "format:txt,level:2,input:fixture", "fixture.tif", "output.tif"],
+                    "command": TIFF_BASELINE_COMMAND,
                     "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
                     "timedOut": False, "cve": "CVE-2025-61144", "passed": True,
-                    "memoryLog": "Invalid read of size 8\nat loadImage\n0 bytes after a block of size 64\nStack variable srcbuffs\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
+                    "memoryLog": TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
                 }
                 checks.append(cve_check)
                 if phase == "patched":
@@ -355,11 +370,11 @@ Architecture: i386
             (Path(directory) / "policy.json").write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64"}))
             (Path(directory) / "status").write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n")
             for phase, version, code, log in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14", 97,
-                                               "Invalid read of size 8\n0 bytes after a block of size 64\nloadImage\nStack variable srcbuffs\n"),
+                                               TIFF_BASELINE_LOG),
                                               ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1", 0,
                                                "ERROR SUMMARY: 0 errors\n")):
                 checks = [{"cve": "CVE-2025-61144", "passed": True, "returncode": code, "timedOut": False,
-                           "command": ["tiffcrop", "-D", "format:txt,level:2", "multisample.tif"], "memoryLog": log}]
+                           "command": TIFF_BASELINE_COMMAND, "memoryLog": log}]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "fixture.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "timedOut": False, "passed": True})
@@ -440,8 +455,8 @@ raise SystemExit(3)
             proof = Path(directory)
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
                 checks = [{"cve": "CVE-2025-61144", "passed": True, "returncode": 97 if phase == "baseline" else 0,
-                           "timedOut": False, "command": ["tiffcrop", "-D", "format:txt,level:2", "multisample.tif"],
-                           "memoryLog": ("Invalid read of size 8\n0 bytes after a block of size 64\nloadImage\nStack variable srcbuffs\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n")}]
+                           "timedOut": False, "command": TIFF_BASELINE_COMMAND,
+                           "memoryLog": (TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n")}]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "fixture.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "timedOut": False, "passed": True})

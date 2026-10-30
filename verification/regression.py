@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Verify bounded regressions against installed focal packages, before and after."""
 import argparse
+import base64
 import binascii
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import signal
 import subprocess
@@ -38,23 +40,27 @@ def tiff_baseline_reproduced(check):
     log = check.get("memoryLog", "")
     command = check.get("command", [])
     debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
-    native_debug_crash = (
-        check.get("returncode") == -signal.SIGSEGV
-        and command
-        and Path(command[0]).name == "tiffcrop"
+    exact_probe = (
+        command
+        and Path(command[0]).name == "valgrind"
+        and "tiffcrop" in command
         and "format:txt" in debug_dump
         and "level:2" in debug_dump
         and any(Path(arg).name == "multisample.tif" for arg in command)
     )
-    if not check.get("timedOut", False) and native_debug_crash:
-        return True
-    return (
-        not check.get("timedOut", False)
-        and check.get("returncode") == 97
-        and "Invalid read of size 8" in log
-        and "0 bytes after a block of size 64" in log
-        and "loadImage" in log
-        and ("srcbuffs" in log or "combineSeparateSamplesBytes" in log)
+    if check.get("timedOut", False) or check.get("returncode") != 97 or not exact_probe:
+        return False
+
+    error_blocks = re.finditer(
+        r"(?ms)^==\d+== Invalid read of size 8\n(?P<body>.*?)(?=^==\d+== "
+        r"(?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)",
+        log,
+    )
+    return any(
+        "0 bytes after a block of size 64" in block.group("body")
+        and re.search(r"(?m)^==\d+==\s+at .*\b(?:loadImage|combineSeparateSamplesBytes)\b", block.group("body"))
+        and "srcbuffs" in block.group("body")
+        for block in error_blocks
     )
 
 
@@ -102,13 +108,38 @@ def compile_libgit2_probe(source, binary, patched):
     return binary
 
 
-def parse_callback_url(stdout):
+def parse_callback_urls(stdout):
     prefix = "callback_url="
-    callback_lines = [line for line in stdout.splitlines() if line.startswith(prefix)]
-    return callback_lines[0][len(prefix):] if len(callback_lines) == 1 else None
+    return [line[len(prefix):] for line in stdout.splitlines() if line.startswith(prefix)]
+
+
+def parse_callback_url(stdout):
+    urls = parse_callback_urls(stdout)
+    return urls[0] if len(urls) == 1 else None
+
+
+def libgit2_redirect_reproduced(check, phase):
+    if check.get("timedOut") or check.get("returncode") != 0:
+        return False
+    callback_urls = check.get("callbackUrls", [])
+    if not callback_urls:
+        return False
+    expected_origin = check.get("initialOrigin") if phase == "baseline" else check.get("redirectedOrigin")
+    callback_origins = []
+    for callback_url in callback_urls:
+        parsed = urlsplit(callback_url)
+        callback_origins.append(f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None)
+    if any(origin != expected_origin for origin in callback_origins):
+        return False
+    if phase == "baseline":
+        return check.get("redirectedHostReceivedFixtureCredential") is True
+    return check.get("redirectedHostAuthorizationHeaderPresent") is False
 
 
 def run_libgit2_redirect_regression(binary, temp, phase):
+    fixture_credential = "Basic " + base64.b64encode(b"getpatched-test:fixture-only-credential").decode("ascii")
+    target_state = {"authorizationHeaderPresent": False, "fixtureCredentialReceived": False}
+
     class RedirectHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(302)
@@ -121,6 +152,9 @@ def run_libgit2_redirect_regression(binary, temp, phase):
 
     class UnauthorizedHandler(BaseHTTPRequestHandler):
         def do_GET(self):
+            authorization = self.headers.get("Authorization")
+            target_state["authorizationHeaderPresent"] |= authorization is not None
+            target_state["fixtureCredentialReceived"] |= authorization == fixture_credential
             self.send_response(401)
             self.send_header("WWW-Authenticate", 'Basic realm="getpatched-test"')
             self.send_header("Content-Length", "0")
@@ -146,10 +180,13 @@ def run_libgit2_redirect_regression(binary, temp, phase):
         }
         environment["NO_PROXY"] = "127.0.0.1,localhost"
         environment["no_proxy"] = environment["NO_PROXY"]
+        environment["GETPATCHED_TRUSTED_ORIGIN"] = initial_origin
         result = execute([
             str(binary), initial_origin + "/repository", str(temp / "redirect-clone"),
         ], timeout=30, env=environment)
-        result["callbackUrl"] = parse_callback_url(result["stdout"])
+        result["callbackUrls"] = parse_callback_urls(result["stdout"])
+        result["redirectedHostAuthorizationHeaderPresent"] = target_state["authorizationHeaderPresent"]
+        result["redirectedHostReceivedFixtureCredential"] = target_state["fixtureCredentialReceived"]
         return result, initial_origin, target_origin
     finally:
         for server in servers:
@@ -249,7 +286,12 @@ def main():
                 "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
                 str(fixture), str(output),
             ]
-            check = execute(command)
+            memory_log = temp / "tiffcrop-valgrind.log"
+            check = execute([
+                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                "--read-var-info=yes", "--log-file=" + str(memory_log), *command,
+            ])
+            check["memoryLog"] = memory_log.read_text() if memory_log.exists() else ""
             check["cve"] = "CVE-2025-61144"
             check["passed"] = (
                 tiff_baseline_reproduced(check)
@@ -408,21 +450,21 @@ def main():
             redirect_result["cve"] = "CVE-2026-53586"
             redirect_result["initialOrigin"] = initial_origin
             redirect_result["redirectedOrigin"] = target_origin
-            callback_origin = urlsplit(redirect_result["callbackUrl"] or "")
-            redirect_result["callbackOrigin"] = f"{callback_origin.scheme}://{callback_origin.netloc}" if callback_origin.scheme and callback_origin.netloc else None
-            redirect_result["callbackReceivedExpectedOrigin"] = redirect_result["callbackOrigin"] == (initial_origin if args.phase == "baseline" else target_origin)
-            redirect_result["baselineUsedOriginalOrigin"] = (
-                not patched and redirect_result["returncode"] == 0
-                and redirect_result["callbackReceivedExpectedOrigin"]
+            redirect_result["initialOrigin"] = initial_origin
+            redirect_result["redirectedOrigin"] = target_origin
+            redirect_result["callbackOrigin"] = []
+            for callback_url in redirect_result["callbackUrls"]:
+                callback = urlsplit(callback_url)
+                redirect_result["callbackOrigin"].append(
+                    f"{callback.scheme}://{callback.netloc}" if callback.scheme and callback.netloc else None
+                )
+            redirect_result["baselineCredentialLeakReproduced"] = (
+                not patched and libgit2_redirect_reproduced(redirect_result, "baseline")
             )
-            redirect_result["patchedUsedRedirectedOrigin"] = (
-                patched and redirect_result["returncode"] == 0
-                and redirect_result["callbackReceivedExpectedOrigin"]
+            redirect_result["patchedCredentialLeakPrevented"] = (
+                patched and libgit2_redirect_reproduced(redirect_result, "patched")
             )
-            redirect_result["passed"] = (
-                redirect_result["returncode"] == 0 and not redirect_result["timedOut"]
-                and redirect_result["callbackReceivedExpectedOrigin"]
-            )
+            redirect_result["passed"] = libgit2_redirect_reproduced(redirect_result, args.phase)
             checks.append(redirect_result)
         else:
             raise RuntimeError("Unsupported source package")
