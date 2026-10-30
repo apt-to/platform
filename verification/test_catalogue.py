@@ -47,6 +47,31 @@ class PublicCatalogueContract(unittest.TestCase):
         self.assertFalse(profile["repository"]["enabled"])
         self.assertIn("[arch=arm64] https://snapshot.debian.org/archive/debian/20261025T000000Z/", apt_source_list(profile))
 
+    def test_all_distribution_snapshot_sources_require_https(self):
+        platform = json.loads((ROOT / "packages.json").read_text())
+        for target_id in platform["targets"]:
+            sources = apt_source_list(target_profile(platform, target_id))
+            self.assertNotIn("http://", sources, target_id)
+            self.assertIn("https://", sources, target_id)
+        containerfile = (ROOT / "build/packaging.Containerfile").read_text()
+        self.assertIn('if [ "$TARGET_CODENAME" != "trixie" ]; then cp /tmp/getpatched-trust-ca-certificates.crt /etc/ssl/certs/ca-certificates.crt; fi', containerfile)
+        build_script = (ROOT / "scripts/build-package.py").read_text()
+        self.assertIn('"--build-arg", "TARGET_CODENAME=" + profile["codename"]', build_script)
+
+        untrusted_debian = json.loads(json.dumps(platform))
+        untrusted_debian["targets"]["debian-trixie-amd64"]["aptSources"][0]["uri"] = (
+            "http://mirror.example.invalid/debian/20261030T000000Z/"
+        )
+        with self.assertRaises(ValueError):
+            target_profile(untrusted_debian, "debian-trixie-amd64")
+
+        insecure_ubuntu = json.loads(json.dumps(platform))
+        insecure_ubuntu["targets"]["ubuntu-focal-amd64"]["aptSources"][0]["uri"] = (
+            "http://snapshot.ubuntu.com/ubuntu/20261025T000000Z/"
+        )
+        with self.assertRaises(ValueError):
+            target_profile(insecure_ubuntu, "ubuntu-focal-amd64")
+
     def test_target_recipe_branch_rejects_untrusted_ref_syntax(self):
         platform = deepcopy(json.loads((ROOT / "packages.json").read_text()))
         platform["targets"]["ubuntu-focal-amd64"]["sourceBranch"] = "getpatched/../main"

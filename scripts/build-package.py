@@ -276,7 +276,8 @@ def main():
                 "--build-arg", "TRUST_IMAGE=" + scanner["image"],
                 "--build-arg", "APT_SOURCES_B64=" + build_sources,
                 "--build-arg", "SOURCE_PACKAGE=" + package,
-                "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"], str(ROOT),
+                "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"],
+                "--build-arg", "TARGET_CODENAME=" + profile["codename"], str(ROOT),
             ], timeout=2700)
             built = True
             builder = run(["docker", "image", "inspect", name, "--format", "{{.Id}}"], capture_output=True, text=True).stdout.strip()

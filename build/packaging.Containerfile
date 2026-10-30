@@ -2,14 +2,17 @@ ARG BASE_IMAGE
 ARG TRUST_IMAGE
 FROM ${TRUST_IMAGE} AS trust
 FROM ${BASE_IMAGE}
-COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=trust /etc/ssl/certs/ca-certificates.crt /tmp/getpatched-trust-ca-certificates.crt
 ARG SOURCE_PACKAGE
 ARG EXPECTED_VERSION
+ARG TARGET_CODENAME
 ARG APT_SOURCES_B64
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eu; \
+    if [ "$TARGET_CODENAME" != "trixie" ]; then cp /tmp/getpatched-trust-ca-certificates.crt /etc/ssl/certs/ca-certificates.crt; fi; \
+    rm -f /tmp/getpatched-trust-ca-certificates.crt; \
     test -n "$APT_SOURCES_B64"; \
-    apt_get() { apt-get -o Acquire::Retries=3 "$@"; }; \
+    apt_get() { apt-get -o Acquire::Retries=3 -o Acquire::AllowInsecureRepositories=false -o Acquire::AllowDowngradeToInsecureRepositories=false "$@"; }; \
     apt_retry() { attempt=0; until apt_get "$@"; do attempt=$((attempt + 1)); if [ "$attempt" -ge 3 ]; then return 1; fi; sleep $((attempt * 10)); done; }; \
     printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
     case "$SOURCE_PACKAGE" in \
