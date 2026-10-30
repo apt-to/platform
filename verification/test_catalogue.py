@@ -58,6 +58,7 @@ class PublicCatalogueContract(unittest.TestCase):
             self.assertIn("# syntax=docker/dockerfile:1.7", containerfile)
             self.assertIn("RUN --mount=type=secret,id=runner-ca", containerfile)
             self.assertIn("/etc/ssl/certs/ca-certificates.crt", containerfile)
+            self.assertIn("chmod 0644 /etc/ssl/certs/ca-certificates.crt", containerfile)
             self.assertIn('Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt"', containerfile)
         build_script = (ROOT / "scripts/build-package.py").read_text()
         self.assertIn("ca_secret_args, ca_bundle_sha256, ca_bundle_source = runner_ca_bundle()", build_script)
@@ -74,6 +75,7 @@ class PublicCatalogueContract(unittest.TestCase):
         self.assertIn('"runnerCaBundleSource": ca_bundle_source', client_script)
         self.assertIn('"runnerCaBundleSha256": ca_bundle_sha256', client_script)
         self.assertIn('Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt"', client_script)
+        self.assertIn("chmod 0644 /etc/ssl/certs/ca-certificates.crt", client_script)
 
         untrusted_debian = json.loads(json.dumps(platform))
         untrusted_debian["targets"]["debian-trixie-amd64"]["aptSources"][0]["uri"] = (

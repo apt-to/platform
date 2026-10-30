@@ -11,6 +11,7 @@ RUN --mount=type=secret,id=runner-ca,target=/tmp/getpatched-runner-ca.crt,requir
     set -eu; \
     mkdir -p /etc/ssl/certs; \
     cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt; \
+    chmod 0644 /etc/ssl/certs/ca-certificates.crt; \
     printf 'Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt";\n' > /etc/apt/apt.conf.d/99getpatched-ca; \
     test -n "$APT_SOURCES_B64"; \
     printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
