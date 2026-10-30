@@ -374,6 +374,7 @@ def load_recipe(root, platform_config, target_id=None):
         "baseVersion": version,
         "version": package_version,
         "releaseSerial": release_serial,
+        "candidateStatus": central["candidateStatus"],
         "targetCve": central["targetCve"],
         "targetCves": central["targetCves"],
         "sponsorDelayHours": delay,
