@@ -1,0 +1,57 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "bf2f7ce93e01a42cb9b1b5aee5e6512cbe7e2adba31390049c06af433824bc53",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [
+    {
+      "affected_versions": [
+        "4.1.0+git191117-2ubuntu0.20.04.14"
+      ],
+      "fixed_versions": [
+        "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"
+      ],
+      "id": "CVE-2025-61144",
+      "package": "libtiff-tools",
+      "references": [
+        "https://ubuntu.com/security/CVE-2025-61144"
+      ],
+      "severity": "MEDIUM",
+      "summary": "tiffcrop out-of-bounds read while producing level-2 debug output",
+      "version": "4.1.0+git191117-2ubuntu0.20.04.14"
+    }
+  ],
+  "findingsById": [
+    "CVE-2025-61144"
+  ],
+  "imageId": "sha256:e7bafeeeaed6650668406ef474570072c234a4ac194f044d99b1d9a66ea9e531",
+  "packagePolicySha256": "5734124c59727eefc4360617f35ebfae3cfd4ef78f16b11b45be2b4163fb5c0e",
+  "regressionImageIds": {
+    "baseline": "sha256:e7bafeeeaed6650668406ef474570072c234a4ac194f044d99b1d9a66ea9e531",
+    "patched": "sha256:f055cb5928d13822012a40d468fcd22e43e0401306d9df19e63e80f40783c128"
+  },
+  "regressionReportSha256": {
+    "baseline": "3b930272202373a488f6a412501026b29c2ad6ae7d69f0300dac930bdf3a3155",
+    "patched": "59e0812deb12dda158ce5474a40e2523f6a8e83d7bae2e19fba499be0dff2a7a"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "ubuntu-focal-amd64"
+    }
+  ],
+  "release": "focal",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.1.0+git191117-2ubuntu0.20.04.14"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "1fce7263dd4789030a0c52ab9da6308f637e1f83ffe2516f1a0335a631e3d5ca",
+  "summary": {
+    "findingCount": 1,
+    "scannedPackages": 1,
+    "vulnerablePackages": 1
+  },
+  "targetId": "ubuntu-focal-amd64"
+}

@@ -1,0 +1,36 @@
+{
+  "source": "tiff",
+  "sourceVersion": "4.5.0-6+deb12u4+getpatched1",
+  "sourceCommit": "b305dd0011f01ea949b73ae4cad356c01daa229f",
+  "targetId": "debian-bookworm-amd64",
+  "distribution": "bookworm",
+  "architecture": "amd64",
+  "publication": "not published; runner-local candidates for a protected staging job",
+  "packages": [
+    {
+      "name": "libtiff-tools_4.5.0-6+deb12u4+getpatched1_amd64.deb",
+      "package": "libtiff-tools",
+      "version": "4.5.0-6+deb12u4+getpatched1",
+      "architecture": "amd64",
+      "bytes": 334840,
+      "sha256": "65492f8448f0eb636463677820d3fbc8d81b42ee66523f2f08ad44caaefc71c3"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "name": "tiff_4.5.0-6+deb12u4+getpatched1.debian.tar.xz",
+      "bytes": 36064,
+      "sha256": "ce1ed9dfb2ae2e50f6430081692a5dbffaaf6c157934e069f5ec7536ddf7f156"
+    },
+    {
+      "name": "tiff_4.5.0-6+deb12u4+getpatched1.dsc",
+      "bytes": 1452,
+      "sha256": "ad4e4b618d82aa0f0736550a27da7c30a90e2e6d9bf88265a111615d3e23f877"
+    },
+    {
+      "name": "tiff_4.5.0.orig.tar.bz2",
+      "bytes": 2050377,
+      "sha256": "638f43d7dea33948d5dee7f39572fc0194d9cc3c74195de9dd26a4388a1f880a"
+    }
+  ]
+}

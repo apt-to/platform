@@ -19,6 +19,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 import sys
 sys.path.insert(0, str(ROOT / "scripts"))
+from build_environment import runner_ca_bundle
 from platform_policy import apt_source_list_b64, package_target_policy, scanner_config, target_profile
 
 
@@ -45,6 +46,7 @@ def main():
     profile = target_profile(config, args.target)
     package = package_target_policy(config, args.package, args.target)
     scanner = scanner_config(config)
+    ca_secret_args, ca_bundle_sha256, ca_bundle_source = runner_ca_bundle()
     args.output.mkdir(parents=True, exist_ok=True)
     output = args.output.resolve()
     if (output / "scanner-db").exists():
@@ -66,7 +68,7 @@ def main():
                 "docker", "build", "--no-cache", "--platform", profile["build"]["containerPlatform"], "--tag", name,
                 "--file", str(ROOT / "build/baseline.Containerfile"),
                 "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
+                *ca_secret_args,
                 "--build-arg", "SOURCE_PACKAGE=" + args.package,
                 "--build-arg", "EXPECTED_VERSION=" + package["baselineVersion"],
                 "--build-arg", "APT_SOURCES_B64=" + apt_source_list_b64(profile, include_sources=False),
@@ -102,6 +104,8 @@ def main():
                 "release": profile["codename"],
                 "architecture": profile["architecture"],
                 "baselineVersion": package["baselineVersion"],
+                "runnerCaBundleSource": ca_bundle_source,
+                "runnerCaBundleSha256": ca_bundle_sha256,
                 "targetCve": package["targetCve"],
                 "baseImage": profile["baseImage"],
                 "scannerImage": scanner["image"],

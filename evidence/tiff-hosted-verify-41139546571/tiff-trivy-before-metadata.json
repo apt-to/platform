@@ -1,0 +1,8 @@
+{
+  "phase": "before",
+  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "imageId": "sha256:e7bafeeeaed6650668406ef474570072c234a4ac194f044d99b1d9a66ea9e531",
+  "databaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+  "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+  "reportSha256": "61a94bec43c376de77241223144bef242536b1d34b9f09dbbf1fe8b9651eb7db"
+}

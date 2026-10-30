@@ -29,7 +29,7 @@ def source_policy(source):
         "baselineVersion": package["baselineVersion"], "packageVersion": package["packageVersion"],
         "baseVersion": package["baselineVersion"], "version": package["packageVersion"],
         "releaseSerial": package["releaseSerial"], "targetCve": package["targetCve"],
-        "targetCves": package["targetCves"],
+        "targetCves": package["targetCves"], "candidateStatus": package["candidateStatus"],
         "ubuntuProEsmCompatibility": package.get("ubuntuProEsmCompatibility", "not-applicable"),
         "sponsorDelayHours": package["releaseAccess"]["sponsorDelayHours"],
         "binaryPackages": package["binaryPackages"], "advisoryPackages": package["advisoryPackages"],
@@ -118,18 +118,23 @@ class ReleaseCandidateOutput(unittest.TestCase):
             self.assertEqual(expected["packageVersion"], package["packageVersion"])
             self.assertEqual(expected["targetCves"], package["targetCves"])
             self.assertEqual(profile["codename"], "focal")
-            with self.assertRaisesRegex(RuntimeError, "verification checks pass"):
-                BUILD_PACKAGE.release_eligibility(policy)
+            eligibility = BUILD_PACKAGE.release_eligibility(policy)
+            self.assertFalse(eligibility["verificationChecksPassed"])
+            self.assertFalse(eligibility["releaseEligible"])
+            self.assertEqual(eligibility["reason"], "target verification checks have not passed")
             eligibility = BUILD_PACKAGE.release_eligibility(policy, verification_checks_passed=True, publication_enabled=False)
             self.assertFalse(eligibility["releaseEligible"])
-            self.assertEqual(eligibility["reason"], "repository publication is disabled for this target")
+            self.assertEqual(eligibility["candidateStatus"], package["candidateStatus"])
+            self.assertEqual(eligibility["candidateVerified"],
+                             package["candidateStatus"] == "development-verified-production-release-pending")
             eligibility = BUILD_PACKAGE.release_eligibility(policy, verification_checks_passed=True, publication_enabled=True)
-            self.assertTrue(eligibility["releaseEligible"])
+            verified = package["candidateStatus"] == "development-verified-production-release-pending"
+            self.assertEqual(eligibility["releaseEligible"], verified)
             self.assertTrue(eligibility["verificationChecksPassed"])
             self.assertEqual(eligibility["supportScope"], TARGET_ID)
             self.assertEqual(eligibility["targetId"], TARGET_ID)
             self.assertEqual(eligibility["ubuntuProEsmCompatibility"], package.get("ubuntuProEsmCompatibility", "not-applicable"))
-            self.assertIsNone(eligibility["reason"])
+            self.assertEqual(eligibility["reason"], None if verified else "candidate status is not approved for release")
 
     def test_package_identity_and_sponsor_policy_must_match_project_policy(self):
         for source in CONFIG["packages"]:
@@ -140,7 +145,7 @@ class ReleaseCandidateOutput(unittest.TestCase):
 
     def test_candidate_export_follows_signed_client_verification_without_esm_gate(self):
         source = (SCRIPT.parents[0] / "build-package.py").read_text()
-        verify_at = source.index('"--trust-image", scanner["image"], "--apt-sources-b64", build_sources')
+        verify_at = source.index('"--apt-sources-b64", build_sources')
         eligibility_at = source.index('"release-eligibility.json"')
         persist_at = source.rindex("persist_release_candidates(selected, binary_manifest")
         self.assertLess(verify_at, eligibility_at)
@@ -154,6 +159,8 @@ class ReleaseCandidateOutput(unittest.TestCase):
         self.assertIn('eligibility.get("releaseEligible") is not True', workflow)
         self.assertIn('eligibility.get("targetId") != target', workflow)
         self.assertIn('eligibility.get("supportScope") != target', workflow)
+        self.assertIn('eligibility.get("candidateStatus") != "development-verified-production-release-pending"', workflow)
+        self.assertIn('eligibility.get("candidateVerified") is not True', workflow)
         self.assertIn('eligibility.get("verificationChecksPassed") is not True', workflow)
         self.assertIn('expected_esm = "not-tested-out-of-scope" if target == "ubuntu-focal-amd64" else "not-applicable"', workflow)
 

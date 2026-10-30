@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "source": "tiff",
+  "targetId": "debian-trixie-amd64",
+  "baseVersion": "4.7.0-3+deb13u3",
+  "version": "4.7.0-3+deb13u3+getpatched1",
+  "releaseSerial": 1,
+  "targetCve": "CVE-2025-61143",
+  "targetCves": [
+    "CVE-2025-61143",
+    "CVE-2025-61144"
+  ],
+  "sponsorDelayHours": 0,
+  "release": "trixie",
+  "distribution": "Debian",
+  "releaseVersion": "13",
+  "architecture": "amd64",
+  "advisoryEcosystem": "Debian:13",
+  "packageEcosystem": "Debian:13",
+  "releaseAccess": {
+    "policy": "public-after-checks",
+    "sponsorDelayHours": 0,
+    "sponsorEligibility": null,
+    "earlyBinaryLicenseId": null,
+    "publicContributionSpdx": "MIT",
+    "earlyUse": [
+      "private",
+      "commercial"
+    ],
+    "earlyRedistributionAllowed": false,
+    "publicLicenseScope": "getpatched-authored-contributions-only"
+  },
+  "publicContributionsSpdx": "MIT",
+  "earlyBinaryLicenseId": null,
+  "binaryPackages": [
+    "libtiff-tools"
+  ],
+  "advisoryPackages": [
+    "libtiff-tools"
+  ],
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "patches": [
+    "cve-2025-61143",
+    "cve-2025-61144-debian"
+  ],
+  "buildPatches": []
+}

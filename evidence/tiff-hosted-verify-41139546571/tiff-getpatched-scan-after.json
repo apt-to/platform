@@ -1,0 +1,38 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "bf2f7ce93e01a42cb9b1b5aee5e6512cbe7e2adba31390049c06af433824bc53",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [],
+  "findingsById": [],
+  "imageId": "sha256:f055cb5928d13822012a40d468fcd22e43e0401306d9df19e63e80f40783c128",
+  "packagePolicySha256": "5734124c59727eefc4360617f35ebfae3cfd4ef78f16b11b45be2b4163fb5c0e",
+  "regressionImageIds": {
+    "baseline": "sha256:e7bafeeeaed6650668406ef474570072c234a4ac194f044d99b1d9a66ea9e531",
+    "patched": "sha256:f055cb5928d13822012a40d468fcd22e43e0401306d9df19e63e80f40783c128"
+  },
+  "regressionReportSha256": {
+    "baseline": "00581b11da5884e6ad24c9f4317998b783ee13be66c73ce55f30a768e65d3838",
+    "patched": "29a8eb89994967a28a9da418b7d5dbee472c2e9db10ea6db13783ba1ce367f2b"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "ubuntu-focal-amd64"
+    }
+  ],
+  "release": "focal",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "d34979243f180f224bef9c7b105d28a3fbab0f6c1136fb355f0b67a9a0d020b2",
+  "summary": {
+    "findingCount": 0,
+    "scannedPackages": 1,
+    "vulnerablePackages": 0
+  },
+  "targetId": "ubuntu-focal-amd64"
+}

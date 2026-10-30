@@ -1,0 +1,57 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "321f46367278dfeeb8d6fef8d25e9866d181d7469c8db825a531b18cd16b9382",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [
+    {
+      "affected_versions": [
+        "4.7.0-3+deb13u3"
+      ],
+      "fixed_versions": [
+        "4.7.0-3+deb13u3+getpatched1"
+      ],
+      "id": "CVE-2025-61144",
+      "package": "libtiff-tools",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-61144"
+      ],
+      "severity": "MEDIUM",
+      "summary": "tiffcrop out-of-bounds read while producing level-2 debug output",
+      "version": "4.7.0-3+deb13u3"
+    }
+  ],
+  "findingsById": [
+    "CVE-2025-61144"
+  ],
+  "imageId": "sha256:f8f22f16a2e5b47e9326746fcb617a5cece0a2d95d70d50f3176b949fc9f7949",
+  "packagePolicySha256": "8876707f110b549b766885bdbd02c6c0cfbab40d451755db3ec23b38caf9d23c",
+  "regressionImageIds": {
+    "baseline": "sha256:f8f22f16a2e5b47e9326746fcb617a5cece0a2d95d70d50f3176b949fc9f7949",
+    "patched": "sha256:2edbdcc7a477989f52c760dbf2433e3209c6daafffd5e7b37614ebf73ef76f32"
+  },
+  "regressionReportSha256": {
+    "baseline": "79510bd18b2cb6c5fbb1f65fa661b1647dbf19aa733df424e72f0098964024e5",
+    "patched": "d2dfec8d700a0dd1fd2626458d1afd51cb9edbd5a3e67dc0b36afe670f0b77c1"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "debian-trixie-amd64"
+    }
+  ],
+  "release": "trixie",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.7.0-3+deb13u3"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "77238cd43e72515cd0206e72448988113d299dc699bcdc200d9b9dc3a1c0fe2a",
+  "summary": {
+    "findingCount": 1,
+    "scannedPackages": 1,
+    "vulnerablePackages": 1
+  },
+  "targetId": "debian-trixie-amd64"
+}

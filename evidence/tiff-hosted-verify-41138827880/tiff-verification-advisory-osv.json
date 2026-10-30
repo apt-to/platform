@@ -1,0 +1,288 @@
+{
+  "schema_version": "1.6.0",
+  "vulns": [
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ],
+            "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64",
+            "vendor_fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Ubuntu",
+            "release": "focal",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        },
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ],
+            "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64",
+            "vendor_fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Ubuntu",
+            "release": "focal",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2-utils"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        }
+      ],
+      "database_specific": {
+        "severity": "MEDIUM",
+        "verification_status": "rebranded-package-build-pending"
+      },
+      "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
+      "id": "CVE-2025-49794",
+      "modified": "2026-10-30T05:38:23Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://ubuntu.com/security/CVE-2025-49794"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "libxml2 XPath Schematron use-after-free in Ubuntu Focal packages"
+    },
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ],
+            "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64",
+            "vendor_fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Ubuntu",
+            "release": "focal",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        },
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ],
+            "getpatched_fixed_version": "2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64",
+            "vendor_fixed_versions": [
+              "2.9.10+dfsg-5ubuntu0.20.04.10+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Ubuntu",
+            "release": "focal",
+            "source_package": "libxml2",
+            "target_id": "ubuntu-focal-amd64"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libxml2-utils"
+          },
+          "versions": [
+            "2.9.10+dfsg-5ubuntu0.20.04.10"
+          ]
+        }
+      ],
+      "database_specific": {
+        "severity": "MEDIUM",
+        "verification_status": "rebranded-package-build-pending"
+      },
+      "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
+      "id": "CVE-2025-49796",
+      "modified": "2026-10-30T05:38:23Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://ubuntu.com/security/CVE-2025-49794"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "libxml2 Schematron name-element memory corruption in Ubuntu Focal packages"
+    },
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "4.7.0-3+deb13u3+getpatched1",
+            "fixed_versions": [
+              "4.7.0-3+deb13u3+getpatched1"
+            ],
+            "getpatched_fixed_version": "4.7.0-3+deb13u3+getpatched1",
+            "source_package": "tiff",
+            "target_id": "debian-trixie-amd64",
+            "vendor_fixed_versions": []
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Debian",
+            "release": "trixie",
+            "source_package": "tiff",
+            "target_id": "debian-trixie-amd64"
+          },
+          "package": {
+            "ecosystem": "Debian:13",
+            "name": "libtiff-tools"
+          },
+          "versions": [
+            "4.7.0-3+deb13u3"
+          ]
+        }
+      ],
+      "database_specific": {
+        "severity": "MEDIUM",
+        "verification_status": "rebranded-package-build-pending"
+      },
+      "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
+      "id": "CVE-2025-61144",
+      "modified": "2026-10-30T05:38:23Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://security-tracker.debian.org/tracker/CVE-2025-61144"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "tiffcrop out-of-bounds read while producing level-2 debug output"
+    },
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "3.4.0-2ubuntu1.5+getpatched1",
+            "fixed_versions": [
+              "3.4.0-2ubuntu1.5+getpatched1",
+              "3.4.0-2ubuntu1.5+esm1"
+            ],
+            "getpatched_fixed_version": "3.4.0-2ubuntu1.5+getpatched1",
+            "source_package": "libarchive",
+            "target_id": "ubuntu-focal-amd64",
+            "vendor_fixed_versions": [
+              "3.4.0-2ubuntu1.5+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Ubuntu",
+            "release": "focal",
+            "source_package": "libarchive",
+            "target_id": "ubuntu-focal-amd64"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libarchive-tools"
+          },
+          "versions": [
+            "3.4.0-2ubuntu1.5"
+          ]
+        },
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "3.4.0-2ubuntu1.5+getpatched1",
+            "fixed_versions": [
+              "3.4.0-2ubuntu1.5+getpatched1",
+              "3.4.0-2ubuntu1.5+esm1"
+            ],
+            "getpatched_fixed_version": "3.4.0-2ubuntu1.5+getpatched1",
+            "source_package": "libarchive",
+            "target_id": "ubuntu-focal-amd64",
+            "vendor_fixed_versions": [
+              "3.4.0-2ubuntu1.5+esm1"
+            ]
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Ubuntu",
+            "release": "focal",
+            "source_package": "libarchive",
+            "target_id": "ubuntu-focal-amd64"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:Pro:20.04:LTS",
+            "name": "libarchive13"
+          },
+          "versions": [
+            "3.4.0-2ubuntu1.5"
+          ]
+        }
+      ],
+      "database_specific": {
+        "severity": "MEDIUM",
+        "verification_status": "rebranded-package-build-pending"
+      },
+      "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
+      "id": "CVE-2026-4111",
+      "modified": "2026-10-30T05:38:23Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://ubuntu.com/security/CVE-2026-4111"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "libarchive RAR5 decompression infinite loop in Ubuntu Focal packages"
+    }
+  ]
+}

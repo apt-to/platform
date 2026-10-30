@@ -1,15 +1,18 @@
+# syntax=docker/dockerfile:1.7
 ARG BASE_IMAGE
-ARG TRUST_IMAGE
-FROM ${TRUST_IMAGE} AS trust
 FROM ${BASE_IMAGE}
-COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG SOURCE_PACKAGE
 ARG EXPECTED_VERSION
 ARG APT_SOURCES_B64
 ENV DEBIAN_FRONTEND=noninteractive
-RUN set -eu; \
+RUN --mount=type=secret,id=runner-ca,target=/tmp/getpatched-runner-ca.crt,required=true \
+    set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt; \
+    chmod 0644 /etc/ssl/certs/ca-certificates.crt; \
+    printf 'Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt";\n' > /etc/apt/apt.conf.d/99getpatched-ca; \
     test -n "$APT_SOURCES_B64"; \
-    apt_get() { apt-get -o Acquire::Retries=3 "$@"; }; \
+    apt_get() { apt-get -o Acquire::Retries=3 -o Acquire::AllowInsecureRepositories=false -o Acquire::AllowDowngradeToInsecureRepositories=false "$@"; }; \
     apt_retry() { attempt=0; until apt_get "$@"; do attempt=$((attempt + 1)); if [ "$attempt" -ge 3 ]; then return 1; fi; sleep $((attempt * 10)); done; }; \
     printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
     case "$SOURCE_PACKAGE" in \

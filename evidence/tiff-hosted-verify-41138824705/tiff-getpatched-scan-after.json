@@ -1,0 +1,38 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "3f1f39d202f55bb97a0b83da9d0eba7562cbb9daae67cda823fd9c342eaa61fa",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [],
+  "findingsById": [],
+  "imageId": "sha256:062339d89e0a600255ab769793a469e68fa2f94ee0e7936da220d3c6360f15f9",
+  "packagePolicySha256": "8876707f110b549b766885bdbd02c6c0cfbab40d451755db3ec23b38caf9d23c",
+  "regressionImageIds": {
+    "baseline": "sha256:3ed2814c30994bbfe99776b0638a30e77b31b83a6aa339f4f597401cfc83b9da",
+    "patched": "sha256:062339d89e0a600255ab769793a469e68fa2f94ee0e7936da220d3c6360f15f9"
+  },
+  "regressionReportSha256": {
+    "baseline": "55d40f0a0693ddedd5e792d7f3bfcf9a6dc789e0cef7f8555529238a54df6e37",
+    "patched": "4e99e6cbe53c080bb83764fb52090ddaebab1de8b7619c0f981108b9813b0350"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "debian-bookworm-amd64"
+    }
+  ],
+  "release": "bookworm",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.5.0-6+deb12u4+getpatched1"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "3306ed600e80de6a717dc2cb9bf6f64654ff0bf421f168c82f64c4361c910028",
+  "summary": {
+    "findingCount": 0,
+    "scannedPackages": 1,
+    "vulnerablePackages": 0
+  },
+  "targetId": "debian-bookworm-amd64"
+}

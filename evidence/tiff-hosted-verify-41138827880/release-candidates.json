@@ -1,0 +1,36 @@
+{
+  "source": "tiff",
+  "sourceVersion": "4.7.0-3+deb13u3+getpatched1",
+  "sourceCommit": "b305dd0011f01ea949b73ae4cad356c01daa229f",
+  "targetId": "debian-trixie-amd64",
+  "distribution": "trixie",
+  "architecture": "amd64",
+  "publication": "not published; runner-local candidates for a protected staging job",
+  "packages": [
+    {
+      "name": "libtiff-tools_4.7.0-3+deb13u3+getpatched1_amd64.deb",
+      "package": "libtiff-tools",
+      "version": "4.7.0-3+deb13u3+getpatched1",
+      "architecture": "amd64",
+      "bytes": 359820,
+      "sha256": "c86350193678460c801dac413a18bc06b50dcdaaead3e63d9448d72eddd94c6d"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "name": "tiff_4.7.0-3+deb13u3+getpatched1.debian.tar.xz",
+      "bytes": 32652,
+      "sha256": "4b994180dda6ec13b7ee3201a0b6c3627d98c70dbd6ca0d9186ba107e23974cc"
+    },
+    {
+      "name": "tiff_4.7.0-3+deb13u3+getpatched1.dsc",
+      "bytes": 1452,
+      "sha256": "6c6178f1a716f9a9be9968c8698509e2cd8f673c9a9ae94186bc56dd2d6eb1ba"
+    },
+    {
+      "name": "tiff_4.7.0.orig.tar.bz2",
+      "bytes": 2111254,
+      "sha256": "2b8b5c4e79cb2a4651796602e45d6179b7f18bc283feab417b8e881ef7e81862"
+    }
+  ]
+}

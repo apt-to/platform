@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "source": "tiff",
+  "targetId": "ubuntu-focal-amd64",
+  "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+  "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1",
+  "releaseSerial": 1,
+  "targetCve": "CVE-2025-61143",
+  "targetCves": [
+    "CVE-2025-61143",
+    "CVE-2025-61144"
+  ],
+  "sponsorDelayHours": 0,
+  "release": "focal",
+  "distribution": "Ubuntu",
+  "releaseVersion": "20.04",
+  "architecture": "amd64",
+  "advisoryEcosystem": "Ubuntu:20.04:LTS",
+  "packageEcosystem": "Ubuntu:20.04:LTS",
+  "releaseAccess": {
+    "policy": "public-after-checks",
+    "sponsorDelayHours": 0,
+    "sponsorEligibility": null,
+    "earlyBinaryLicenseId": null,
+    "publicContributionSpdx": "MIT",
+    "earlyUse": [
+      "private",
+      "commercial"
+    ],
+    "earlyRedistributionAllowed": false,
+    "publicLicenseScope": "getpatched-authored-contributions-only"
+  },
+  "publicContributionsSpdx": "MIT",
+  "earlyBinaryLicenseId": null,
+  "binaryPackages": [
+    "libtiff-tools"
+  ],
+  "advisoryPackages": [
+    "libtiff-tools"
+  ],
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "patches": [
+    "cve-2025-61143",
+    "cve-2025-61144-focal"
+  ],
+  "buildPatches": []
+}

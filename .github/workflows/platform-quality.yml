@@ -9,6 +9,91 @@ permissions:
   contents: read
 
 jobs:
+  snapshot-https:
+    if: github.event_name == 'pull_request' && github.head_ref == 'debian-snapshot-tls'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the pinned Trixie image with the runner CA bundle
+        env:
+          SNAPSHOT_TIMESTAMP: 20261030T000000Z
+        run: |
+          set -euo pipefail
+          base_image="$(python3 -c 'import json; print(json.load(open("packages.json"))["targets"]["debian-trixie-amd64"]["baseImage"])')"
+          echo "Runner CA bundle SHA-256: $(sha256sum /etc/ssl/certs/ca-certificates.crt | awk '{print $1}')"
+          docker run --rm --platform linux/amd64 \
+            --mount type=bind,source=/etc/ssl/certs/ca-certificates.crt,target=/tmp/getpatched-runner-ca.crt,readonly \
+            --env SNAPSHOT_TIMESTAMP "$base_image" sh -ec '
+              if test -r /etc/ssl/certs/ca-certificates.crt; then
+                echo "Pinned image CA bundle SHA-256: $(sha256sum /etc/ssl/certs/ca-certificates.crt | awk '\''{print $1}'\'')"
+              else
+                echo "Pinned image CA bundle is missing"
+              fi
+              mkdir -p /etc/ssl/certs
+              cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt
+              apt-get update
+              apt-get install -y --no-install-recommends openssl
+              openssl s_client -connect snapshot.debian.org:443 -servername snapshot.debian.org \
+                -verify_hostname snapshot.debian.org -verify_return_error \
+                -CAfile /etc/ssl/certs/ca-certificates.crt -brief </dev/null
+              printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/%s/ trixie main\n" "$SNAPSHOT_TIMESTAMP" > /etc/apt/sources.list
+              apt-get -o Acquire::AllowInsecureRepositories=false -o Acquire::AllowDowngradeToInsecureRepositories=false update
+            '
+      - name: Verify HTTPS and compare snapshot metadata across official endpoints
+        env:
+          SNAPSHOT_TIMESTAMP: 20261030T000000Z
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/snapshot-tls"
+          report="$RUNNER_TEMP/snapshot-tls/report.tsv"
+          printf '# snapshot_timestamp\t%s\n' "$SNAPSHOT_TIMESTAMP" > "$report"
+          printf 'requested_host\tfinal_host\tinrelease_sha256\ttls\n' >> "$report"
+          for host in snapshot.debian.org snapshot-fastly.debian.org snapshot-cloudflare.debian.org; do
+            echo "Checking verified TLS for $host"
+            openssl s_client -connect "$host:443" -servername "$host" \
+              -verify_hostname "$host" -verify_return_error \
+              -CAfile /etc/ssl/certs/ca-certificates.crt \
+              -brief </dev/null
+            path="/archive/debian/${SNAPSHOT_TIMESTAMP}/dists/trixie/InRelease"
+            response="$(curl --fail --silent --show-error --location --max-redirs 3 \
+              --proto-redir '=https' --output "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" \
+              --write-out '%{http_code}\t%{url_effective}' \
+              "https://${host}${path}")"
+            IFS=$'\t' read -r status final_url <<< "$response"
+            test "$status" = 200 || { echo "$host returned HTTP $status" >&2; exit 1; }
+            final_host="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.urlparse(sys.argv[1]).hostname or "")' "$final_url")"
+            case "$final_host" in
+              snapshot.debian.org|snapshot-fastly.debian.org|snapshot-cloudflare.debian.org) ;;
+              *) echo "$host redirected to unapproved host $final_host" >&2; exit 1 ;;
+            esac
+            test -s "$RUNNER_TEMP/snapshot-tls/${host}.InRelease"
+            head -n 1 "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" | \
+              grep -qx -- '-----BEGIN PGP SIGNED MESSAGE-----'
+            grep -q -- '^-----BEGIN PGP SIGNATURE-----$' \
+              "$RUNNER_TEMP/snapshot-tls/${host}.InRelease"
+            tail -n 1 "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" | \
+              grep -qx -- '-----END PGP SIGNATURE-----'
+            digest="$(sha256sum "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" | awk '{print $1}')"
+            printf '%s\t%s\t%s\tverified\n' "$host" "$final_host" "$digest" | tee -a "$report"
+          done
+          printf '%s\n' snapshot.debian.org snapshot-fastly.debian.org snapshot-cloudflare.debian.org | \
+            sort > "$RUNNER_TEMP/snapshot-tls/expected-hosts.txt"
+          cut -f1 "$report" | tail -n +3 | sort > "$RUNNER_TEMP/snapshot-tls/observed-hosts.txt"
+          diff -u "$RUNNER_TEMP/snapshot-tls/expected-hosts.txt" "$RUNNER_TEMP/snapshot-tls/observed-hosts.txt"
+          test "$(wc -l < "$RUNNER_TEMP/snapshot-tls/observed-hosts.txt")" -eq 3
+          test "$(cut -f3 "$report" | tail -n +3 | sort -u | wc -l)" -eq 1
+          echo "All expected endpoints served byte-identical InRelease metadata for the pinned URL."
+      - name: Retain TLS and metadata comparison report
+        if: always() && github.event_name == 'pull_request' && github.head_ref == 'debian-snapshot-tls'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: debian-snapshot-tls-20261030T000000Z-${{ github.run_id }}
+          path: ${{ runner.temp }}/snapshot-tls/report.tsv
+          if-no-files-found: warn
+          retention-days: 30
   catalogue:
     runs-on: ubuntu-24.04
     steps:

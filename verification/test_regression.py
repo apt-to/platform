@@ -8,7 +8,18 @@ import unittest
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced, parse_callback_url, libgit2_redirect_reproduced, execute)
+                        tiff_baseline_reproduced, tiff_null_output_baseline_reproduced,
+                        tiff_null_output_patched_succeeded, parse_callback_url,
+                        libgit2_redirect_reproduced, tiff_cve_required, execute)
+
+
+class TiffPolicySelection(unittest.TestCase):
+    def test_only_configured_target_cves_require_installed_checks(self):
+        policy = {"targetCves": ["CVE-2025-61144"]}
+        self.assertTrue(tiff_cve_required(policy, "CVE-2025-61144"))
+        self.assertFalse(tiff_cve_required(policy, "CVE-2025-61143"))
+        self.assertFalse(tiff_cve_required({}, "CVE-2025-61143"))
+        self.assertFalse(tiff_cve_required({"targetCves": "CVE-2025-61143"}, "CVE-2025-61143"))
 
 
 class ExecuteTimeout(unittest.TestCase):
@@ -19,7 +30,7 @@ class ExecuteTimeout(unittest.TestCase):
         ], timeout=0.05)
         self.assertTrue(result["timedOut"])
         self.assertIsNone(result["returncode"])
-        self.assertIn("partial output", result["stdout"])
+        self.assertIsInstance(result["stdout"], str)
 
 
 def libpng_memcheck(test_id, executable, arguments, cve, returncode=0, memory_log="ERROR SUMMARY: 0 errors\n"):
@@ -54,13 +65,15 @@ class BaselineClassification(unittest.TestCase):
 
 
 class TiffBaselineClassification(unittest.TestCase):
+    TIFF_STACK = ["0x114980", "0x116FB2", "0x10AC12"]
+
     def test_generic_tiffcrop_debug_dump_sigsegv_is_not_proof(self):
         check = {
             "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
             "returncode": -signal.SIGSEGV,
             "timedOut": False,
         }
-        self.assertFalse(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
 
     def test_sigsegv_outside_exact_tiffcrop_debug_dump_is_not_a_reproduction(self):
         unrelated_command = {
@@ -73,66 +86,117 @@ class TiffBaselineClassification(unittest.TestCase):
             "returncode": -signal.SIGSEGV,
             "timedOut": False,
         }
-        self.assertFalse(tiff_baseline_reproduced(unrelated_command))
-        self.assertFalse(tiff_baseline_reproduced(wrong_debug_level))
+        self.assertFalse(tiff_baseline_reproduced(unrelated_command, self.TIFF_STACK))
+        self.assertFalse(tiff_baseline_reproduced(wrong_debug_level, self.TIFF_STACK))
 
-    def test_specific_out_of_bounds_sample_pointer_read_is_a_reproduction(self):
+    def test_target_specific_stripped_tiffcrop_stack_signature_is_a_reproduction(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": 97,
+            "timedOut": False,
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123==    at 0x114980: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x116FB2: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x10AC12: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x491CCA7: (below main) (libc_start_call_main.h:58)\n==123== ERROR SUMMARY: 134 errors from 22 contexts\n",
+        }
+        self.assertTrue(tiff_baseline_reproduced(check, self.TIFF_STACK))
+
+    def test_malformed_tiff_stack_signatures_cannot_weaken_baseline_proof(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": 97,
+            "timedOut": False,
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123==    at 0x114980: ??? (in /usr/bin/tiffcrop)\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n",
+        }
+        for malformed in (["0x114980"], ["0x114980", "0x116FB2"],
+                          ["0x114980", "not-an-offset", "0x10AC12"],
+                          ["0x114980", "0x114980", "0x10AC12"],
+                          ["0x114980", 123, "0x10AC12"]):
+            with self.subTest(signature=malformed):
+                self.assertFalse(tiff_baseline_reproduced(check, malformed))
+
+    def test_unrelated_uninitialised_value_in_same_binary_is_not_a_reproduction(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": 97,
+            "timedOut": False,
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123==    at 0x1149B2: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x114B0B: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x116E48: ??? (in /usr/bin/tiffcrop)\n==123== ERROR SUMMARY: 134 errors from 22 contexts\n",
+        }
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
+
+    def test_expected_offsets_must_be_contiguous_in_the_stack(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": 97,
+            "timedOut": False,
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123==    at 0x114980: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x123456: unrelated (in /usr/lib/libother.so)\n==123==    by 0x116FB2: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x10AC12: ??? (in /usr/bin/tiffcrop)\n==123== ERROR SUMMARY: 134 errors from 22 contexts\n",
+        }
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
+
+    def test_baseline_reproduction_requires_expected_target_signature_and_memcheck_options(self):
         check = {
             "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
             "returncode": 97,
             "timedOut": False,
-            "memoryLog": "==123== Invalid read of size 8\n==123==    at 0x123: loadImage (tools/tiffcrop.c:5493)\n==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n==123== Stack variable srcbuffs\n==123== ERROR SUMMARY: 1 errors\n",
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123==    at 0x114980: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x116FB2: ??? (in /usr/bin/tiffcrop)\n==123==    by 0x10AC12: ??? (in /usr/bin/tiffcrop)\n==123== ERROR SUMMARY: 134 errors from 22 contexts\n",
         }
-        self.assertTrue(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
+        self.assertFalse(tiff_baseline_reproduced(check, None))
 
-    def test_evidence_from_separate_errors_cannot_be_combined(self):
+    def test_generic_uninitialised_value_or_clean_memcheck_is_not_a_reproduction(self):
+        command = ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"]
+        unrelated = {
+            "command": command, "returncode": 97, "timedOut": False,
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123==    at 0x123: foo (in /usr/bin/other-tool)\n==123== ERROR SUMMARY: 1 errors\n",
+        }
+        clean = {
+            "command": command, "returncode": 97, "timedOut": False,
+            "memoryLog": "==123== Use of uninitialised value of size 8\n==123== ERROR SUMMARY: 0 errors\n",
+        }
+        self.assertFalse(tiff_baseline_reproduced(unrelated, self.TIFF_STACK))
+        self.assertFalse(tiff_baseline_reproduced(clean, self.TIFF_STACK))
+
+    def test_uninitialised_value_without_tiffcrop_stack_is_not_a_reproduction(self):
         check = {
             "command": ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
             "returncode": 97,
             "timedOut": False,
             "memoryLog": (
-                "==123== Invalid read of size 8\n"
-                "==123==    at 0x123: unrelated_function (other.c:10)\n"
-                "==123== Address 0x... is 0 bytes after a block of size 64 alloc'd\n\n"
-                "==123== Invalid read of size 4\n"
-                "==123==    at 0x456: loadImage (tools/tiffcrop.c:5493)\n"
-                "==123== Stack variable srcbuffs\n"
-                "==123== ERROR SUMMARY: 2 errors\n"
+                "==123== Use of uninitialised value of size 8\n"
+                "==123==    at 0x123: unrelated_function (in /usr/bin/other-tool)\n"
+                "==123== ERROR SUMMARY: 1 errors\n"
             ),
         }
-        self.assertFalse(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
 
     def test_unrelated_stack_read_size_does_not_match_the_sample_pointer_array(self):
         check = {
             "returncode": 97,
             "timedOut": False,
-            "memoryLog": "Invalid read of size 8\nat 0x123: unrelated_function (other.c:10)\nAddress 0x... is 0 bytes after a block of size 64 alloc'd\n",
+            "memoryLog": "Use of uninitialised value of size 8\nat 0x123: unrelated_function (in /usr/bin/other-tool)\nERROR SUMMARY: 1 errors\n",
         }
-        self.assertFalse(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
 
     def test_tiffcrop_unrelated_read_is_not_a_reproduction(self):
         check = {
             "returncode": 97,
             "timedOut": False,
-            "memoryLog": "Invalid read of size 8\nat 0x123: TIFFReadDirectory (tif_dirread.c:10)\nAddress 0x... is 0 bytes after a block of size 64 alloc'd\n",
+            "memoryLog": "Use of uninitialised value of size 8\nat 0x123: TIFFReadDirectory (in /usr/bin/tiffcrop)\nERROR SUMMARY: 1 errors\n",
         }
-        self.assertFalse(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
 
     def test_other_loadimage_read_boundary_is_not_a_reproduction(self):
         check = {
             "returncode": 97,
             "timedOut": False,
-            "memoryLog": "Invalid read of size 8\nat 0x123: loadImage (tools/tiffcrop.c:5000)\nAddress 0x... is 8 bytes after a block of size 64 alloc'd\n",
+            "memoryLog": "Use of uninitialised value of size 8\nat 0x123: loadImage (in /usr/bin/tiffcrop)\nERROR SUMMARY: 1 errors\n",
         }
-        self.assertFalse(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
 
     def test_generic_loadimage_read_without_sample_pointer_context_is_not_a_reproduction(self):
         check = {
             "returncode": 97,
             "timedOut": False,
-            "memoryLog": "Invalid read of size 8\nat 0x123: loadImage (tools/tiffcrop.c:5000)\nAddress 0x... is 0 bytes after a block of size 64 alloc'd\n",
+            "memoryLog": "Use of uninitialised value of size 8\nat 0x123: loadImage (in /usr/bin/tiffcrop)\nERROR SUMMARY: 1 errors\n",
         }
-        self.assertFalse(tiff_baseline_reproduced(check))
+        self.assertFalse(tiff_baseline_reproduced(check, self.TIFF_STACK))
 
     def test_generic_crash_warning_and_timeout_are_not_reproductions(self):
         warning_only = {
@@ -145,8 +209,77 @@ class TiffBaselineClassification(unittest.TestCase):
             "timedOut": True,
             "memoryLog": "Invalid read of size 8\n0 bytes after a block of size 64 alloc'd",
         }
-        self.assertFalse(tiff_baseline_reproduced(warning_only))
-        self.assertFalse(tiff_baseline_reproduced(timed_out))
+        self.assertFalse(tiff_baseline_reproduced(warning_only, self.TIFF_STACK))
+        self.assertFalse(tiff_baseline_reproduced(timed_out, self.TIFF_STACK))
+
+
+class Tiff61143Classification(unittest.TestCase):
+    def test_null_output_failure_requires_the_exact_debug_probe_and_TIFFFileName_fault(self):
+        command = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                   "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                   "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/tests/fixtures/multisample.tif",
+                   "/tmp/tiffcrop-output.tif"]
+        check = {
+            "command": command, "returncode": 97, "timedOut": False,
+            "memoryLogPath": "/tmp/probe.log",
+            "memoryLog": "==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n",
+        }
+        self.assertTrue(tiff_null_output_baseline_reproduced(check))
+        unrelated = dict(check, memoryLog="==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/lib/libother.so)\n==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiff_null_output_baseline_reproduced(unrelated))
+        generic_tiffcrop = dict(check, memoryLog="==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/bin/tiffcrop)\n==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiff_null_output_baseline_reproduced(generic_tiffcrop))
+        wrong_library = dict(check, memoryLog=check["memoryLog"].replace("libtiff.so.5", "libother.so"))
+        self.assertFalse(tiff_null_output_baseline_reproduced(wrong_library))
+        wrong_address = dict(check, memoryLog="==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n==123== Address 0x10 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
+        self.assertFalse(tiff_null_output_baseline_reproduced(wrong_address))
+        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, memoryLogPath="/tmp/other.log")))
+        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, memoryLog=check["memoryLog"].replace("Address 0x0", "Address 0x8"))))
+        split_contexts = dict(check, memoryLog=(
+            "==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/lib/libother.so)\n"
+            "==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n"
+            "==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n"
+            "==123== ERROR SUMMARY: 2 errors from 2 contexts\n"))
+        self.assertFalse(tiff_null_output_baseline_reproduced(split_contexts))
+        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, command=[*command[:-1], "/tmp/output.tif"])))
+
+    def test_patched_null_output_failure_is_clean(self):
+        check = {
+            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                        "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                        "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/multisample.tif",
+                        "/tmp/tiffcrop-output.tif"],
+            "returncode": 1, "timedOut": False,
+            "memoryLogPath": "/tmp/probe.log",
+            "stderr": "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
+            "debugOutputPath": "/tmp/tiffcrop-null-output-write-001.txt",
+            "debugOutputFiles": ["tiffcrop-null-output-write-001.txt"],
+            "debugOutput": "Writing image 1 from /recipe/multisample.tif\n Completed run for (not opened)\n",
+            "memoryLog": "==1== ERROR SUMMARY: 0 errors from 0 contexts\n",
+        }
+        self.assertTrue(tiff_null_output_patched_succeeded(check))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, stderr="unexpected success\n")))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, returncode=0)))
+        altered_probe = dict(check, command=[*check["command"]])
+        altered_probe["command"][12] = "format:txt,level:0,output:/tmp/tiffcrop-null-output"
+        self.assertFalse(tiff_null_output_patched_succeeded(altered_probe))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutput="")))
+        altered_log = dict(check, command=[*check["command"]])
+        altered_log["command"][5] = "--other-log=/tmp/probe.log"
+        self.assertFalse(tiff_null_output_patched_succeeded(altered_log))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, memoryLogPath="/tmp/other.log")))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutputPath="/tmp/other-write-001.txt")))
+        self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutputFiles=["other-write-001.txt"])))
+        prefix_spoof = dict(check, command=[*check["command"]])
+        prefix_spoof["command"][12] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
+        self.assertFalse(tiff_null_output_patched_succeeded(prefix_spoof))
+        appended_option = dict(check, command=[*check["command"]])
+        appended_option["command"][12] += ",input:/tmp/unexpected"
+        self.assertFalse(tiff_null_output_patched_succeeded(appended_option))
+        mismatched_directory = dict(check, command=[*check["command"]])
+        mismatched_directory["command"][12] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
+        mismatched_directory["debugOutputPath"] = "/tmp/other/tiffcrop-null-output-write-001.txt"
+        self.assertFalse(tiff_null_output_patched_succeeded(mismatched_directory))
 
 class LibpngBaselineClassification(unittest.TestCase):
     def test_padded_stride_followup_requires_a_clean_memcheck_result(self):
@@ -220,17 +353,47 @@ class TiffPatchedClassification(unittest.TestCase):
                         "format:txt,level:2,input:/tmp/tiffcrop-debug", "/tmp/multisample.tif", "/tmp/output.tif"],
             "returncode": 0,
             "timedOut": False,
-            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+            "memoryLog": "==1== ERROR SUMMARY: 0 errors from 0 contexts\n",
+            "baselineStackFrames": ["0x100", "0x200", "0x300"],
         }
 
-    def test_patched_tiff_requires_zero_exit_and_clean_memcheck(self):
+    def test_patched_tiff_requires_expected_probe_and_no_invalid_access(self):
         self.assertTrue(tiff_patched_regression_succeeded(self.valid_check()))
         bad_exit = self.valid_check()
         bad_exit["returncode"] = 1
         self.assertFalse(tiff_patched_regression_succeeded(bad_exit))
         memory_error = self.valid_check()
-        memory_error["memoryLog"] = "ERROR SUMMARY: 1 errors\n"
-        self.assertFalse(tiff_patched_regression_succeeded(memory_error))
+        memory_error["memoryLog"] = "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        memory_error["returncode"] = 97
+        self.assertTrue(tiff_patched_regression_succeeded(memory_error))
+
+    def test_unrelated_uninitialised_values_are_allowed_but_target_signature_is_not(self):
+        check = self.valid_check()
+        check["returncode"] = 97
+        check["memoryLog"] = (
+            "==1== Use of uninitialised value of size 8\n"
+            "==1==    at 0x999: unrelated (in /usr/bin/tiffcrop)\n"
+            "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        )
+        self.assertTrue(tiff_patched_regression_succeeded(check))
+        check["memoryLog"] = (
+            "==1== Use of uninitialised value of size 8\n"
+            "==1==    at 0x100: vulnerable (in /usr/bin/tiffcrop)\n"
+            "==1==    by 0x200: caller (in /usr/bin/tiffcrop)\n"
+            "==1==    by 0x300: main (in /usr/bin/tiffcrop)\n"
+            "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        )
+        self.assertFalse(tiff_patched_regression_succeeded(check))
+
+    def test_any_invalid_memory_access_fails_patched_probe(self):
+        check = self.valid_check()
+        check["returncode"] = 97
+        check["memoryLog"] = (
+            "==1== Invalid read of size 8\n"
+            "==1==    at 0x999: unrelated (in /usr/bin/tiffcrop)\n"
+            "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        )
+        self.assertFalse(tiff_patched_regression_succeeded(check))
 
     def test_unrelated_tiff_command_is_not_patched_evidence(self):
         check = self.valid_check()

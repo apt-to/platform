@@ -14,12 +14,15 @@ import uuid
 from build_getpatched_advisory_feed import PACKAGES, build_feed
 from debian_versions import debian_version_compare, debian_version_parts
 from platform_policy import package_ecosystem, package_target_policy, target_profile
+from package_recipe import load_json, recipe_path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "verification"))
 from regression import (consumer_version_succeeded, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         libpng_patched_checks_succeeded, poppler_uaf_reproduced,
                         schematron_baseline_reproduced, tiff_baseline_reproduced,
+                        valid_tiff_baseline_stack_signature,
+                        tiff_null_output_baseline_reproduced, tiff_null_output_patched_succeeded,
                         tiff_patched_regression_succeeded)
 
 DEFAULT_FEED = ROOT / "advisories" / "getpatched-osv.json"
@@ -44,6 +47,58 @@ def validate_followup_assessment_checks(target, checks, phase):
             raise ValueError(f"candidate regression report lacks the assessed follow-up check for {cve}")
         if assessment["candidateDisposition"] != "fixed-in-backport":
             raise ValueError(f"patched disposition for follow-up {cve} is not explicitly assessed")
+
+
+def tiff_baseline_stack_signature(recipe_directory, target_id):
+    try:
+        root = Path(recipe_directory).resolve()
+        manifest = load_json(recipe_path(root, "package-manifest.json"))
+        if not isinstance(manifest, dict) or not isinstance(manifest.get("targets"), list):
+            return None
+        matches = [item for item in manifest["targets"]
+                   if isinstance(item, dict) and item.get("id") == target_id]
+        if len(matches) != 1:
+            return None
+        target_ref = matches[0]
+        if manifest.get("schemaVersion") == 3:
+            relative_target = target_ref.get("file")
+            if not isinstance(relative_target, str) or not relative_target:
+                return None
+            target = load_json(recipe_path(root, relative_target))
+        else:
+            target = target_ref
+        if not isinstance(target, dict) or target.get("id") != target_id:
+            return None
+        patch_ids = target.get("patches")
+        if (not isinstance(patch_ids, list) or not patch_ids
+                or any(not isinstance(patch_id, str) or not patch_id for patch_id in patch_ids)
+                or len(set(patch_ids)) != len(patch_ids)):
+            return None
+        metadata = load_json(recipe_path(root, manifest.get("patchMetadata")))
+        if not isinstance(metadata, dict) or not isinstance(metadata.get("patches"), list):
+            return None
+        patches = metadata["patches"]
+        if any(not isinstance(patch, dict) or not isinstance(patch.get("id"), str) for patch in patches):
+            return None
+        patch_metadata_ids = [patch["id"] for patch in patches]
+        if len(set(patch_metadata_ids)) != len(patch_metadata_ids):
+            return None
+        by_id = {patch["id"]: patch for patch in patches}
+        if not set(patch_ids).issubset(by_id):
+            return None
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError):
+        return None
+    tests = [test for patch_id in patch_ids for patch in [by_id.get(patch_id, {})]
+             if "CVE-2025-61144" in patch.get("cves", [])
+             for test in patch.get("tests", [])
+             if isinstance(test, dict) and test.get("id") == "tiffcrop-debug-sample-bounds"]
+    if len(tests) != 1:
+        return None
+    signatures = tests[0].get("baselineStackSignatures")
+    if not isinstance(signatures, dict):
+        return None
+    signature = signatures.get(target_id)
+    return signature if valid_tiff_baseline_stack_signature(signature) else None
 
 
 def poppler_patched_checks_succeeded(cve_check, checks):
@@ -277,16 +332,25 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
             raise ValueError("libgit2 regression reports must contain exactly one result per configured CVE")
         validate_followup_assessment_checks(target, checks, phase)
         if source == "tiff":
+            trusted_stack = tiff_baseline_stack_signature(recipe_directory, target_id)
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
+            null_output_check = cve_checks.get("CVE-2025-61143")
+            sample_bounds_checks = [check for check in target_checks if check.get("cve") == "CVE-2025-61144"]
             if phase == "baseline":
-                if not all(tiff_baseline_reproduced(check) for check in target_checks):
-                    raise ValueError("TIFF baseline evidence does not reproduce the configured tiffcrop issue")
-            elif (not all(check.get("passed") is True and tiff_patched_regression_succeeded(check)
-                          for check in target_checks)
+                if (not trusted_stack
+                        or not all(tiff_baseline_reproduced(check, trusted_stack)
+                            for check in sample_bounds_checks)
+                        or ("CVE-2025-61143" in target["targetCves"]
+                            and not tiff_null_output_baseline_reproduced(null_output_check or {}))):
+                    raise ValueError("TIFF baseline evidence does not reproduce all configured tiffcrop paths")
+            elif (("CVE-2025-61143" in target["targetCves"]
+                   and (not null_output_check or not tiff_null_output_patched_succeeded(null_output_check)))
+                  or not all(check.get("passed") is True and tiff_patched_regression_succeeded(check)
+                             for check in sample_bounds_checks)
                   or not any(check.get("passed") is True and check.get("returncode") == 0
                              and check.get("command", [None])[0] == "tiffinfo"
                              and "Image Width" in check.get("stdout", "") for check in checks)):
-                raise ValueError("TIFF patched evidence lacks clean CVE regression and a tiffinfo consumer check")
+                raise ValueError("TIFF patched evidence lacks clean CVE regressions and a tiffinfo consumer check")
         elif source == "libxml2":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
             if phase == "baseline":

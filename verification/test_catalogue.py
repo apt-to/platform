@@ -47,6 +47,50 @@ class PublicCatalogueContract(unittest.TestCase):
         self.assertFalse(profile["repository"]["enabled"])
         self.assertIn("[arch=arm64] https://snapshot.debian.org/archive/debian/20261025T000000Z/", apt_source_list(profile))
 
+    def test_all_distribution_snapshot_sources_require_https(self):
+        platform = json.loads((ROOT / "packages.json").read_text())
+        for target_id in platform["targets"]:
+            sources = apt_source_list(target_profile(platform, target_id))
+            self.assertNotIn("http://", sources, target_id)
+            self.assertIn("https://", sources, target_id)
+        for filename in ("packaging.Containerfile", "baseline.Containerfile", "patched-scan.Containerfile"):
+            containerfile = (ROOT / "build" / filename).read_text()
+            self.assertIn("# syntax=docker/dockerfile:1.7", containerfile)
+            self.assertIn("RUN --mount=type=secret,id=runner-ca", containerfile)
+            self.assertIn("/etc/ssl/certs/ca-certificates.crt", containerfile)
+            self.assertIn("chmod 0644 /etc/ssl/certs/ca-certificates.crt", containerfile)
+            self.assertIn('Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt"', containerfile)
+        build_script = (ROOT / "scripts/build-package.py").read_text()
+        self.assertIn("ca_secret_args, ca_bundle_sha256, ca_bundle_source = runner_ca_bundle()", build_script)
+        self.assertIn("*ca_secret_args", build_script)
+        self.assertIn('"runnerCaBundleSha256": ca_bundle_sha256', build_script)
+
+        baseline_script = (ROOT / "scripts/run-baseline.py").read_text()
+        self.assertIn("*ca_secret_args", baseline_script)
+        self.assertIn('"runnerCaBundleSource": ca_bundle_source', baseline_script)
+        self.assertIn('"runnerCaBundleSha256": ca_bundle_sha256', baseline_script)
+
+        client_script = (ROOT / "scripts/test-apt-repository.py").read_text()
+        self.assertIn("*ca_secret_args", client_script)
+        self.assertIn('"runnerCaBundleSource": ca_bundle_source', client_script)
+        self.assertIn('"runnerCaBundleSha256": ca_bundle_sha256', client_script)
+        self.assertIn('Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt"', client_script)
+        self.assertIn("chmod 0644 /etc/ssl/certs/ca-certificates.crt", client_script)
+
+        untrusted_debian = json.loads(json.dumps(platform))
+        untrusted_debian["targets"]["debian-trixie-amd64"]["aptSources"][0]["uri"] = (
+            "http://mirror.example.invalid/debian/20261030T000000Z/"
+        )
+        with self.assertRaises(ValueError):
+            target_profile(untrusted_debian, "debian-trixie-amd64")
+
+        insecure_ubuntu = json.loads(json.dumps(platform))
+        insecure_ubuntu["targets"]["ubuntu-focal-amd64"]["aptSources"][0]["uri"] = (
+            "http://snapshot.ubuntu.com/ubuntu/20261025T000000Z/"
+        )
+        with self.assertRaises(ValueError):
+            target_profile(insecure_ubuntu, "ubuntu-focal-amd64")
+
     def test_target_recipe_branch_rejects_untrusted_ref_syntax(self):
         platform = deepcopy(json.loads((ROOT / "packages.json").read_text()))
         platform["targets"]["ubuntu-focal-amd64"]["sourceBranch"] = "getpatched/../main"

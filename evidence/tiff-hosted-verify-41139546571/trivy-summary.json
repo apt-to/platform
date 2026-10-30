@@ -1,0 +1,31 @@
+{
+  "note": "Supporting scan output; not proof that the package-specific patched regression is fixed. Raw reports are retained by the hosted workflow and their hashes below.",
+  "reports": {
+    "after": {
+      "candidateCves": {
+        "CVE-2025-61143": [],
+        "CVE-2025-61144": []
+      },
+      "databaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+      "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "imageId": "sha256:f055cb5928d13822012a40d468fcd22e43e0401306d9df19e63e80f40783c128",
+      "reportSha256": "4fddc27b47bbf2fe87263b4c31ff023c16f9a9036fc71760d1eb88fd8fdec64f",
+      "severityCounts": {},
+      "vulnerabilityCount": 0
+    },
+    "before": {
+      "candidateCves": {
+        "CVE-2025-61143": [],
+        "CVE-2025-61144": []
+      },
+      "databaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+      "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "imageId": "sha256:e7bafeeeaed6650668406ef474570072c234a4ac194f044d99b1d9a66ea9e531",
+      "reportSha256": "61a94bec43c376de77241223144bef242536b1d34b9f09dbbf1fe8b9651eb7db",
+      "severityCounts": {},
+      "vulnerabilityCount": 0
+    }
+  },
+  "scanner": "Trivy",
+  "schemaVersion": 1
+}

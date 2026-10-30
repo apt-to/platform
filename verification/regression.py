@@ -22,16 +22,18 @@ def execute(command, timeout=30, env=None):
         result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=env)
         return {"command": command, "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr, "timedOut": False}
     except subprocess.TimeoutExpired as error:
-        def partial_text(value):
+        def partial_output(value):
             if isinstance(value, bytes):
                 return value.decode("utf-8", errors="replace")
-            return value or ""
+            if value is None:
+                return ""
+            return str(value)
 
         return {
             "command": command,
             "returncode": None,
-            "stdout": partial_text(error.stdout),
-            "stderr": partial_text(error.stderr),
+            "stdout": partial_output(error.stdout),
+            "stderr": partial_output(error.stderr),
             "timedOut": True,
         }
 
@@ -47,46 +49,184 @@ def schematron_baseline_reproduced(check):
     )
 
 
-def tiff_baseline_reproduced(check):
+def valid_tiff_baseline_stack_signature(expected_stack_frames):
+    return (
+        isinstance(expected_stack_frames, list)
+        and len(expected_stack_frames) == 3
+        and all(isinstance(offset, str) and re.fullmatch(r"0x[0-9a-fA-F]{1,16}", offset)
+                for offset in expected_stack_frames)
+        and len(set(expected_stack_frames)) == 3
+    )
+
+
+def tiff_baseline_reproduced(check, expected_stack_frames):
     log = check.get("memoryLog", "")
     command = check.get("command", [])
     debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
+    memcheck_options = ("--tool=memcheck", "--error-exitcode=97", "--read-var-info=yes")
     exact_probe = (
         command
         and Path(command[0]).name == "valgrind"
+        and all(option in command for option in memcheck_options)
         and "tiffcrop" in command
         and "format:txt" in debug_dump
         and "level:2" in debug_dump
         and any(Path(arg).name == "multisample.tif" for arg in command)
     )
-    if check.get("timedOut", False) or check.get("returncode") != 97 or not exact_probe:
+    if (check.get("timedOut", False) or check.get("returncode") != 97 or not exact_probe
+            or not valid_tiff_baseline_stack_signature(expected_stack_frames)):
         return False
 
     error_blocks = re.finditer(
-        r"(?ms)^==\d+== Invalid read of size 8\n(?P<body>.*?)(?=^==\d+== "
+        r"(?ms)^==\d+== Use of uninitialised value of size 8\n(?P<body>.*?)(?=^==\d+== "
         r"(?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)",
         log,
     )
-    return any(
-        "0 bytes after a block of size 64" in block.group("body")
-        and re.search(r"(?m)^==\d+==\s+at .*\b(?:loadImage|combineSeparateSamplesBytes)\b", block.group("body"))
-        and "srcbuffs" in block.group("body")
-        for block in error_blocks
-    )
+    def matches_expected_stack(block):
+        frames = re.findall(r"(?m)^==\d+==\s+(?:at|by) .*?$", block.group("body"))
+        return len(frames) >= len(expected_stack_frames) and all(
+            re.match(
+                rf"^==\d+==\s+(?:at|by) {re.escape(offset)}:.*\(in /usr/bin/tiffcrop\)$",
+                frame,
+            )
+            for frame, offset in zip(frames, expected_stack_frames)
+        )
+
+    has_expected_tiffcrop_stack = any(matches_expected_stack(block) for block in error_blocks)
+    has_memcheck_errors = re.search(r"(?m)^==\d+== ERROR SUMMARY: [1-9]\d* errors?", log)
+    return has_expected_tiffcrop_stack and bool(has_memcheck_errors)
 
 
 def tiff_patched_regression_succeeded(check):
     command = check.get("command", [])
+    log = check.get("memoryLog", "")
+    expected_stack_frames = check.get("baselineStackFrames")
+    error_summary = re.search(r"(?m)^==\d+== ERROR SUMMARY: (\d+) errors?", log)
+    vulnerable_stack_present = False
+    if valid_tiff_baseline_stack_signature(expected_stack_frames):
+        error_blocks = re.finditer(
+            r"(?ms)^==\d+== Use of uninitialised value of size 8\n(?P<body>.*?)(?=^==\d+== "
+            r"(?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)",
+            log,
+        )
+        for block in error_blocks:
+            frames = re.findall(r"(?m)^==\d+==\s+(?:at|by) .*?$", block.group("body"))
+            if len(frames) >= len(expected_stack_frames) and all(
+                re.match(
+                    rf"^==\d+==\s+(?:at|by) {re.escape(offset)}:.*\(in /usr/bin/tiffcrop\)$",
+                    frame,
+                )
+                for frame, offset in zip(frames, expected_stack_frames)
+            ):
+                vulnerable_stack_present = True
+                break
     return (
         not check.get("timedOut", False)
-        and check.get("returncode") == 0
+        and check.get("returncode") in (0, 97)
         and command
         and Path(command[0]).name == "valgrind"
         and "--tool=memcheck" in command
         and "tiffcrop" in [Path(argument).name for argument in command]
         and any(argument.startswith("format:txt,level:2,input:") for argument in command)
         and any(Path(argument).name == "multisample.tif" for argument in command)
-        and "ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
+        and valid_tiff_baseline_stack_signature(expected_stack_frames)
+        and not vulnerable_stack_present
+        and not valgrind_invalid_access_blocks(log)
+        and error_summary is not None
+        and ((check["returncode"] == 0 and error_summary.group(1) == "0")
+             or (check["returncode"] == 97 and int(error_summary.group(1)) > 0))
+    )
+
+
+def tiff_cve_required(policy, cve):
+    configured = policy.get("targetCves") if isinstance(policy, dict) else None
+    return isinstance(configured, list) and cve in configured
+
+
+def valgrind_invalid_access_blocks(log):
+    pattern = re.compile(
+        r"(?ms)^==\d+== (?P<kind>Invalid (?:read|write) of size \d+)\n"
+        r"(?P<body>.*?)(?=^==\d+== (?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)"
+    )
+    return list(pattern.finditer(log))
+
+
+def memcheck_log_path_matches(check, command):
+    memory_log_path = check.get("memoryLogPath")
+    return (
+        isinstance(memory_log_path, str) and bool(memory_log_path)
+        and len(command) > 5
+        and command[5] == "--log-file=" + memory_log_path
+    )
+
+
+def tiff_null_output_baseline_reproduced(check):
+    command = check.get("command", [])
+    log = check.get("memoryLog", "")
+    output = Path(command[-1]) if command else Path("/")
+    debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
+    exact_probe = (
+        len(command) == 15
+        and Path(command[0]).name == "valgrind"
+        and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+        and memcheck_log_path_matches(check, command)
+        and Path(command[6]).name == "tiffcrop"
+        and command[7:11] == ["-U", "px", "-m", "0,2,0,2"]
+        and command[11] == "-D"
+        and debug_dump.startswith("format:txt,level:2,output:")
+        and Path(command[13]).name == "multisample.tif"
+        and Path(output).name == "tiffcrop-output.tif"
+    )
+    expected_fault = any(
+        block.group("kind") == "Invalid read of size 8"
+        and "Address 0x0 is not stack'd, malloc'd or (recently) free'd" in block.group("body")
+        and re.search(r"(?m)^==\d+==\s+at .*TIFFFileName \(in /usr/lib(?:/[^ )]+)?/libtiff(?:xx)?\.so(?:\.[0-9]+)*\)", block.group("body"))
+        for block in valgrind_invalid_access_blocks(log)
+    )
+    return (
+        not check.get("timedOut", False)
+        and check.get("returncode") == 97
+        and exact_probe
+        and expected_fault
+        and re.search(r"(?m)^==\d+== ERROR SUMMARY: [1-9]\d* errors?", log)
+    )
+
+
+def tiff_null_output_patched_succeeded(check):
+    command = check.get("command", [])
+    log = check.get("memoryLog", "")
+    output_text = check.get("stdout", "") + check.get("stderr", "")
+    output_path = command[-1] if command else ""
+    debug_output_path = check.get("debugOutputPath", "")
+    debug_option = command[12] if len(command) > 12 else ""
+    debug_prefix = debug_option.removeprefix("format:txt,level:2,output:")
+    expected_debug_output = debug_prefix + "-write-001.txt"
+    return (
+        not check.get("timedOut", False)
+        and check.get("returncode") == 1
+        and len(command) == 15
+        and Path(command[0]).name == "valgrind"
+        and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
+        and memcheck_log_path_matches(check, command)
+        and Path(command[6]).name == "tiffcrop"
+        and command[7:11] == ["-U", "px", "-m", "0,2,0,2"]
+        and command[11] == "-D"
+        and debug_option.startswith("format:txt,level:2,output:")
+        and bool(debug_prefix)
+        and "," not in debug_prefix
+        and Path(debug_prefix).is_absolute()
+        and Path(command[13]).name == "multisample.tif"
+        and Path(output_path).name == "tiffcrop-output.tif"
+        and Path(debug_prefix).parent.resolve() == Path(output_path).parent.resolve()
+        and isinstance(debug_output_path, str)
+        and Path(debug_output_path).is_absolute()
+        and Path(debug_output_path).resolve() == Path(expected_debug_output).resolve()
+        and Path(expected_debug_output).parent.resolve() == Path(output_path).parent.resolve()
+        and "Unable to define crop regions" in output_text
+        and "Combined left and right margins exceed image width" in output_text
+        and Path(debug_output_path).name in check.get("debugOutputFiles", [])
+        and "Completed run for (not opened)" in check.get("debugOutput", "")
+        and "ERROR SUMMARY: 0 errors" in log
     )
 
 
@@ -299,6 +439,13 @@ def main():
     manifest = json.loads((args.recipe / "package-manifest.json").read_text())
     policy = json.loads(args.policy.read_text())
     package = policy["source"]
+    tiff_baseline_stack_frames = None
+    if package == "tiff":
+        patch_metadata = json.loads((args.recipe / "patches/metadata.json").read_text())
+        regression = next((test for patch in patch_metadata.get("patches", [])
+                           for test in patch.get("tests", [])
+                           if test.get("id") == "tiffcrop-debug-sample-bounds"), None)
+        tiff_baseline_stack_frames = (regression or {}).get("baselineStackSignatures", {}).get(policy["targetId"])
     fixtures = args.recipe / manifest["regressionTests"]["fixturesDirectory"]
     expected = policy["baseVersion"] if args.phase == "baseline" else policy["version"]
     installed_name = {
@@ -371,26 +518,56 @@ def main():
             fixture = fixtures / "multisample.tif"
             if not fixture.is_file() or not 0 < fixture.stat().st_size < 1024 * 1024:
                 raise RuntimeError("TIFF regression fixture is missing or exceeds its size bound")
-            dump_prefix = temp / "tiffcrop-debug"
             output = temp / "tiffcrop-output.tif"
-            command = [
-                "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
-                str(fixture), str(output),
-            ]
-            memory_log = temp / "tiffcrop-valgrind.log"
-            check = execute([
-                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                "--read-var-info=yes", "--log-file=" + str(memory_log), *command,
-            ])
-            check["memoryLog"] = memory_log.read_text() if memory_log.exists() else ""
-            check["cve"] = "CVE-2025-61144"
-            check["passed"] = (
-                tiff_baseline_reproduced(check)
-                if args.phase == "baseline"
-                else tiff_patched_regression_succeeded(check)
-                and output.is_file() and output.stat().st_size > 0
-            )
-            checks.append(check)
+            if tiff_cve_required(policy, "CVE-2025-61143"):
+                null_dump_prefix = temp / "tiffcrop-null-output"
+                null_log = temp / "tiffcrop-null-output.valgrind"
+                null_check = execute([
+                    "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                    "--read-var-info=yes", "--log-file=" + str(null_log),
+                    "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                    f"format:txt,level:2,output:{null_dump_prefix}", str(fixture), str(output),
+                ])
+                null_check["memoryLog"] = null_log.read_text() if null_log.exists() else ""
+                null_check["memoryLogPath"] = str(null_log)
+                debug_path = Path(str(null_dump_prefix) + "-write-001.txt")
+                null_check["debugOutputPath"] = str(debug_path)
+                null_check["debugOutputFiles"] = [path.name for path in sorted(temp.glob("tiffcrop-null-output-write-*.txt"))]
+                null_check["debugOutput"] = (
+                    debug_path.read_text() if debug_path.is_file() and debug_path.stat().st_size <= 1024 * 1024 else ""
+                )
+                null_check["cve"] = "CVE-2025-61143"
+                null_check["testId"] = "tiffcrop-null-output-debug-log"
+                null_check["passed"] = (
+                    tiff_null_output_baseline_reproduced(null_check)
+                    if args.phase == "baseline"
+                    else tiff_null_output_patched_succeeded(null_check)
+                )
+                checks.append(null_check)
+
+            if tiff_cve_required(policy, "CVE-2025-61144"):
+                dump_prefix = temp / "tiffcrop-debug"
+                command = [
+                    "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
+                    str(fixture), str(output),
+                ]
+                memory_log = temp / "tiffcrop-valgrind.log"
+                check = execute([
+                    "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                    "--read-var-info=yes", "--log-file=" + str(memory_log), *command,
+                ])
+                check["memoryLog"] = memory_log.read_text() if memory_log.exists() else ""
+                check["memoryLogPath"] = str(memory_log)
+                check["cve"] = "CVE-2025-61144"
+                check["testId"] = "tiffcrop-debug-sample-bounds"
+                check["baselineStackFrames"] = tiff_baseline_stack_frames
+                check["passed"] = (
+                    tiff_baseline_reproduced(check, tiff_baseline_stack_frames)
+                    if args.phase == "baseline"
+                    else tiff_patched_regression_succeeded(check)
+                    and output.is_file() and output.stat().st_size > 0
+                )
+                checks.append(check)
 
             if args.phase == "patched":
                 consumer = execute(["tiffinfo", str(output)])
