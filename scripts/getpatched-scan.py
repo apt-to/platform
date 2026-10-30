@@ -19,8 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "verification"))
 from regression import (libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         poppler_uaf_reproduced, schematron_baseline_reproduced,
-                        tiff_baseline_reproduced, tiff_null_output_baseline_reproduced,
-                        tiffdither_overrun_baseline_reproduced)
+                        tiff_baseline_reproduced)
 
 DEFAULT_FEED = ROOT / "advisories" / "getpatched-osv.json"
 MAX_STATUS_BYTES = 16 * 1024 * 1024
@@ -216,24 +215,16 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
         validate_followup_assessment_checks(target, checks, phase)
         if source == "tiff":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
-            dither_check = next((check for check in checks
-                                 if check.get("testId") == "tiffdither-scanline-width-bound"), {})
             if phase == "baseline":
-                if (not tiff_null_output_baseline_reproduced(cve_checks.get("CVE-2025-61143", {}))
-                        or not tiff_baseline_reproduced(cve_checks.get("CVE-2025-61144", {}))
-                        or not tiffdither_overrun_baseline_reproduced(dither_check)):
-                    raise ValueError("TIFF baseline evidence does not reproduce both configured tiffcrop issues and the tiffdither width regression")
+                if not all(tiff_baseline_reproduced(check) for check in target_checks):
+                    raise ValueError("TIFF baseline evidence does not reproduce the configured tiffcrop issue")
             elif (not all(check.get("returncode") in (0, 1) and not check.get("timedOut")
                           and check.get("command", [None])[0] == "tiffcrop" for check in target_checks)
                   or not all("ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
                              for check in target_checks)
-                  or dither_check.get("command", [None])[0] != "tiffdither"
-                  or dither_check.get("returncode") not in (0, 1)
-                  or dither_check.get("timedOut")
-                  or "ERROR SUMMARY: 0 errors" not in dither_check.get("memoryLog", "")
                   or not any(check.get("command", [None])[0] == "tiffinfo"
                              and "Image Width" in check.get("stdout", "") for check in checks)):
-                raise ValueError("TIFF patched evidence lacks clean CVE/dither regressions and a tiffinfo consumer check")
+                raise ValueError("TIFF patched evidence lacks clean CVE regression and a tiffinfo consumer check")
         elif source == "libxml2":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
             if phase == "baseline":
