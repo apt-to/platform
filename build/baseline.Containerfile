@@ -21,7 +21,7 @@ RUN set -eu; \
     esac; \
     apt-get update; \
     apt-get -y dist-upgrade; \
-    apt-get install -y --no-install-recommends build-essential python3 valgrind; \
+    apt-get install -y --no-install-recommends build-essential python3 valgrind pkg-config; \
     for binary in $binaries; do \
       candidate="$(apt-cache policy "$binary" | awk '/Candidate:/ {print $2}')"; \
       test "$candidate" = "$EXPECTED_VERSION" || { \

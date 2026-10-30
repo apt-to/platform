@@ -13,7 +13,7 @@ RUN set -eu; \
     test -n "$APT_SOURCES_B64"; \
     printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
     apt-get update; \
-    apt-get install -y --no-install-recommends build-essential python3 valgrind; \
+    apt-get install -y --no-install-recommends build-essential python3 valgrind pkg-config; \
     apt-get -y dist-upgrade; \
     case "$SOURCE_PACKAGE" in \
       libxml2) binaries="libxml2 libxml2-utils" ;; \
