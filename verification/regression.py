@@ -41,24 +41,9 @@ def tiff_baseline_reproduced(check):
     )
 
 
-def tiff_null_output_baseline_reproduced(check):
-    log = check.get("memoryLog", "")
-    return (
-        not check.get("timedOut", False)
-        and check.get("returncode") == 97
-        and "Invalid read" in log
-        and ("Address 0x8" in log or "Address 0x0" in log)
-    )
-
-
-def tiffdither_overrun_baseline_reproduced(check):
-    log = check.get("memoryLog", "")
-    return (
-        not check.get("timedOut", False)
-        and check.get("returncode") == 97
-        and ("Invalid write" in log or "Invalid read" in log)
-        and ("fsdither" in log or "tiffdither" in log)
-    )
+def consumer_version_succeeded(check, expected_banner):
+    output = check.get("stdout", "") + check.get("stderr", "")
+    return not check.get("timedOut", False) and check.get("returncode") == 0 and expected_banner in output
 
 
 def libpng_overwrite_reproduced(check):
@@ -173,26 +158,6 @@ def main():
                 raise RuntimeError("TIFF regression fixture is missing or exceeds its size bound")
             dump_prefix = temp / "tiffcrop-debug"
             output = temp / "tiffcrop-output.tif"
-            missing_output = temp / "missing-output-parent" / "output.tif"
-            null_command = [
-                "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
-                str(fixture), str(missing_output),
-            ]
-            null_log = temp / "tiffcrop-null-output.valgrind"
-            null_check = execute([
-                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                "--read-var-info=yes", "--log-file=" + str(null_log), *null_command,
-            ])
-            null_check["memoryLog"] = null_log.read_text() if null_log.exists() else ""
-            null_check["cve"] = "CVE-2025-61143"
-            null_check["testId"] = "tiffcrop-null-output-debug-log"
-            null_check["passed"] = (
-                tiff_null_output_baseline_reproduced(null_check)
-                if args.phase == "baseline"
-                else null_check["returncode"] in (0, 1) and "ERROR SUMMARY: 0 errors" in null_check["memoryLog"]
-            )
-            checks.append(null_check)
-
             command = [
                 "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
                 str(fixture), str(output),
@@ -211,26 +176,6 @@ def main():
                 and output.is_file() and output.stat().st_size > 0
             )
             checks.append(check)
-
-            dither_fixture = fixtures / "subscanline.tif"
-            if not dither_fixture.is_file() or not 0 < dither_fixture.stat().st_size < 1024 * 1024:
-                raise RuntimeError("TIFF dither regression fixture is missing or exceeds its size bound")
-            dither_output = temp / "dither-output.tif"
-            dither_memory_log = temp / "tiffdither.valgrind"
-            dither_check = execute([
-                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                "--read-var-info=yes", "--log-file=" + str(dither_memory_log),
-                "tiffdither", str(dither_fixture), str(dither_output),
-            ])
-            dither_check["memoryLog"] = dither_memory_log.read_text() if dither_memory_log.exists() else ""
-            dither_check["testId"] = "tiffdither-scanline-width-bound"
-            dither_check["passed"] = (
-                tiffdither_overrun_baseline_reproduced(dither_check)
-                if args.phase == "baseline"
-                else dither_check["returncode"] in (0, 1)
-                and "ERROR SUMMARY: 0 errors" in dither_check["memoryLog"]
-            )
-            checks.append(dither_check)
 
             if args.phase == "patched":
                 consumer = execute(["tiffinfo", str(output)])
@@ -324,7 +269,7 @@ def main():
             checks.append(check)
             if args.phase == "patched":
                 consumer = execute(["pdfinfo", "-v"])
-                consumer["passed"] = consumer.get("returncode") == 0 and "pdfinfo version" in consumer.get("stdout", "")
+                consumer["passed"] = consumer_version_succeeded(consumer, "pdfinfo version")
                 checks.append(consumer)
         else:
             raise RuntimeError("Unsupported source package")

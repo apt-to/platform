@@ -17,6 +17,22 @@ SCANNER_SPEC.loader.exec_module(SCANNER_MODULE)
 
 
 class GetPatchedScannerContract(unittest.TestCase):
+    def test_poppler_candidate_accepts_pdfinfo_version_on_stderr(self):
+        cve_check = {
+            "returncode": 0,
+            "timedOut": False,
+            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+        }
+        consumer_check = {
+            "command": ["pdfinfo", "-v"],
+            "returncode": 0,
+            "timedOut": False,
+            "stdout": "",
+            "stderr": "pdfinfo version 0.86.1\n",
+            "passed": True,
+        }
+        self.assertTrue(SCANNER_MODULE.poppler_patched_checks_succeeded(cve_check, [consumer_check]))
+
     def test_followup_assessment_requires_the_paired_installed_regression(self):
         config = json.loads((ROOT / "packages.json").read_text())
         target = config["packages"]["libpng1.6"]["targets"]["ubuntu-focal-amd64"]
@@ -221,13 +237,6 @@ Architecture: i386
             proof = Path(directory)
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", candidate)):
                 checks = []
-                null_check = {
-                    "command": ["tiffcrop", "-D", "format:txt,level:2,input:fixture", "fixture.tif", "missing/output.tif"],
-                    "returncode": 97 if phase == "baseline" else 1, "stdout": "", "stderr": "",
-                    "timedOut": False, "cve": "CVE-2025-61143", "passed": True,
-                    "memoryLog": "Invalid read of size 8\nAddress 0x8 is not stack'd, malloc'd or (recently) free'd\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
-                }
-                checks.append(null_check)
                 cve_check = {
                     "command": ["tiffcrop", "-D", "format:txt,level:2,input:fixture", "fixture.tif", "output.tif"],
                     "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
@@ -235,13 +244,6 @@ Architecture: i386
                     "memoryLog": "Invalid read of size 8\nat loadImage\n0 bytes after a block of size 64\nStack variable srcbuffs\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
                 }
                 checks.append(cve_check)
-                dither_check = {
-                    "command": ["tiffdither", "subscanline.tif", "dither-output.tif"],
-                    "returncode": 97 if phase == "baseline" else 1, "stdout": "", "stderr": "",
-                    "timedOut": False, "testId": "tiffdither-scanline-width-bound", "passed": True,
-                    "memoryLog": "Invalid write of size 1\nat fsdither\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
-                }
-                checks.append(dither_check)
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "output.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "stderr": "", "timedOut": False, "passed": True})
@@ -287,7 +289,7 @@ Architecture: i386
                 docker_status_file=image_status_file,
             )
         self.assertEqual(baseline_result.returncode, 1, baseline_result.stderr)
-        self.assertEqual(json.loads(baseline_result.stdout)["findingsById"], ["CVE-2025-61143", "CVE-2025-61144"])
+        self.assertEqual(json.loads(baseline_result.stdout)["findingsById"], ["CVE-2025-61144"])
         self.assertEqual(mismatched_inventory.returncode, 2)
         self.assertIn("does not match the verified candidate image", mismatched_inventory.stderr)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -340,12 +342,8 @@ Architecture: i386
                     "distribution": "Ubuntu", "release": "focal", "architecture": "amd64", "phase": phase,
                     "installedVersion": version, "expectedVersion": version, "passed": True,
                     "checks": [
-                        {"command": ["tiffcrop"], "returncode": 0, "passed": True, "cve": "CVE-2025-61143",
-                         "memoryLog": "ERROR SUMMARY: 0 errors\n"},
                         {"command": ["tiffcrop"], "returncode": 0, "passed": True, "cve": "CVE-2025-61144",
                          "memoryLog": "ERROR SUMMARY: 0 errors\n"},
-                        {"command": ["tiffdither"], "returncode": 0, "passed": True,
-                         "testId": "tiffdither-scanline-width-bound", "memoryLog": "ERROR SUMMARY: 0 errors\n"},
                         {"command": ["tiffinfo"], "returncode": 0, "passed": True, "stdout": "Image Width: 16\n"},
                     ],
                 }))

@@ -4,7 +4,8 @@ from pathlib import Path
 import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
-                        poppler_uaf_reproduced, schematron_baseline_reproduced, tiff_baseline_reproduced)
+                        consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
+                        tiff_baseline_reproduced)
 
 
 class BaselineClassification(unittest.TestCase):
@@ -127,6 +128,24 @@ class PopplerBaselineClassification(unittest.TestCase):
                    "memoryLog": "Invalid write StructTreeRoot::parentTreeAdd"}
         self.assertFalse(poppler_uaf_reproduced(timed_out))
         self.assertFalse(poppler_uaf_reproduced(success))
+
+
+class ConsumerVersionCheck(unittest.TestCase):
+    def test_version_banner_on_stdout_or_stderr_is_accepted(self):
+        self.assertTrue(consumer_version_succeeded(
+            {"returncode": 0, "timedOut": False, "stderr": "pdfinfo version 0.86.1"},
+            "pdfinfo version"))
+        self.assertTrue(consumer_version_succeeded(
+            {"returncode": 0, "timedOut": False, "stdout": "pdfinfo version 0.86.1"},
+            "pdfinfo version"))
+
+    def test_missing_banner_failure_and_timeout_are_rejected(self):
+        self.assertFalse(consumer_version_succeeded(
+            {"returncode": 0, "timedOut": False, "stdout": "no version here"}, "pdfinfo version"))
+        self.assertFalse(consumer_version_succeeded(
+            {"returncode": 1, "timedOut": False, "stderr": "pdfinfo version 0.86.1"}, "pdfinfo version"))
+        self.assertFalse(consumer_version_succeeded(
+            {"returncode": None, "timedOut": True, "stderr": "pdfinfo version 0.86.1"}, "pdfinfo version"))
 
 
 if __name__ == "__main__":
