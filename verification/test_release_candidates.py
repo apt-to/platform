@@ -40,11 +40,11 @@ class ReleaseCandidateOutput(unittest.TestCase):
         self.assertEqual(set(CONFIG["packages"]), {"libxml2", "libarchive", "libpng1.6", "libgit2", "tiff", "poppler"})
         workflow = (ROOT / ".github/workflows/package-verification.yml").read_text()
         options = re.search(r"options: \[([^]]+)\]", workflow).group(1)
-        runnable_candidates = {"libxml2", "libarchive", "libpng1.6", "tiff", "poppler"}
+        runnable_candidates = {"libxml2", "libarchive", "libpng1.6", "libgit2", "tiff", "poppler"}
         self.assertEqual(set(item.strip() for item in options.split(",")), runnable_candidates)
         self.assertTrue(runnable_candidates.issubset(CONFIG["packages"]))
         baseline_cli = (ROOT / "scripts/run-baseline.py").read_text()
-        self.assertNotIn('"libgit2"', baseline_cli)
+        self.assertIn('"libgit2"', baseline_cli)
         for source, package_record in CONFIG["packages"].items():
             package = package_record["targets"][TARGET_ID]
             if source in ("libxml2", "libarchive"):

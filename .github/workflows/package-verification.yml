@@ -8,7 +8,7 @@ on:
         description: Package to verify
         type: choice
         required: true
-        options: [libxml2, libarchive, libpng1.6, tiff, poppler]
+        options: [libxml2, libarchive, libpng1.6, libgit2, tiff, poppler]
       target_id:
         description: Exact target ID from the package recipe and platform policy
         type: string

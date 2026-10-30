@@ -55,6 +55,47 @@ def poppler_patched_checks_succeeded(cve_check, checks):
     )
 
 
+def libgit2_regression_checks_succeeded(cve_checks, phase):
+    path_check = cve_checks.get("CVE-2026-53584", {})
+    pack_check = cve_checks.get("CVE-2026-53585", {})
+    redirect_check = cve_checks.get("CVE-2026-53586", {})
+    checks = (
+        (path_check, "CVE-2026-53584"),
+        (pack_check, "CVE-2026-53585"),
+        (redirect_check, "CVE-2026-53586"),
+    )
+    if any(check.get("cve") != cve or check.get("passed") is not True
+           or check.get("returncode") != 0 or check.get("timedOut") is not False
+           for check, cve in checks):
+        return False
+    if phase == "baseline":
+        return (
+            path_check.get("baselinePathEscapeReproduced") is True
+            and path_check.get("outsideDirectoryCreated") is True
+            and path_check.get("result") == "result=created:escaped-submodule-directory"
+            and pack_check.get("baselineAcceptedLargeObject") is True
+            and pack_check.get("result") == "result=accepted:large-object"
+            and pack_check.get("declaredObjectSize") == 100 * 1024 * 1024
+            and redirect_check.get("baselineUsedOriginalOrigin") is True
+            and redirect_check.get("callbackReceivedExpectedOrigin") is True
+            and redirect_check.get("callbackOrigin") == redirect_check.get("initialOrigin")
+            and redirect_check.get("initialOrigin") != redirect_check.get("redirectedOrigin")
+        )
+    return (
+        path_check.get("patchedPathRejected") is True
+        and path_check.get("outsideDirectoryCreated") is False
+        and path_check.get("result") == "result=rejected:invalid-submodule-path"
+        and pack_check.get("rejectedLargeObject") is True
+        and pack_check.get("result") == "result=rejected:overly-large-object"
+        and pack_check.get("configuredObjectLimit") == 42 * 1024 * 1024
+        and pack_check.get("declaredObjectSize", 0) > pack_check.get("configuredObjectLimit", 0)
+        and redirect_check.get("patchedUsedRedirectedOrigin") is True
+        and redirect_check.get("callbackReceivedExpectedOrigin") is True
+        and redirect_check.get("callbackOrigin") == redirect_check.get("redirectedOrigin")
+        and redirect_check.get("initialOrigin") != redirect_check.get("redirectedOrigin")
+    )
+
+
 def parse_status_text(text):
     # Parser returns one message. Split dpkg's RFC822-style control records explicitly.
     packages = {}
@@ -222,6 +263,11 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
         cve_checks = {check.get("cve"): check for check in checks if check.get("cve")}
         if not set(target["targetCves"]).issubset(cve_checks):
             raise ValueError("candidate regression reports do not cover every configured target CVE")
+        if source == "libgit2" and any(
+            sum(check.get("cve") == cve for check in checks) != 1
+            for cve in target["targetCves"]
+        ):
+            raise ValueError("libgit2 regression reports must contain exactly one result per configured CVE")
         validate_followup_assessment_checks(target, checks, phase)
         if source == "tiff":
             target_checks = [cve_checks[cve] for cve in target["targetCves"]]
@@ -275,6 +321,10 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
                     raise ValueError("Poppler baseline evidence does not reproduce the configured StructTreeRoot use-after-free")
             elif not poppler_patched_checks_succeeded(check, checks):
                 raise ValueError("Poppler patched evidence lacks a clean CVE regression and pdfinfo consumer check")
+        elif source == "libgit2":
+            if not libgit2_regression_checks_succeeded(cve_checks, phase):
+                description = "baseline evidence does not reproduce" if phase == "baseline" else "patched evidence does not prove"
+                raise ValueError(f"libgit2 {description} all three configured issues/fixes")
         else:
             raise ValueError("candidate regression runner has no package-specific evidence classifier")
     directory.mkdir(parents=True, exist_ok=True)

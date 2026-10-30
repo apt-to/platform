@@ -3,16 +3,21 @@
 import argparse
 import binascii
 import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
+import shlex
 import signal
 import subprocess
+import threading
 import tempfile
+from urllib.parse import urlsplit
 
 
-def execute(command, timeout=30):
+def execute(command, timeout=30, env=None):
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=env)
         return {"command": command, "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr, "timedOut": False}
     except subprocess.TimeoutExpired:
         return {"command": command, "returncode": None, "stdout": "", "stderr": "", "timedOut": True}
@@ -73,6 +78,70 @@ def poppler_uaf_reproduced(check):
             and "StructTreeRoot" in log and "parentTreeAdd" in log)
 
 
+def compile_libgit2_probe(source, binary, patched):
+    flags = shlex.split(subprocess.check_output(
+        ["pkg-config", "--cflags", "--libs", "libgit2"], text=True
+    ))
+    command = ["cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-Wno-missing-field-initializers"]
+    if patched:
+        command.append("-DGETPATCHED_PATCHED=1")
+    command.extend([str(source), *flags, "-o", str(binary)])
+    subprocess.run(command, check=True, timeout=30)
+    return binary
+
+
+def run_libgit2_redirect_regression(binary, temp, phase):
+    class RedirectHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", target_origin + self.path)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, _format, *_args):
+            pass
+
+    class UnauthorizedHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="getpatched-test"')
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, _format, *_args):
+            pass
+
+    initial_server = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    target_server = ThreadingHTTPServer(("127.0.0.1", 0), UnauthorizedHandler)
+    initial_server.daemon_threads = True
+    target_server.daemon_threads = True
+    target_origin = f"http://127.0.0.1:{target_server.server_address[1]}"
+    initial_origin = f"http://127.0.0.1:{initial_server.server_address[1]}"
+    servers = (initial_server, target_server)
+    threads = [threading.Thread(target=server.serve_forever, daemon=True) for server in servers]
+    try:
+        for thread in threads:
+            thread.start()
+        environment = {
+            key: value for key, value in os.environ.items()
+            if key.lower() not in {"http_proxy", "https_proxy", "all_proxy", "no_proxy"}
+        }
+        environment["NO_PROXY"] = "127.0.0.1,localhost"
+        environment["no_proxy"] = environment["NO_PROXY"]
+        result = execute([
+            str(binary), initial_origin + "/repository", str(temp / "redirect-clone"),
+        ], timeout=30, env=environment)
+        callback_lines = [line for line in result["stdout"].splitlines() if line.startswith("callback_url=")]
+        result["callbackUrl"] = callback_lines[-1].removeprefix("callback_url=") if len(callback_lines) == 1 else None
+        return result, initial_origin, target_origin
+    finally:
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+        for thread in threads:
+            thread.join(timeout=2)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--recipe", type=Path, required=True)
@@ -92,6 +161,7 @@ def main():
         "libarchive": "libarchive13",
         "tiff": "libtiff-tools",
         "libpng1.6": "libpng16-16",
+        "libgit2": "libgit2-28",
         "poppler": "libpoppler97",
     }.get(package)
     if installed_name is None:
@@ -271,6 +341,77 @@ def main():
                 consumer = execute(["pdfinfo", "-v"])
                 consumer["passed"] = consumer_version_succeeded(consumer, "pdfinfo version")
                 checks.append(consumer)
+        elif package == "libgit2":
+            patched = args.phase == "patched"
+            pack_probe = compile_libgit2_probe(
+                fixtures / "pack-size-limit.c", temp / "pack-size-limit", patched
+            )
+            pack_work = temp / "pack-indexer"
+            pack_work.mkdir()
+            pack_check = execute([
+                str(pack_probe), str(fixtures / "delta_100mb.pack"), str(pack_work)
+            ], timeout=45)
+            pack_check["cve"] = "CVE-2026-53585"
+            pack_check["declaredObjectSize"] = 100 * 1024 * 1024
+            pack_check["configuredObjectLimit"] = 42 * 1024 * 1024 if patched else None
+            pack_check["result"] = pack_check["stdout"].strip()
+            pack_check["rejectedLargeObject"] = patched and pack_check["result"] == "result=rejected:overly-large-object"
+            pack_check["baselineAcceptedLargeObject"] = not patched and pack_check["result"] == "result=accepted:large-object"
+            pack_check["passed"] = pack_check["returncode"] == 0 and not pack_check["timedOut"]
+            checks.append(pack_check)
+
+            submodule_probe = compile_libgit2_probe(
+                fixtures / "submodule-path.c", temp / "submodule-path", patched
+            )
+            repo_parent = temp / "submodule-workspace"
+            repo_parent.mkdir()
+            repo_path = repo_parent / "repo"
+            escaped_path = repo_parent / "escape-target"
+            submodule_check = execute([str(submodule_probe), str(repo_path)], timeout=20)
+            submodule_check["cve"] = "CVE-2026-53584"
+            submodule_check["outsideDirectoryCreated"] = escaped_path.is_dir()
+            submodule_check["result"] = submodule_check["stdout"].strip()
+            submodule_check["baselinePathEscapeReproduced"] = (
+                not patched and submodule_check["returncode"] == 0
+                and submodule_check["outsideDirectoryCreated"]
+                and submodule_check["result"] == "result=created:escaped-submodule-directory"
+            )
+            submodule_check["patchedPathRejected"] = (
+                patched and submodule_check["returncode"] == 0
+                and not submodule_check["outsideDirectoryCreated"]
+                and submodule_check["result"] == "result=rejected:invalid-submodule-path"
+            )
+            submodule_check["passed"] = (
+                submodule_check["baselinePathEscapeReproduced"] if not patched
+                else submodule_check["patchedPathRejected"]
+            )
+            checks.append(submodule_check)
+
+            redirect_probe = compile_libgit2_probe(
+                fixtures / "redirect-auth.c", temp / "redirect-auth", patched
+            )
+            redirect_result, initial_origin, target_origin = run_libgit2_redirect_regression(
+                redirect_probe, temp, args.phase
+            )
+            redirect_result["cve"] = "CVE-2026-53586"
+            redirect_result["initialOrigin"] = initial_origin
+            redirect_result["redirectedOrigin"] = target_origin
+            callback_origin = urlsplit(redirect_result["callbackUrl"] or "")
+            redirect_result["callbackOrigin"] = f"{callback_origin.scheme}://{callback_origin.netloc}" if callback_origin.scheme and callback_origin.netloc else None
+            redirect_result["callbackReceivedExpectedOrigin"] = redirect_result["callbackOrigin"] == (initial_origin if args.phase == "baseline" else target_origin)
+            redirect_result["baselineUsedOriginalOrigin"] = (
+                not patched and redirect_result["returncode"] == 0
+                and redirect_result["callbackReceivedExpectedOrigin"]
+            )
+            redirect_result["patchedUsedRedirectedOrigin"] = (
+                patched and redirect_result["returncode"] == 0
+                and redirect_result["callbackReceivedExpectedOrigin"]
+            )
+            redirect_result["passed"] = (
+                redirect_result["returncode"] == 0 and not redirect_result["timedOut"]
+                and redirect_result["callbackReceivedExpectedOrigin"]
+            )
+            checks.append(redirect_result)
         else:
             raise RuntimeError("Unsupported source package")
     report = {

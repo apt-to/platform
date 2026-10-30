@@ -33,6 +33,47 @@ class GetPatchedScannerContract(unittest.TestCase):
         }
         self.assertTrue(SCANNER_MODULE.poppler_patched_checks_succeeded(cve_check, [consumer_check]))
 
+    def test_libgit2_candidate_requires_each_baseline_and_patched_security_result(self):
+        baseline = {
+            "CVE-2026-53584": {"cve": "CVE-2026-53584", "passed": True, "returncode": 0, "timedOut": False,
+                                "baselinePathEscapeReproduced": True, "outsideDirectoryCreated": True,
+                                "result": "result=created:escaped-submodule-directory"},
+            "CVE-2026-53585": {"cve": "CVE-2026-53585", "passed": True, "returncode": 0, "timedOut": False,
+                                "baselineAcceptedLargeObject": True, "result": "result=accepted:large-object",
+                                "declaredObjectSize": 100 * 1024 * 1024},
+            "CVE-2026-53586": {"cve": "CVE-2026-53586", "passed": True, "returncode": 0, "timedOut": False,
+                                "baselineUsedOriginalOrigin": True, "callbackOrigin": "http://127.0.0.1:1001",
+                                "callbackReceivedExpectedOrigin": True,
+                                "initialOrigin": "http://127.0.0.1:1001", "redirectedOrigin": "http://127.0.0.1:1002"},
+        }
+        patched = {
+            "CVE-2026-53584": {"cve": "CVE-2026-53584", "passed": True, "returncode": 0, "timedOut": False,
+                                "patchedPathRejected": True, "outsideDirectoryCreated": False,
+                                "result": "result=rejected:invalid-submodule-path"},
+            "CVE-2026-53585": {"cve": "CVE-2026-53585", "passed": True, "returncode": 0, "timedOut": False,
+                                "rejectedLargeObject": True, "result": "result=rejected:overly-large-object",
+                                "declaredObjectSize": 100 * 1024 * 1024, "configuredObjectLimit": 42 * 1024 * 1024},
+            "CVE-2026-53586": {"cve": "CVE-2026-53586", "passed": True, "returncode": 0, "timedOut": False,
+                                "patchedUsedRedirectedOrigin": True, "callbackOrigin": "http://127.0.0.1:1002",
+                                "callbackReceivedExpectedOrigin": True,
+                                "initialOrigin": "http://127.0.0.1:1001", "redirectedOrigin": "http://127.0.0.1:1002"},
+        }
+        self.assertTrue(SCANNER_MODULE.libgit2_regression_checks_succeeded(baseline, "baseline"))
+        self.assertTrue(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
+        baseline["CVE-2026-53585"]["baselineAcceptedLargeObject"] = False
+        patched["CVE-2026-53586"]["patchedUsedRedirectedOrigin"] = False
+        self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(baseline, "baseline"))
+        self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
+        patched["CVE-2026-53586"]["patchedUsedRedirectedOrigin"] = True
+        patched["CVE-2026-53585"]["cve"] = "CVE-2026-53584"
+        self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
+        patched["CVE-2026-53585"]["cve"] = "CVE-2026-53585"
+        patched["CVE-2026-53586"]["callbackReceivedExpectedOrigin"] = False
+        self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
+        patched["CVE-2026-53586"]["callbackReceivedExpectedOrigin"] = True
+        patched["CVE-2026-53584"]["timedOut"] = True
+        self.assertFalse(SCANNER_MODULE.libgit2_regression_checks_succeeded(patched, "patched"))
+
     def test_followup_assessment_requires_the_paired_installed_regression(self):
         config = json.loads((ROOT / "packages.json").read_text())
         target = config["packages"]["libpng1.6"]["targets"]["ubuntu-focal-amd64"]
