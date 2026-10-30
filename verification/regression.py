@@ -21,8 +21,19 @@ def execute(command, timeout=30, env=None):
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=env)
         return {"command": command, "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr, "timedOut": False}
-    except subprocess.TimeoutExpired:
-        return {"command": command, "returncode": None, "stdout": "", "stderr": "", "timedOut": True}
+    except subprocess.TimeoutExpired as error:
+        def partial_text(value):
+            if isinstance(value, bytes):
+                return value.decode("utf-8", errors="replace")
+            return value or ""
+
+        return {
+            "command": command,
+            "returncode": None,
+            "stdout": partial_text(error.stdout),
+            "stderr": partial_text(error.stderr),
+            "timedOut": True,
+        }
 
 
 def schematron_baseline_reproduced(check):
@@ -226,6 +237,15 @@ def run_libgit2_redirect_regression(binary, temp, phase):
             authorization = self.headers.get("Authorization")
             target_state["authorizationHeaderPresent"] |= authorization is not None
             target_state["fixtureCredentialReceived"] |= authorization == fixture_credential
+            if authorization == fixture_credential:
+                # End the baseline request after observing the dummy credential.
+                # An empty Git advertisement makes libgit2 return promptly instead
+                # of repeating the challenged request until the timeout.
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-git-upload-pack-advertisement")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             self.send_response(401)
             self.send_header("WWW-Authenticate", 'Basic realm="getpatched-test"')
             self.send_header("Content-Length", "0")
