@@ -140,7 +140,7 @@ class ReleaseCandidateOutput(unittest.TestCase):
 
     def test_candidate_export_follows_signed_client_verification_without_esm_gate(self):
         source = (SCRIPT.parents[0] / "build-package.py").read_text()
-        verify_at = source.index('"--trust-image", scanner["image"], "--apt-sources-b64", build_sources')
+        verify_at = source.index('"--apt-sources-b64", build_sources')
         eligibility_at = source.index('"release-eligibility.json"')
         persist_at = source.rindex("persist_release_candidates(selected, binary_manifest")
         self.assertLess(verify_at, eligibility_at)

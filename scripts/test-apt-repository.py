@@ -13,6 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from build_environment import runner_ca_bundle
 from platform_policy import package_target_policy, target_profile
 
 
@@ -39,7 +40,6 @@ def main():
     parser.add_argument("--work", required=True, type=Path, help="private build temp directory")
     parser.add_argument("--builder-image", required=True)
     parser.add_argument("--base-image", required=True)
-    parser.add_argument("--trust-image", required=True)
     parser.add_argument("--apt-sources-b64", required=True)
     args = parser.parse_args()
 
@@ -142,11 +142,9 @@ test -f "$SOURCE_PACKAGE"*/debian/getpatched/release-policy.json
 test -f "$SOURCE_PACKAGE"*/debian/getpatched/package-manifest.json
 test -f "$SOURCE_PACKAGE"*/debian/getpatched/patches.json
 """)
-    (client_context / "Dockerfile").write_text("""ARG TRUST_IMAGE
+    (client_context / "Dockerfile").write_text("""# syntax=docker/dockerfile:1.7
 ARG BASE_IMAGE
-FROM ${TRUST_IMAGE} AS trust
 FROM ${BASE_IMAGE}
-COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY repo /repo
 COPY getpatched-test-archive.gpg /usr/share/keyrings/getpatched-test-archive.gpg
 COPY apt-client.sh /apt-client.sh
@@ -157,13 +155,17 @@ ARG BINARY_PACKAGES
 ARG EXPECTED_VERSION
 ARG SOURCE_PACKAGE
 ENV APT_SOURCES_B64=${APT_SOURCES_B64} ARCHITECTURE=${ARCHITECTURE} SUITE=${SUITE} BINARY_PACKAGES=${BINARY_PACKAGES} EXPECTED_VERSION=${EXPECTED_VERSION} SOURCE_PACKAGE=${SOURCE_PACKAGE}
-RUN bash /apt-client.sh
+RUN --mount=type=secret,id=runner-ca,target=/tmp/getpatched-runner-ca.crt,required=true \\
+    mkdir -p /etc/ssl/certs && \\
+    cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt && \\
+    bash /apt-client.sh
 """)
     client_image = "getpatched-apt-client-test-" + uuid.uuid4().hex[:12]
     client_built = False
     try:
+        ca_secret_args, ca_bundle_sha256, ca_bundle_source = runner_ca_bundle()
         run(["docker", "build", "--no-cache", "--platform", container_platform, "--tag", client_image,
-             "--build-arg", "BASE_IMAGE=" + args.base_image, "--build-arg", "TRUST_IMAGE=" + args.trust_image,
+             "--build-arg", "BASE_IMAGE=" + args.base_image, *ca_secret_args,
              "--build-arg", "APT_SOURCES_B64=" + args.apt_sources_b64,
              "--build-arg", "ARCHITECTURE=" + architecture, "--build-arg", "SUITE=" + codename,
          "--build-arg", "BINARY_PACKAGES=" + " ".join(binary_packages),
@@ -185,6 +187,7 @@ RUN bash /apt-client.sh
         "byHashSha256": True, "temporaryTestKeyFingerprint": fingerprint,
         "supportScope": policy["targetId"],
         "ubuntuProEsmCompatibility": policy.get("ubuntuProEsmCompatibility", "not-applicable"),
+        "runnerCaBundleSource": ca_bundle_source, "runnerCaBundleSha256": ca_bundle_sha256,
         "releaseSha256": digest(release), "inReleaseSha256": digest(dist / "InRelease"),
         "clientBaseImage": args.base_image, "publication": "none; repository and temporary signing key were discarded after the isolated target client test"
     }, indent=2) + "\n")

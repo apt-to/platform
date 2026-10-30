@@ -1,13 +1,14 @@
+# syntax=docker/dockerfile:1.7
 ARG BASE_IMAGE
-ARG TRUST_IMAGE
-FROM ${TRUST_IMAGE} AS trust
 FROM ${BASE_IMAGE}
-COPY --from=trust /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG SOURCE_PACKAGE
 ARG EXPECTED_VERSION
 ARG APT_SOURCES_B64
 ENV DEBIAN_FRONTEND=noninteractive
-RUN set -eu; \
+RUN --mount=type=secret,id=runner-ca,target=/tmp/getpatched-runner-ca.crt,required=true \
+    set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt; \
     test -n "$APT_SOURCES_B64"; \
     printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
     case "$SOURCE_PACKAGE" in \

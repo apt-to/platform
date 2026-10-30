@@ -53,10 +53,25 @@ class PublicCatalogueContract(unittest.TestCase):
             sources = apt_source_list(target_profile(platform, target_id))
             self.assertNotIn("http://", sources, target_id)
             self.assertIn("https://", sources, target_id)
-        containerfile = (ROOT / "build/packaging.Containerfile").read_text()
-        self.assertIn('if [ "$TARGET_CODENAME" != "trixie" ]; then cp /tmp/getpatched-trust-ca-certificates.crt /etc/ssl/certs/ca-certificates.crt; fi', containerfile)
+        for filename in ("packaging.Containerfile", "baseline.Containerfile", "patched-scan.Containerfile"):
+            containerfile = (ROOT / "build" / filename).read_text()
+            self.assertIn("# syntax=docker/dockerfile:1.7", containerfile)
+            self.assertIn("RUN --mount=type=secret,id=runner-ca", containerfile)
+            self.assertIn("/etc/ssl/certs/ca-certificates.crt", containerfile)
         build_script = (ROOT / "scripts/build-package.py").read_text()
-        self.assertIn('"--build-arg", "TARGET_CODENAME=" + profile["codename"]', build_script)
+        self.assertIn("ca_secret_args, ca_bundle_sha256, ca_bundle_source = runner_ca_bundle()", build_script)
+        self.assertIn("*ca_secret_args", build_script)
+        self.assertIn('"runnerCaBundleSha256": ca_bundle_sha256', build_script)
+
+        baseline_script = (ROOT / "scripts/run-baseline.py").read_text()
+        self.assertIn("*ca_secret_args", baseline_script)
+        self.assertIn('"runnerCaBundleSource": ca_bundle_source', baseline_script)
+        self.assertIn('"runnerCaBundleSha256": ca_bundle_sha256', baseline_script)
+
+        client_script = (ROOT / "scripts/test-apt-repository.py").read_text()
+        self.assertIn("*ca_secret_args", client_script)
+        self.assertIn('"runnerCaBundleSource": ca_bundle_source', client_script)
+        self.assertIn('"runnerCaBundleSha256": ca_bundle_sha256', client_script)
 
         untrusted_debian = json.loads(json.dumps(platform))
         untrusted_debian["targets"]["debian-trixie-amd64"]["aptSources"][0]["uri"] = (

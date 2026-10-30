@@ -16,6 +16,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from package_recipe import download_source_assets, load_recipe
+from build_environment import runner_ca_bundle
 from platform_policy import apt_source_list_b64, package_target_policy, scanner_config, target_profile
 
 
@@ -214,6 +215,7 @@ def main():
     policy = recipe["policy"]
     package, expected, profile = validate_release_policy(policy, config)
     scanner = scanner_config(config)
+    ca_secret_args, ca_bundle_sha256, ca_bundle_source = runner_ca_bundle()
     container_platform = profile["build"]["containerPlatform"]
     build_sources = apt_source_list_b64(profile)
     binary_sources = apt_source_list_b64(profile, include_sources=False)
@@ -273,11 +275,11 @@ def main():
                 "docker", "build", "--no-cache", "--platform", container_platform, "--tag", name,
                 "--file", str(ROOT / "build/packaging.Containerfile"),
                 "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
+                *ca_secret_args,
                 "--build-arg", "APT_SOURCES_B64=" + build_sources,
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"],
-                "--build-arg", "TARGET_CODENAME=" + profile["codename"], str(ROOT),
+                str(ROOT),
             ], timeout=2700)
             built = True
             builder = run(["docker", "image", "inspect", name, "--format", "{{.Id}}"], capture_output=True, text=True).stdout.strip()
@@ -296,7 +298,7 @@ def main():
                 "--mount", "type=bind,source=" + str(output) + ",target=/output",
                 name, "bash", "/recipe.sh", str(os.getuid()), str(os.getgid()),
             ], timeout=2400)
-            result = {"source": package, "version": policy["version"], "sourceCommit": commit, "targetId": policy["targetId"], "baseImage": profile["baseImage"], "trustBundleImage": scanner["image"], "archiveSnapshot": profile["archiveSnapshot"], "builderImageId": builder, "toolchainInventory": "build-toolchain.tsv", "publication": "none; binary outputs remained inside the disposable container"}
+            result = {"source": package, "version": policy["version"], "sourceCommit": commit, "targetId": policy["targetId"], "baseImage": profile["baseImage"], "scannerImage": scanner["image"], "runnerCaBundleSource": ca_bundle_source, "runnerCaBundleSha256": ca_bundle_sha256, "archiveSnapshot": profile["archiveSnapshot"], "builderImageId": builder, "toolchainInventory": "build-toolchain.tsv", "publication": "none; binary outputs remained inside the disposable container"}
             result.update({
                 "targetId": recipe["target"]["id"],
                 "releaseSerial": policy["releaseSerial"],
@@ -332,7 +334,7 @@ def main():
                 "docker", "build", "--no-cache", "--platform", container_platform, "--tag", scan_patched,
                 "--file", str(patched_context / "Dockerfile"),
                 "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
+                *ca_secret_args,
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "BASELINE_VERSION=" + policy["baseVersion"],
                 "--build-arg", "EXPECTED_VERSION=" + policy["version"],
@@ -346,7 +348,7 @@ def main():
                 "docker", "build", "--no-cache", "--platform", container_platform, "--tag", scan_base,
                 "--file", str(ROOT / "build/baseline.Containerfile"),
                 "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
-                "--build-arg", "TRUST_IMAGE=" + scanner["image"],
+                *ca_secret_args,
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"],
                 "--build-arg", "APT_SOURCES_B64=" + binary_sources,
@@ -417,7 +419,7 @@ def main():
             run(["python3", str(ROOT / "scripts/advisory-audit.py"), "--input", str(audit_input_path), "--output", str(output / "advisory-comparison.json")])
             run(["python3", str(ROOT / "scripts/test-apt-repository.py"), "--recipe", str(source), "--policy", str(output / "package-policy.json"), "--output", str(output),
                  "--work", str(temp), "--builder-image", name, "--base-image", profile["baseImage"],
-                 "--trust-image", scanner["image"], "--apt-sources-b64", build_sources])
+                 "--apt-sources-b64", build_sources])
             (output / "release-eligibility.json").write_text(json.dumps(release_eligibility(
                 policy, verification_checks_passed=True, publication_enabled=profile["repository"]["enabled"]
             ), indent=2) + "\n")
