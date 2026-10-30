@@ -91,7 +91,10 @@ test("every vulnerability and patch in the published catalogue has its own page,
 });
 
 test("vulnerability and patch pages expose linked HTML and machine-readable records", async () => {
-  const env = { ASSETS: assets(), PUBLIC_ORIGIN: "https://getpatched.dev" };
+  const fixture = fixtureCatalogue();
+  assert.ok(fixture.packages[0].targets[TARGET].vulnerabilities.length > 0);
+  assert.ok(fixture.packages[0].targets[TARGET].patches.length > 0);
+  const env = { ASSETS: assets(fixture), PUBLIC_ORIGIN: "https://getpatched.dev" };
   const vulnerabilityPage = await gateway.fetch(new Request("https://getpatched.dev/vulnerabilities/cve-2025-10001"), env);
   assert.equal(vulnerabilityPage.status, 200);
   assert.match(vulnerabilityPage.headers.get("content-type"), /text\/html/);
@@ -108,6 +111,22 @@ test("vulnerability and patch pages expose linked HTML and machine-readable reco
   assert.equal(patch.status, 200);
   assert.equal(patchRecord.patched, true);
   assert.equal(patchRecord.vulnerabilities[0].url, "https://getpatched.dev/vulnerabilities/cve-2025-10001");
+});
+
+test("duplicate patch slugs fail closed", async () => {
+  const catalogue = fixtureCatalogue();
+  const secondPackage = structuredClone(catalogue.packages[0]);
+  secondPackage.source = "demo-tools";
+  catalogue.packages.push(secondPackage);
+  const env = { ASSETS: assets(catalogue) };
+  const page = await gateway.fetch(new Request("https://getpatched.dev/patches/verified-fix"), env);
+  assert.equal(page.status, 404);
+  const record = await gateway.fetch(new Request("https://getpatched.dev/patches/verified-fix.json"), env);
+  assert.equal(record.status, 404);
+  assert.deepEqual(await record.json(), { error: "not_found" });
+  const badge = await gateway.fetch(new Request("https://getpatched.dev/patches/verified-fix/badge.svg"), env);
+  assert.equal(badge.status, 200);
+  assert.equal(await badge.text(), '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
 });
 
 test("security badges require a verified target and security patch; empty badges have no dimensions", async () => {
