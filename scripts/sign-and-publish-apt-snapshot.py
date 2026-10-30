@@ -28,11 +28,11 @@ def request_json(url):
         return json.load(response)
 
 
-def read_build(endpoint, channel, snapshot_id, repository):
+def read_build(endpoint, channel, snapshot_id, repository, suite="focal", architecture="amd64"):
     base = f"{endpoint}/internal/repository-snapshot-builds/{channel}/{snapshot_id}"
     manifest = request_json(base)
-    if (manifest.get("id") != snapshot_id or manifest.get("channel") != channel or manifest.get("suite") != "focal" or
-            manifest.get("architecture") != "amd64" or not isinstance(manifest.get("release_ids"), list) or
+    if (manifest.get("id") != snapshot_id or manifest.get("channel") != channel or manifest.get("suite") != suite or
+            manifest.get("architecture") != architecture or not isinstance(manifest.get("release_ids"), list) or
             not manifest["release_ids"] or len(set(manifest["release_ids"])) != len(manifest["release_ids"])):
         raise RuntimeError("snapshot builder returned an invalid manifest identity")
     files = manifest.get("files")
@@ -41,8 +41,8 @@ def read_build(endpoint, channel, snapshot_id, repository):
     seen = set()
     for item in files:
         path = item.get("path", "") if isinstance(item, dict) else ""
-        if (not re.fullmatch(r"dists/focal/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*", path) or
-                path in {"dists/focal/InRelease", "dists/focal/Release.gpg"} or path in seen or
+        if (not re.fullmatch(rf"dists/{re.escape(suite)}/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*", path) or
+                path in {f"dists/{suite}/InRelease", f"dists/{suite}/Release.gpg"} or path in seen or
                 not isinstance(item.get("size"), int) or item["size"] <= 0 or item["size"] > MAX_FILE_BYTES or
                 not re.fullmatch(r"[a-f0-9]{64}", str(item.get("sha256", "")))):
             raise RuntimeError("snapshot builder returned an invalid metadata file entry")
@@ -70,25 +70,35 @@ def read_build(endpoint, channel, snapshot_id, repository):
     return manifest
 
 
-def sign_and_publish_channel(endpoint, channel, snapshot_id, key_home, fingerprint, root):
-    repository = root / channel
+def sign_and_publish_channel(endpoint, channel, snapshot_id, suite, architecture, key_home, fingerprint, root):
+    repository = root / f"{suite}-{architecture}-{channel}"
     repository.mkdir(mode=0o700)
-    manifest = read_build(endpoint, channel, snapshot_id, repository)
-    PUBLISH.verify_release_indexes(repository)
-    GENERATOR.sign_release(repository / "dists/focal", key_home, fingerprint)
-    PUBLISH.verify_release(repository, fingerprint)
-    count = PUBLISH.publish(endpoint, channel, snapshot_id, manifest["release_ids"], repository, fingerprint)
-    return {"snapshot": snapshot_id, "channel": channel, "release_count": len(manifest["release_ids"]), "published_file_count": count}
+    manifest = read_build(endpoint, channel, snapshot_id, repository, suite, architecture)
+    PUBLISH.verify_release_indexes(repository, suite)
+    GENERATOR.sign_release(repository / "dists" / suite, key_home, fingerprint)
+    PUBLISH.verify_release(repository, fingerprint, suite)
+    count = PUBLISH.publish(endpoint, channel, snapshot_id, manifest["release_ids"], repository, fingerprint, suite, architecture)
+    return {"snapshot": snapshot_id, "channel": channel, "suite": suite, "architecture": architecture,
+            "release_count": len(manifest["release_ids"]), "published_file_count": count}
 
 
 def validate_snapshot_ids(value):
-    if not isinstance(value, dict) or not value or not set(value).issubset({"public", "early"}):
-        raise ValueError("snapshot IDs must contain at least one valid channel")
-    pattern = r"focal-[0-9]{8}T[0-9]{6}-r[0-9]{1,20}-(public|early)"
-    for channel, snapshot_id in value.items():
-        match = re.fullmatch(pattern, snapshot_id) if isinstance(snapshot_id, str) else None
-        if not match or match.group(1) != channel:
-            raise ValueError("snapshot ID does not match its builder channel")
+    if not isinstance(value, list) or not value:
+        raise ValueError("snapshot IDs must be a non-empty list of target-specific builds")
+    targets = {"focal": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
+    seen = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("snapshot ID entry must be an object")
+        suite, architecture, channel, snapshot_id = (item.get(key) for key in ("suite", "architecture", "channel", "snapshot_build"))
+        if channel not in {"public", "early"} or architecture not in targets.get(suite, set()):
+            raise ValueError("snapshot ID entry names an unsupported target or channel")
+        prefix = "focal-" if (suite, architecture) == ("focal", "amd64") else f"{suite}-{architecture}-"
+        match = re.fullmatch(re.escape(prefix) + r"[0-9]{8}T[0-9]{6}-r[0-9]{1,20}-(public|early)", snapshot_id) if isinstance(snapshot_id, str) else None
+        identity = (suite, architecture, channel)
+        if not match or match.group(1) != channel or identity in seen:
+            raise ValueError("snapshot ID does not match its target and channel")
+        seen.add(identity)
     return value
 
 
@@ -122,13 +132,12 @@ def main():
         key_home.mkdir(mode=0o700)
         subprocess.run(["gpg", "--batch", "--homedir", str(key_home), "--import"], input=key_data.encode(), check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        channels = ("public", "early") if args.channel == "both" else (args.channel,)
         results = []
-        for channel in channels:
-            if channel not in snapshot_ids:
+        for item in snapshot_ids:
+            if args.channel != "both" and item["channel"] != args.channel:
                 continue
-            snapshot_id = snapshot_ids[channel]
-            results.append(sign_and_publish_channel(endpoint, channel, snapshot_id, key_home, args.signing_fingerprint, root))
+            results.append(sign_and_publish_channel(endpoint, item["channel"], item["snapshot_build"], item["suite"],
+                                                    item["architecture"], key_home, args.signing_fingerprint, root))
         for result in results:
             print(json.dumps(result, sort_keys=True))
 

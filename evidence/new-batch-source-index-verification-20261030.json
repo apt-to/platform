@@ -1,0 +1,728 @@
+{
+  "checkedAt": "2026-10-30",
+  "trustModel": "Verified each suite InRelease signature with the official distribution archive keyring, then verified every compressed source index SHA-256 and byte length against that signed InRelease. Source descriptor and archive checksums are retained from these signed indexes.",
+  "records": [
+    {
+      "distribution": "Ubuntu 20.04",
+      "suite": "focal",
+      "inReleaseDate": "Thu, 23 Apr 2020 17:33:17 UTC",
+      "inReleaseSignature": "verified",
+      "signingFingerprints": [
+        "790BC7277767219C42C86F933B4FE6ACC0B21F32",
+        "F6ECB3762474EDA9D21B7022871920D1991BC93C"
+      ],
+      "sourceIndexes": [
+        {
+          "path": "main/source/Sources.gz",
+          "bytes": 1078721,
+          "sha256": "520454b647fb370de304ad6f2dc309b00e81ffba4dacbd3e70571b9c6a7a0da9"
+        },
+        {
+          "path": "universe/source/Sources.gz",
+          "bytes": 12293421,
+          "sha256": "863e9c12398d0a850b45cb18e8d3b0e5c53b42e229f2fc18688ae03958537f3f"
+        }
+      ],
+      "sources": [
+        {
+          "package": "libpng1.6",
+          "version": "1.6.37-2",
+          "directory": "pool/main/libp/libpng1.6",
+          "files": [
+            {
+              "sha256": "4567a54b5804e068e61477e9cd78346557b85b72add10ef10f130a5be169662e",
+              "bytes": 2225,
+              "name": "libpng1.6_1.6.37-2.dsc"
+            },
+            {
+              "sha256": "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
+              "bytes": 1508805,
+              "name": "libpng1.6_1.6.37.orig.tar.gz"
+            },
+            {
+              "sha256": "097cee0f0da4013d0231d37e090204ab3fa592b4fecdaaed3fca8d13affcaae8",
+              "bytes": 31844,
+              "name": "libpng1.6_1.6.37-2.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "poppler",
+          "version": "0.86.1-0ubuntu1",
+          "directory": "pool/main/p/poppler",
+          "files": [
+            {
+              "sha256": "e279f4042e1dd99d6f52ad235e9463b61f63b217e6414f368567c8428162749f",
+              "bytes": 2658,
+              "name": "poppler_0.86.1-0ubuntu1.dsc"
+            },
+            {
+              "sha256": "af630a277c8e194c31339c5446241834aed6ed3d4b4dc7080311e51c66257f6c",
+              "bytes": 1593856,
+              "name": "poppler_0.86.1.orig.tar.xz"
+            },
+            {
+              "sha256": "fe88ed5df596c68ecf5ffa7e2ff6dc4cdedea4ae3ba8c79b7fefc9689a9b6db9",
+              "bytes": 34832,
+              "name": "poppler_0.86.1-0ubuntu1.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "tiff",
+          "version": "4.1.0+git191117-2build1",
+          "directory": "pool/main/t/tiff",
+          "files": [
+            {
+              "sha256": "18dad308fbc18f27de10de1b83d315a31aca20449651c01767993dfcabbb7ba0",
+              "bytes": 2291,
+              "name": "tiff_4.1.0+git191117-2build1.dsc"
+            },
+            {
+              "sha256": "67e1d045e994adb7144b0cca228d70dd6d520aaf8c75c342064bc0fd601e6e42",
+              "bytes": 1533524,
+              "name": "tiff_4.1.0+git191117.orig.tar.xz"
+            },
+            {
+              "sha256": "4a78c0fbfdc708793d23c7030f2b5ee5ac2752f64efa40ef62864f0fe9d867f5",
+              "bytes": 19460,
+              "name": "tiff_4.1.0+git191117-2build1.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "libgit2",
+          "version": "0.28.4+dfsg.1-2",
+          "directory": "pool/universe/libg/libgit2",
+          "files": [
+            {
+              "sha256": "95b8179df2ec23d8394f5f4f4a95e0130f9d419436c41e7615b5e342922fed35",
+              "bytes": 2217,
+              "name": "libgit2_0.28.4+dfsg.1-2.dsc"
+            },
+            {
+              "sha256": "758517d1ff5124e732e999e2e50a501cb0d3c8bdcf64d1cec404ced6235c0bb7",
+              "bytes": 2798048,
+              "name": "libgit2_0.28.4+dfsg.1.orig.tar.xz"
+            },
+            {
+              "sha256": "ada1f29a745c13a5cc8b12c487c9593c7a226f4760dbf58bc3f04db2b6036600",
+              "bytes": 14268,
+              "name": "libgit2_0.28.4+dfsg.1-2.debian.tar.xz"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distribution": "Ubuntu 20.04",
+      "suite": "focal-updates",
+      "inReleaseDate": "Thu, 29 Oct 2026 23:48:55 UTC",
+      "inReleaseSignature": "verified",
+      "signingFingerprints": [
+        "790BC7277767219C42C86F933B4FE6ACC0B21F32",
+        "F6ECB3762474EDA9D21B7022871920D1991BC93C"
+      ],
+      "sourceIndexes": [
+        {
+          "path": "main/source/Sources.gz",
+          "bytes": 781916,
+          "sha256": "73c7c84b4ea31693997a43bcf844e3fecdbf215cbe61461a5f8f082b00797b27"
+        },
+        {
+          "path": "universe/source/Sources.gz",
+          "bytes": 515243,
+          "sha256": "a1848cef78818f1d8f1875dfeedc9aa39a7ab546778bed9eb83545b2184eab6c"
+        }
+      ],
+      "sources": [
+        {
+          "package": "poppler",
+          "version": "0.86.1-0ubuntu1.7",
+          "directory": "pool/main/p/poppler",
+          "files": [
+            {
+              "sha256": "af630a277c8e194c31339c5446241834aed6ed3d4b4dc7080311e51c66257f6c",
+              "bytes": 1593856,
+              "name": "poppler_0.86.1.orig.tar.xz"
+            },
+            {
+              "sha256": "db689f59c36be6413ccc37f9f6eee1370dac8589b03a0c936ad539ea37344c80",
+              "bytes": 42488,
+              "name": "poppler_0.86.1-0ubuntu1.7.debian.tar.xz"
+            },
+            {
+              "sha256": "a6213dd88bc099c8db1cee76a2f8bd8e5df43394ad00c88867861cec175266bf",
+              "bytes": 3361,
+              "name": "poppler_0.86.1-0ubuntu1.7.dsc"
+            }
+          ]
+        },
+        {
+          "package": "tiff",
+          "version": "4.1.0+git191117-2ubuntu0.20.04.14",
+          "directory": "pool/main/t/tiff",
+          "files": [
+            {
+              "sha256": "67e1d045e994adb7144b0cca228d70dd6d520aaf8c75c342064bc0fd601e6e42",
+              "bytes": 1533524,
+              "name": "tiff_4.1.0+git191117.orig.tar.xz"
+            },
+            {
+              "sha256": "3c89b7298f5ac1521f5524ce0b6948514a11065a20bd9d6c92ff71b3d56bec13",
+              "bytes": 53440,
+              "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.debian.tar.xz"
+            },
+            {
+              "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c",
+              "bytes": 2251,
+              "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc"
+            }
+          ]
+        },
+        {
+          "package": "libgit2",
+          "version": "0.28.4+dfsg.1-2ubuntu0.1",
+          "directory": "pool/universe/libg/libgit2",
+          "files": [
+            {
+              "sha256": "758517d1ff5124e732e999e2e50a501cb0d3c8bdcf64d1cec404ced6235c0bb7",
+              "bytes": 2798048,
+              "name": "libgit2_0.28.4+dfsg.1.orig.tar.xz"
+            },
+            {
+              "sha256": "8a3d388a52655ac0eb1437097b9cac150bc5052ac4fa44d98bb6d4d21c2e773d",
+              "bytes": 19016,
+              "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.debian.tar.xz"
+            },
+            {
+              "sha256": "259c89491dbd17407b738316447c7afb0b7858478d39db3b194c92c40fad47a4",
+              "bytes": 2344,
+              "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distribution": "Ubuntu 20.04",
+      "suite": "focal-security",
+      "inReleaseDate": "Thu, 29 Oct 2026 23:45:42 UTC",
+      "inReleaseSignature": "verified",
+      "signingFingerprints": [
+        "790BC7277767219C42C86F933B4FE6ACC0B21F32",
+        "F6ECB3762474EDA9D21B7022871920D1991BC93C"
+      ],
+      "sourceIndexes": [
+        {
+          "path": "main/source/Sources.gz",
+          "bytes": 415799,
+          "sha256": "966a96d298b0aadd9f4dde94d31819776f9c539a7e7ddd156aa733fe8f65a05d"
+        },
+        {
+          "path": "universe/source/Sources.gz",
+          "bytes": 313270,
+          "sha256": "491335242046757b9750195013ab0ddd2ae4903403494b3e9e190830d0807f27"
+        }
+      ],
+      "sources": [
+        {
+          "package": "poppler",
+          "version": "0.86.1-0ubuntu1.7",
+          "directory": "pool/main/p/poppler",
+          "files": [
+            {
+              "sha256": "af630a277c8e194c31339c5446241834aed6ed3d4b4dc7080311e51c66257f6c",
+              "bytes": 1593856,
+              "name": "poppler_0.86.1.orig.tar.xz"
+            },
+            {
+              "sha256": "db689f59c36be6413ccc37f9f6eee1370dac8589b03a0c936ad539ea37344c80",
+              "bytes": 42488,
+              "name": "poppler_0.86.1-0ubuntu1.7.debian.tar.xz"
+            },
+            {
+              "sha256": "a6213dd88bc099c8db1cee76a2f8bd8e5df43394ad00c88867861cec175266bf",
+              "bytes": 3361,
+              "name": "poppler_0.86.1-0ubuntu1.7.dsc"
+            }
+          ]
+        },
+        {
+          "package": "tiff",
+          "version": "4.1.0+git191117-2ubuntu0.20.04.14",
+          "directory": "pool/main/t/tiff",
+          "files": [
+            {
+              "sha256": "67e1d045e994adb7144b0cca228d70dd6d520aaf8c75c342064bc0fd601e6e42",
+              "bytes": 1533524,
+              "name": "tiff_4.1.0+git191117.orig.tar.xz"
+            },
+            {
+              "sha256": "3c89b7298f5ac1521f5524ce0b6948514a11065a20bd9d6c92ff71b3d56bec13",
+              "bytes": 53440,
+              "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.debian.tar.xz"
+            },
+            {
+              "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c",
+              "bytes": 2251,
+              "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc"
+            }
+          ]
+        },
+        {
+          "package": "libgit2",
+          "version": "0.28.4+dfsg.1-2ubuntu0.1",
+          "directory": "pool/universe/libg/libgit2",
+          "files": [
+            {
+              "sha256": "758517d1ff5124e732e999e2e50a501cb0d3c8bdcf64d1cec404ced6235c0bb7",
+              "bytes": 2798048,
+              "name": "libgit2_0.28.4+dfsg.1.orig.tar.xz"
+            },
+            {
+              "sha256": "8a3d388a52655ac0eb1437097b9cac150bc5052ac4fa44d98bb6d4d21c2e773d",
+              "bytes": 19016,
+              "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.debian.tar.xz"
+            },
+            {
+              "sha256": "259c89491dbd17407b738316447c7afb0b7858478d39db3b194c92c40fad47a4",
+              "bytes": 2344,
+              "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distribution": "Debian",
+      "suite": "bookworm",
+      "inReleaseDate": "Sat, 11 Jul 2026 10:16:37 UTC",
+      "inReleaseSignature": "verified",
+      "signingFingerprints": [
+        "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8",
+        "04B54C3CDCA79751B16BC6B5225629DF75B188BD",
+        "4D64FEC119C2029067D6E791F8D2585B8783D481"
+      ],
+      "sourceIndexes": [
+        {
+          "path": "main/source/Sources.xz",
+          "bytes": 9491888,
+          "sha256": "92d11a035571df011f06f28c61cb9825130ef1d92abb2f2e0525e8674dc44af8"
+        }
+      ],
+      "sources": [
+        {
+          "package": "libgit2",
+          "version": "1.5.1+ds-1+deb12u1",
+          "directory": "pool/main/libg/libgit2",
+          "files": [
+            {
+              "sha256": "b4de836d38cb2aca2687420754c5fa955f719934b92a4213d787d0b7dc2abebf",
+              "bytes": 2112,
+              "name": "libgit2_1.5.1+ds-1+deb12u1.dsc"
+            },
+            {
+              "sha256": "96369433500bb528f036c16be9921bd437c098b745f1aaeccb91290815518970",
+              "bytes": 3077056,
+              "name": "libgit2_1.5.1+ds.orig.tar.xz"
+            },
+            {
+              "sha256": "e869077309d8fa0bc56701970af7c6908d02674a89271f7cb29cb31814b69382",
+              "bytes": 19664,
+              "name": "libgit2_1.5.1+ds-1+deb12u1.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "libpng1.6",
+          "version": "1.6.39-2+deb12u5",
+          "directory": "pool/main/libp/libpng1.6",
+          "files": [
+            {
+              "sha256": "7b86211030a34deb6b0a2cd7e1d9db0fe92443fd30cab537fb89b1e7f7c9f188",
+              "bytes": 2292,
+              "name": "libpng1.6_1.6.39-2+deb12u5.dsc"
+            },
+            {
+              "sha256": "a00e9d2f2f664186e4202db9299397f851aea71b36a35e74910b8820e380d441",
+              "bytes": 1519415,
+              "name": "libpng1.6_1.6.39.orig.tar.gz"
+            },
+            {
+              "sha256": "ab14906eda9fddf14cbb1e589b9ba7439c22e233dc3c5e3cf9356c9625565a82",
+              "bytes": 49904,
+              "name": "libpng1.6_1.6.39-2+deb12u5.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "poppler",
+          "version": "22.12.0-2+deb12u2",
+          "directory": "pool/main/p/poppler",
+          "files": [
+            {
+              "sha256": "7414799e91fc1fde389c24aacfc811ae5676d4be713be085870bfe978621bb88",
+              "bytes": 3641,
+              "name": "poppler_22.12.0-2+deb12u2.dsc"
+            },
+            {
+              "sha256": "d9aa9cacdfbd0f8e98fc2b3bb008e645597ed480685757c3e7bc74b4278d15c0",
+              "bytes": 1845856,
+              "name": "poppler_22.12.0.orig.tar.xz"
+            },
+            {
+              "sha256": "fd5bc595a83f013adfc9f576ccf5184b398ba33aca889cef7c09cb5736c5862f",
+              "bytes": 40648,
+              "name": "poppler_22.12.0-2+deb12u2.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "tiff",
+          "version": "4.5.0-6+deb12u4",
+          "directory": "pool/main/t/tiff",
+          "files": [
+            {
+              "sha256": "b32082304d725936078d687303fcf771c9ecf738b505f9a66a29e8ba282c8615",
+              "bytes": 2287,
+              "name": "tiff_4.5.0-6+deb12u4.dsc"
+            },
+            {
+              "sha256": "638f43d7dea33948d5dee7f39572fc0194d9cc3c74195de9dd26a4388a1f880a",
+              "bytes": 2050377,
+              "name": "tiff_4.5.0.orig.tar.bz2"
+            },
+            {
+              "sha256": "4ee50a8cdf74a184d94e65a04f3c9de466cb0b74ef5393fb5ca65666fccb864b",
+              "bytes": 31680,
+              "name": "tiff_4.5.0-6+deb12u4.debian.tar.xz"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distribution": "Debian",
+      "suite": "bookworm-security",
+      "inReleaseDate": "Thu, 29 Oct 2026 21:33:11 UTC",
+      "inReleaseSignature": "verified",
+      "signingFingerprints": [
+        "AC530D520F2F3269F5E98313A48449044AAD5C5D",
+        "05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0"
+      ],
+      "sourceIndexes": [
+        {
+          "path": "main/source/Sources.xz",
+          "bytes": 280148,
+          "sha256": "d6de42a5a39e33e196187a7308e6c4550ff7da0dd0d7e4e9f4d8c5e74509e393"
+        }
+      ],
+      "sources": [
+        {
+          "package": "libgit2",
+          "version": "1.5.1+ds-1+deb12u2",
+          "directory": "pool/updates/main/libg/libgit2",
+          "files": [
+            {
+              "sha256": "6509ddc297cdfe2140540121f09108e98f0f3a4e2d04077bb409cee6d8316649",
+              "bytes": 2286,
+              "name": "libgit2_1.5.1+ds-1+deb12u2.dsc"
+            },
+            {
+              "sha256": "96369433500bb528f036c16be9921bd437c098b745f1aaeccb91290815518970",
+              "bytes": 3077056,
+              "name": "libgit2_1.5.1+ds.orig.tar.xz"
+            },
+            {
+              "sha256": "6a05d338adb95329616650f71d9cb3622d2e7c4a8f2767b7bbf08c36eb87e284",
+              "bytes": 25624,
+              "name": "libgit2_1.5.1+ds-1+deb12u2.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "libpng1.6",
+          "version": "1.6.39-2+deb12u6",
+          "directory": "pool/updates/main/libp/libpng1.6",
+          "files": [
+            {
+              "sha256": "efd9099f7f74c7bcd4f1540a97be3ce1cb9bc4ff97dfc2062ea66117b17ce686",
+              "bytes": 2302,
+              "name": "libpng1.6_1.6.39-2+deb12u6.dsc"
+            },
+            {
+              "sha256": "a00e9d2f2f664186e4202db9299397f851aea71b36a35e74910b8820e380d441",
+              "bytes": 1519415,
+              "name": "libpng1.6_1.6.39.orig.tar.gz"
+            },
+            {
+              "sha256": "bfb66eb5c000c6ce8dc4d6a146c2a81627143b8869f1e9ac9c1e5a286af3dc36",
+              "bytes": 51244,
+              "name": "libpng1.6_1.6.39-2+deb12u6.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "poppler",
+          "version": "22.12.0-2+deb12u3",
+          "directory": "pool/updates/main/p/poppler",
+          "files": [
+            {
+              "sha256": "528b0d841a807314275f4031a51ab38810d22b7adeb73cdd1b1d8e3e059b3152",
+              "bytes": 3486,
+              "name": "poppler_22.12.0-2+deb12u3.dsc"
+            },
+            {
+              "sha256": "d9aa9cacdfbd0f8e98fc2b3bb008e645597ed480685757c3e7bc74b4278d15c0",
+              "bytes": 1845856,
+              "name": "poppler_22.12.0.orig.tar.xz"
+            },
+            {
+              "sha256": "2028e5351ad7c0e4c1166776468d810dd5bcb981dbcdc91189277cfcfec614a2",
+              "bytes": 43580,
+              "name": "poppler_22.12.0-2+deb12u3.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "tiff",
+          "version": "4.5.0-6+deb12u4",
+          "directory": "pool/updates/main/t/tiff",
+          "files": [
+            {
+              "sha256": "b32082304d725936078d687303fcf771c9ecf738b505f9a66a29e8ba282c8615",
+              "bytes": 2287,
+              "name": "tiff_4.5.0-6+deb12u4.dsc"
+            },
+            {
+              "sha256": "638f43d7dea33948d5dee7f39572fc0194d9cc3c74195de9dd26a4388a1f880a",
+              "bytes": 2050377,
+              "name": "tiff_4.5.0.orig.tar.bz2"
+            },
+            {
+              "sha256": "4ee50a8cdf74a184d94e65a04f3c9de466cb0b74ef5393fb5ca65666fccb864b",
+              "bytes": 31680,
+              "name": "tiff_4.5.0-6+deb12u4.debian.tar.xz"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distribution": "Debian",
+      "suite": "trixie",
+      "inReleaseDate": "Sat, 12 Sep 2026 07:55:41 UTC",
+      "inReleaseSignature": "verified",
+      "signingFingerprints": [
+        "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8",
+        "04B54C3CDCA79751B16BC6B5225629DF75B188BD",
+        "41587F7DB8C774BCCF131416762F67A0B2C39DE4"
+      ],
+      "sourceIndexes": [
+        {
+          "path": "main/source/Sources.xz",
+          "bytes": 10540436,
+          "sha256": "6002f81f463a2d976d84b34170367cc16da2d60bd0ba9ab9d868d6e1c1a935d9"
+        }
+      ],
+      "sources": [
+        {
+          "package": "libgit2",
+          "version": "1.9.0+ds-2+deb13u1",
+          "directory": "pool/main/libg/libgit2",
+          "files": [
+            {
+              "sha256": "b8a0c37f1a1f515d68c295408c533e48eb8050eba939ecd45b62bec1cac4bc89",
+              "bytes": 2349,
+              "name": "libgit2_1.9.0+ds-2+deb13u1.dsc"
+            },
+            {
+              "sha256": "08f1f9137c4804ac4be4748f7141f8a6a9b7a12c942ac2fd4db5a28f8b65caa2",
+              "bytes": 4314236,
+              "name": "libgit2_1.9.0+ds.orig.tar.xz"
+            },
+            {
+              "sha256": "009e775c3a2ba1c8128546c339e71df84f241f178919e006be1a6e1a37100941",
+              "bytes": 24616,
+              "name": "libgit2_1.9.0+ds-2+deb13u1.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "libpng1.6",
+          "version": "1.6.48-1+deb13u5",
+          "directory": "pool/main/libp/libpng1.6",
+          "files": [
+            {
+              "sha256": "746ec351ac044becb16725b903aee2c53815da9f89630767b6edbb317a50f98e",
+              "bytes": 2305,
+              "name": "libpng1.6_1.6.48-1+deb13u5.dsc"
+            },
+            {
+              "sha256": "b17e99026055727e8cba99160c3a9a7f9af788e9f786daeadded5a42243f1dd0",
+              "bytes": 1572923,
+              "name": "libpng1.6_1.6.48.orig.tar.gz"
+            },
+            {
+              "sha256": "b38d5929b9a6139f2ce02a0e831d0f3f5365410b050dc429ea079a73253fe97a",
+              "bytes": 52468,
+              "name": "libpng1.6_1.6.48-1+deb13u5.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "poppler",
+          "version": "25.03.0-5+deb13u4",
+          "directory": "pool/main/p/poppler",
+          "files": [
+            {
+              "sha256": "b895e1e28568a486523f93dd5a8707ecb16767c5f134a6e23510b0597114c628",
+              "bytes": 3966,
+              "name": "poppler_25.03.0-5+deb13u4.dsc"
+            },
+            {
+              "sha256": "97da4ff88517a6bbd729529f195f85c8d7a0c3bb4a3d57cb0c685cbb052fe837",
+              "bytes": 1954516,
+              "name": "poppler_25.03.0.orig.tar.xz"
+            },
+            {
+              "sha256": "2605b5d7e6ce17a307d067048386deedfc41fdac6f75f81ad76050f517fc0de4",
+              "bytes": 44732,
+              "name": "poppler_25.03.0-5+deb13u4.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "tiff",
+          "version": "4.7.0-3+deb13u3",
+          "directory": "pool/main/t/tiff",
+          "files": [
+            {
+              "sha256": "51cdbd32322b5d35ef35677ace1cb7cd6591325da4ecd470ec6ccefab47d6a29",
+              "bytes": 2442,
+              "name": "tiff_4.7.0-3+deb13u3.dsc"
+            },
+            {
+              "sha256": "2b8b5c4e79cb2a4651796602e45d6179b7f18bc283feab417b8e881ef7e81862",
+              "bytes": 2111254,
+              "name": "tiff_4.7.0.orig.tar.bz2"
+            },
+            {
+              "sha256": "c0cbcb717e20a69964bfa7471cbb0137dd39a451434932972bc7fbcdb86345f8",
+              "bytes": 28212,
+              "name": "tiff_4.7.0-3+deb13u3.debian.tar.xz"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distribution": "Debian",
+      "suite": "trixie-security",
+      "inReleaseDate": "Thu, 29 Oct 2026 21:33:12 UTC",
+      "inReleaseSignature": "verified",
+      "signingFingerprints": [
+        "05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0",
+        "5E04A1E3223A19A20706E20F9904613D4CCE68C6"
+      ],
+      "sourceIndexes": [
+        {
+          "path": "main/source/Sources.xz",
+          "bytes": 244584,
+          "sha256": "713154c6a1d7211f3f867e7fefe1fa592fafa5623bd338b8b8984d0395cbc88c"
+        }
+      ],
+      "sources": [
+        {
+          "package": "libgit2",
+          "version": "1.9.0+ds-2+deb13u1",
+          "directory": "pool/updates/main/libg/libgit2",
+          "files": [
+            {
+              "sha256": "b8a0c37f1a1f515d68c295408c533e48eb8050eba939ecd45b62bec1cac4bc89",
+              "bytes": 2349,
+              "name": "libgit2_1.9.0+ds-2+deb13u1.dsc"
+            },
+            {
+              "sha256": "08f1f9137c4804ac4be4748f7141f8a6a9b7a12c942ac2fd4db5a28f8b65caa2",
+              "bytes": 4314236,
+              "name": "libgit2_1.9.0+ds.orig.tar.xz"
+            },
+            {
+              "sha256": "009e775c3a2ba1c8128546c339e71df84f241f178919e006be1a6e1a37100941",
+              "bytes": 24616,
+              "name": "libgit2_1.9.0+ds-2+deb13u1.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "libpng1.6",
+          "version": "1.6.48-1+deb13u6",
+          "directory": "pool/updates/main/libp/libpng1.6",
+          "files": [
+            {
+              "sha256": "6eb8e2cb5d3fdaf0b2381058906d0003c1667295eb4b965c9c653336e61872ae",
+              "bytes": 2286,
+              "name": "libpng1.6_1.6.48-1+deb13u6.dsc"
+            },
+            {
+              "sha256": "b17e99026055727e8cba99160c3a9a7f9af788e9f786daeadded5a42243f1dd0",
+              "bytes": 1572923,
+              "name": "libpng1.6_1.6.48.orig.tar.gz"
+            },
+            {
+              "sha256": "26a8f1c2bed971ad68d3549b7cd9b517e8f2ed2f23f75a7ac348452e25c87133",
+              "bytes": 53284,
+              "name": "libpng1.6_1.6.48-1+deb13u6.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "poppler",
+          "version": "25.03.0-5+deb13u3",
+          "directory": "pool/updates/main/p/poppler",
+          "files": [
+            {
+              "sha256": "4c867dedb90253a5693832f2187ee00cc4db1c997c7573f2289e4048480ff1f9",
+              "bytes": 4121,
+              "name": "poppler_25.03.0-5+deb13u3.dsc"
+            },
+            {
+              "sha256": "97da4ff88517a6bbd729529f195f85c8d7a0c3bb4a3d57cb0c685cbb052fe837",
+              "bytes": 1954516,
+              "name": "poppler_25.03.0.orig.tar.xz"
+            },
+            {
+              "sha256": "1234f92a2cbf5dafc80f34b51e98d1d79011fd51072744109c0f5c2aff32c658",
+              "bytes": 43964,
+              "name": "poppler_25.03.0-5+deb13u3.debian.tar.xz"
+            }
+          ]
+        },
+        {
+          "package": "tiff",
+          "version": "4.7.0-3+deb13u3",
+          "directory": "pool/updates/main/t/tiff",
+          "files": [
+            {
+              "sha256": "51cdbd32322b5d35ef35677ace1cb7cd6591325da4ecd470ec6ccefab47d6a29",
+              "bytes": 2442,
+              "name": "tiff_4.7.0-3+deb13u3.dsc"
+            },
+            {
+              "sha256": "2b8b5c4e79cb2a4651796602e45d6179b7f18bc283feab417b8e881ef7e81862",
+              "bytes": 2111254,
+              "name": "tiff_4.7.0.orig.tar.bz2"
+            },
+            {
+              "sha256": "c0cbcb717e20a69964bfa7471cbb0137dd39a451434932972bc7fbcdb86345f8",
+              "bytes": 28212,
+              "name": "tiff_4.7.0-3+deb13u3.debian.tar.xz"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

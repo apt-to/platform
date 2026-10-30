@@ -163,6 +163,32 @@ class PackageRecipeContract(unittest.TestCase):
         self.assertEqual(recipe["policy"]["patches"], ["cve-2026-4111"])
         self.assertEqual(recipe["policy"]["buildPatches"], ["test-zstd-size-tolerance"])
 
+    def test_public_recipe_can_omit_sponsor_binary_terms(self):
+        self.manifest["licensing"]["earlyBinaryLicenseId"] = None
+        self.manifest["licensing"]["earlyBinaryTermsFile"] = None
+        (self.root / "LICENSES/GETPATCHED-EARLY-ACCESS-1.2.md").unlink()
+        self._write_json(self.root / "package-manifest.json", self.manifest)
+        recipe = RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
+        self.assertEqual(recipe["policy"]["sponsorDelayHours"], 0)
+        self.assertIsNone(recipe["policy"]["earlyBinaryLicenseId"])
+
+    def test_per_file_license_declarations_validate_existing_paths_and_spdx(self):
+        self.manifest["licensing"]["fileLicenses"] = [
+            {"path": "patches/fix.patch", "spdx": "GPL-2.0-only"}
+        ]
+        self._write_json(self.root / "package-manifest.json", self.manifest)
+        RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
+        self.manifest["licensing"]["fileLicenses"][0]["path"] = "patches/missing.patch"
+        self._write_json(self.root / "package-manifest.json", self.manifest)
+        with self.assertRaisesRegex(RuntimeError, "Recipe file is missing"):
+            RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
+        self.manifest["licensing"]["fileLicenses"][0] = {
+            "path": "patches/fix.patch", "spdx": "NotARealLicense"
+        }
+        self._write_json(self.root / "package-manifest.json", self.manifest)
+        with self.assertRaisesRegex(RuntimeError, "Per-file license declarations"):
+            RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
+
     def test_build_compatibility_patch_cannot_claim_cves(self):
         self.metadata["patches"][1]["cves"] = ["CVE-2026-4111"]
         self._write_json(self.root / "patches/metadata.json", self.metadata)
@@ -263,6 +289,19 @@ class PackageRecipeContract(unittest.TestCase):
         self.assertIn("CVE-2026-4111", changelog)
         self.assertIn("test-only build compatibility patch", changelog)
         self.assertIn("Existing Ubuntu changelog entry.", changelog)
+
+
+class PopplerRecipeContract(unittest.TestCase):
+    def test_focal_recipe_pins_source_patch_licensing_and_public_access(self):
+        root = ROOT.parent / "packaging-poppler"
+        recipe = RECIPE.load_recipe(root, PLATFORM_CONFIG, "ubuntu-focal-amd64")
+        self.assertEqual(recipe["policy"]["source"], "poppler")
+        self.assertEqual(recipe["policy"]["baseVersion"], "0.86.1-0ubuntu1.7")
+        self.assertEqual(recipe["policy"]["version"], "0.86.1-0ubuntu1.7+getpatched1")
+        self.assertEqual(recipe["policy"]["targetCves"], ["CVE-2025-52885"])
+        self.assertEqual(recipe["policy"]["sponsorDelayHours"], 0)
+        self.assertEqual(recipe["patchesById"]["cve-2025-52885-focal"]["upstream"]["commit"],
+                         "4ce27cc826bf90cc8dbbd8a8c87bd913cccd7ec0")
 
 
 if __name__ == "__main__":

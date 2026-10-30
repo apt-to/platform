@@ -12,12 +12,19 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 from debian_versions import debian_version_compare
-from platform_policy import package_target_policy, target_profile
+from platform_policy import package_ecosystem, package_target_policy, target_profile
 
 
 MAX_SOURCE_BYTES = 128 * 1024 * 1024
 MAX_DESCRIPTOR_BYTES = 16 * 1024 * 1024
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+# Per-file override identifiers are deliberately allowlisted. Extend this set
+# and the JSON Schema enum only after verifying identifiers against SPDX.
+SUPPORTED_FILE_LICENSE_IDS = {
+    "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "GPL-2.0-only",
+    "GPL-2.0-or-later", "GPL-3.0-only", "GPL-3.0-or-later", "ISC",
+    "LGPL-2.1-only", "LGPL-2.1-or-later", "MIT", "MPL-2.0",
+}
 
 
 def sha256_bytes(data):
@@ -75,7 +82,10 @@ def validate_source_asset(asset, package, version, *, distribution, descriptor=F
         raise RuntimeError(f"Invalid SHA-256 for source asset {name}")
     parsed = urllib.parse.urlparse(asset.get("url", ""))
     approved_hosts = {
-        "Ubuntu": {"launchpad.net", "www.launchpad.net"},
+        "Ubuntu": {
+            "launchpad.net", "www.launchpad.net", "archive.ubuntu.com",
+            "security.ubuntu.com",
+        },
         "Debian": {"snapshot.debian.org"},
     }.get(distribution, set())
     if parsed.scheme != "https" or parsed.hostname not in approved_hosts:
@@ -205,14 +215,43 @@ def load_recipe(root, platform_config, target_id=None):
     public_license = license_policy.get("publicContributions", {})
     early_license = license_policy.get("earlyBinary", {})
     recipe_licensing = manifest.get("licensing", {})
+    expected_early_license_id = early_license.get("licenseId") if delay else None
+    expected_early_terms_file = early_license.get("termsFile") if delay else None
+    observed_early_license = (
+        recipe_licensing.get("earlyBinaryLicenseId"),
+        recipe_licensing.get("earlyBinaryTermsFile"),
+    )
+    accepted_early_license_pairs = {(expected_early_license_id, expected_early_terms_file)}
+    if not delay:
+        # Accept older public recipes that recorded the inert global terms; new
+        # public recipes should use (None, None) so no sponsor terms are implied.
+        accepted_early_license_pairs.add((early_license.get("licenseId"), early_license.get("termsFile")))
     if (recipe_licensing.get("publicContributionsSpdx") != public_license.get("spdx")
             or recipe_licensing.get("publicContributionsLicenseFile") != public_license.get("licenseFile")
-            or recipe_licensing.get("earlyBinaryLicenseId") != early_license.get("licenseId")
-            or recipe_licensing.get("earlyBinaryTermsFile") != early_license.get("termsFile")
+            or observed_early_license not in accepted_early_license_pairs
             or recipe_licensing.get("upstreamLicenses") != "preserve"):
         raise RuntimeError("Recipe licensing declaration differs from platform public and early-binary policy")
     recipe_path(root, recipe_licensing.get("publicContributionsLicenseFile"))
-    recipe_path(root, recipe_licensing.get("earlyBinaryTermsFile"))
+    file_licenses = recipe_licensing.get("fileLicenses", [])
+    if not isinstance(file_licenses, list):
+        raise RuntimeError("Recipe fileLicenses must be a list")
+    licensed_paths = set()
+    for declaration in file_licenses:
+        if not isinstance(declaration, dict):
+            raise RuntimeError("Per-file license declarations must be objects")
+        licensed_path = declaration.get("path")
+        spdx = declaration.get("spdx")
+        if (not isinstance(licensed_path, str) or not licensed_path
+                or licensed_path in licensed_paths
+                or not isinstance(spdx, str) or spdx not in SUPPORTED_FILE_LICENSE_IDS):
+            raise RuntimeError("Per-file license declarations need unique paths and SPDX identifiers")
+        recipe_path(root, licensed_path)
+        license_file = declaration.get("licenseFile")
+        if license_file is not None:
+            recipe_path(root, license_file)
+        licensed_paths.add(licensed_path)
+    if recipe_licensing.get("earlyBinaryTermsFile") is not None:
+        recipe_path(root, recipe_licensing.get("earlyBinaryTermsFile"))
     recipe_path(root, recipe_licensing.get("upstreamCopyrightFile"))
     changelog = target.get("changelog", {})
     if (changelog.get("distribution") != profile["codename"]
@@ -340,6 +379,7 @@ def load_recipe(root, platform_config, target_id=None):
         "releaseVersion": base["release"],
         "architecture": base["architecture"],
         "advisoryEcosystem": profile["advisoryEcosystem"],
+        "packageEcosystem": package_ecosystem(platform_config, package, target["id"]),
         "releaseAccess": configured_access,
         "publicContributionsSpdx": public_license["spdx"],
         "earlyBinaryLicenseId": early_license["licenseId"] if delay else None,

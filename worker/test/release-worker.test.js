@@ -205,7 +205,19 @@ test("APT snapshot inventory and gated package export require the dedicated sign
     required_assets: [{ name: "libxml2_amd64.deb", sha256: digest, r2_key: objectKey }],
     source_assets: [{ name: "libxml2_2.9.10.dsc", sha256: "d".repeat(64), r2_key: `staging/${id}/source/${"d".repeat(64)}` }],
   };
-  const bucket = new MemorySnapshotBucket({ [`release-state/${id}.json`]: gated });
+  const debianId = "tiff-4-5-0-getpatched1";
+  const debianRelease = {
+    ...gated, id: debianId, target_id: "debian-bookworm-amd64", state: "public",
+    repository: "getpatched/packaging-tiff", tag: "getpatched/4.5.0-getpatched1", sponsor_delay_hours: 0,
+    sponsor_publication_complete: undefined, public_after: undefined,
+    required_assets: [{ name: "libtiff-tools_amd64.deb", sha256: digest, r2_key: `staging/${debianId}/${digest}` }],
+    source_assets: [{ name: "tiff_4.5.0.dsc", sha256: "e".repeat(64), r2_key: `staging/${debianId}/source/${"e".repeat(64)}` }],
+  };
+  const bucket = new MemorySnapshotBucket({
+    [`release-state/${id}.json`]: gated,
+    [`release-state/${debianId}.json`]: debianRelease,
+    "repository-current/public.json": { id: "focal-20261025T120000-r1-public" },
+  });
   bucket.blobs.set(objectKey, {
     size: bytes.length,
     checksums: { sha256: createHash("sha256").update(bytes).digest() },
@@ -223,7 +235,18 @@ test("APT snapshot inventory and gated package export require the dedicated sign
   try {
     const inventory = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/repository-snapshots/early/releases", { headers: { authorization } }), env);
     assert.equal(inventory.status, 200);
-    assert.deepEqual((await inventory.json()).releases.map((entry) => entry.id), [id]);
+    const focalInventory = await inventory.json();
+    assert.deepEqual(focalInventory.releases.map((entry) => entry.id), [id]);
+    assert.equal(focalInventory.suite, "focal");
+    const bookwormInventoryResponse = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/repository-snapshots/public/releases?suite=bookworm&architecture=amd64", { headers: { authorization } }), env);
+    assert.equal(bookwormInventoryResponse.status, 200);
+    const bookwormInventory = await bookwormInventoryResponse.json();
+    assert.equal(bookwormInventory.suite, "bookworm");
+    assert.equal(bookwormInventory.architecture, "amd64");
+    assert.deepEqual(bookwormInventory.releases.map((entry) => entry.id), [debianId]);
+    assert.equal(bookwormInventory.active_snapshot, null, "a Focal active pointer cannot be reported as Bookworm state");
+    const unsupportedTarget = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/repository-snapshots/public/releases?suite=bookworm&architecture=arm64", { headers: { authorization } }), env);
+    assert.equal(unsupportedTarget.status, 400);
     const downloaded = await gateway.fetch(new Request(`https://repo.getpatched.dev/internal/repository-snapshots/early/releases/${id}/assets/libxml2_amd64.deb`, { headers: { authorization } }), env);
     assert.equal(downloaded.status, 200);
     assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()), bytes);
@@ -266,7 +289,7 @@ test("unsigned snapshot build storage separates index-builder writes from signer
     ["dists/focal/main/source/Sources.xz", "xz source"],
   ]);
   const files = [...contents].map(([path, value]) => ({ path, size: Buffer.byteLength(value), sha256: createHash("sha256").update(value).digest("hex") }));
-  const buildId = "focal-test-r40210000000-public";
+  const buildId = "focal-20261025T120000-r40210000000-public";
   const request = (authorization, url, method, body) => new Request(url, {
     method, headers: { authorization, ...(body === undefined ? {} : { "content-length": String(Buffer.byteLength(body)) }) }, body,
   });
@@ -292,6 +315,109 @@ test("unsigned snapshot build storage separates index-builder writes from signer
     const builderRegistration = await gateway.fetch(request(builderToken, "https://repo.getpatched.dev/internal/repository-snapshots/public", "POST", JSON.stringify({ id: buildId, release_ids: ["pilot"], files })), env);
     assert.equal(builderRegistration.status, 401);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test("Bookworm snapshot builds require Bookworm indexes and retain target identity for the signer", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const keyId = "bookworm-snapshot-build-test";
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  const release = {
+    id: "debian-tiff", target_id: "debian-bookworm-amd64", state: "public",
+    repository: "getpatched/packaging-tiff", tag: "getpatched/4.5.0-6+deb12u4+getpatched1",
+    source_commit: "d".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
+    required_assets: [{ name: "libtiff-tools_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/debian-tiff/${"a".repeat(64)}` }],
+  };
+  const bucket = new MemorySnapshotBucket({ "release-state/debian-tiff.json": release });
+  const env = { RELEASES: bucket };
+  const workflowRef = "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main";
+  const builderToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-index-build" }, privateKey, keyId)}`;
+  const signerToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-signing" }, privateKey, keyId)}`;
+  const contents = new Map([
+    ["dists/bookworm/Release", "Origin: GetPatched\nSuite: bookworm\n"],
+    ["dists/bookworm/main/binary-amd64/Packages", "Package: libtiff-tools\n"],
+    ["dists/bookworm/main/binary-amd64/Packages.gz", "gzip"],
+    ["dists/bookworm/main/binary-amd64/Packages.xz", "xz"],
+    ["dists/bookworm/main/source/Sources", "Package: tiff\n"],
+    ["dists/bookworm/main/source/Sources.gz", "gzip source"],
+    ["dists/bookworm/main/source/Sources.xz", "xz source"],
+  ]);
+  const files = [...contents].map(([path, value]) => ({ path, size: Buffer.byteLength(value), sha256: createHash("sha256").update(value).digest("hex") }));
+  const buildId = "bookworm-amd64-20261025T120000-r502-public";
+  const request = (authorization, url, method, body) => new Request(url, {
+    method, headers: { authorization, ...(body === undefined ? {} : { "content-length": String(Buffer.byteLength(body)) }) }, body,
+  });
+  try {
+    const register = await gateway.fetch(request(builderToken, "https://repo.getpatched.dev/internal/repository-snapshot-builds/public", "POST",
+      JSON.stringify({ id: buildId, suite: "bookworm", architecture: "amd64", release_ids: ["debian-tiff"], files })), env);
+    assert.equal(register.status, 201);
+    for (const [path, value] of contents) {
+      const upload = await gateway.fetch(request(builderToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}/files/${path}`, "PUT", value), env);
+      assert.equal(upload.status, 201, path);
+    }
+    const wrongSuite = await gateway.fetch(request(builderToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}/files/dists/focal/Release`, "PUT", "focal"), env);
+    assert.equal(wrongSuite.status, 400);
+    const manifestResponse = await gateway.fetch(request(signerToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}`, "GET"), env);
+    assert.equal(manifestResponse.status, 200);
+    const manifest = await manifestResponse.json();
+    assert.equal(manifest.suite, "bookworm");
+    assert.equal(manifest.architecture, "amd64");
+    const read = await gateway.fetch(request(signerToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}/files/dists/bookworm/Release`, "GET"), env);
+    assert.equal(read.status, 200);
+    assert.equal(await read.text(), contents.get("dists/bookworm/Release"));
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("public Bookworm APT paths use the Bookworm pointer and never fall back to Focal", async () => {
+  const releaseId = "debian-tiff-public";
+  const snapshotId = "bookworm-amd64-20261025T120000-r502-public";
+  const contents = new Map([
+    ["dists/bookworm/Release", "Origin: GetPatched\nSuite: bookworm\n"],
+    ["dists/bookworm/InRelease", "signed bookworm metadata"],
+    ["dists/bookworm/Release.gpg", "signature"],
+    ["dists/bookworm/main/binary-amd64/Packages", "Package: libtiff-tools\n"],
+    ["dists/bookworm/main/binary-amd64/Packages.gz", "gzip"],
+    ["dists/bookworm/main/binary-amd64/Packages.xz", "xz"],
+    ["dists/bookworm/main/source/Sources", "Package: tiff\n"],
+    ["dists/bookworm/main/source/Sources.gz", "source gzip"],
+    ["dists/bookworm/main/source/Sources.xz", "source xz"],
+    ["getpatched-archive-keyring.gpg", "public key"],
+  ]);
+  const release = {
+    id: releaseId, state: "public", target_id: "debian-bookworm-amd64", sponsor_delay_hours: 0,
+    repository: "getpatched/packaging-tiff", tag: "getpatched/4.5.0-6+deb12u4+getpatched1",
+    release_checks_passed: true,
+    required_assets: [{ name: "libtiff-tools_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/${releaseId}/${"a".repeat(64)}` }],
+  };
+  const files = [...contents].map(([path, value]) => ({
+    path, size: Buffer.byteLength(value), sha256: createHash("sha256").update(value).digest("hex"),
+  }));
+  const bucket = new MemorySnapshotBucket({
+    [`release-state/${releaseId}.json`]: release,
+    "repository-current/public.json": { id: "focal-20261025T120000-r40210000000-public" },
+    "repository-current/public/bookworm/amd64.json": { id: snapshotId },
+    [`repository-snapshots/public/${snapshotId}.json`]: {
+      id: snapshotId, channel: "public", suite: "bookworm", architecture: "amd64", release_ids: [releaseId], files,
+    },
+  });
+  for (const file of files) {
+    const bytes = Buffer.from(contents.get(file.path));
+    const digest = createHash("sha256").update(bytes).digest();
+    bucket.blobs.set(`repository-snapshots/public/${snapshotId}/${file.path}`, {
+      size: bytes.length,
+      checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
+      customMetadata: { snapshotId, channel: "public", path: file.path },
+      bytes,
+    });
+  }
+  const env = { RELEASES: bucket };
+  const served = await gateway.fetch(new Request("https://repo.getpatched.dev/dists/bookworm/Release"), env);
+  assert.equal(served.status, 200, `response=${JSON.stringify(await served.clone().text())}`);
+  assert.equal(await served.text(), contents.get("dists/bookworm/Release"));
+  await bucket.delete("repository-current/public/bookworm/amd64.json");
+  const noFallback = await gateway.fetch(new Request("https://repo.getpatched.dev/dists/bookworm/Release"), env);
+  assert.equal(noFallback.status, 503, "a missing Debian pointer must not serve the active Focal snapshot");
 });
 
 class MemoryAssetBucket extends MemoryBucket {
@@ -528,14 +654,15 @@ test("release registration JSON has a bounded streaming body", async () => {
   assert.equal(malformed.status, 400);
 });
 
-test("release registration fails closed on missing or invalid runtime access policy", async () => {
-  const policyResponse = (releaseAccess) => ({
-    packages: { libxml2: { targets: { "ubuntu-focal-amd64": { releaseAccess } } } },
+test("release registration fails closed on missing, unverified, or invalid package policy", async () => {
+  const policyResponse = (releaseAccess, candidateStatus = "development-verified-production-release-pending") => ({
+    targets: { "ubuntu-focal-amd64": { sourceBranch: "getpatched/focal" } },
+    packages: { libxml2: { targets: { "ubuntu-focal-amd64": { releaseAccess, candidateStatus } } } },
   });
-  const makeEnv = (releaseAccess) => ({
+  const makeEnv = (releaseAccess, candidateStatus) => ({
     RELEASES: new MemoryBucket(),
     RELEASE_ADMIN_TOKEN: "secret-test",
-    ASSETS: { fetch: async () => Response.json(policyResponse(releaseAccess)) },
+    ASSETS: { fetch: async () => Response.json(policyResponse(releaseAccess, candidateStatus)) },
   });
   const registration = {
     id: "libxml2-policy-test", repository: "getpatched/packaging-libxml2",
@@ -558,6 +685,15 @@ test("release registration fails closed on missing or invalid runtime access pol
   });
   const badConfig = await gateway.fetch(request(), makeEnv({ ...valid, earlyRedistributionAllowed: true }));
   assert.equal(badConfig.status, 503);
+
+  const unverifiedCandidate = await gateway.fetch(request(), makeEnv(valid, "unverified-development-candidate"));
+  assert.equal(unverifiedCandidate.status, 422);
+
+  const missingCandidateStatus = await gateway.fetch(request(), makeEnv(valid, null));
+  assert.equal(missingCandidateStatus.status, 422);
+
+  const malformedVerifiedPrefix = await gateway.fetch(request(), makeEnv(valid, "development-verified-but-not-approved"));
+  assert.equal(malformedVerifiedPrefix.status, 422);
 
   const badSubmittedLicense = { ...registration, early_binary_license_id: "LicenseRef-Other" };
   const badLicenseResponse = await gateway.fetch(new Request("https://worker.test/internal/releases", {
@@ -1017,7 +1153,7 @@ test("APT snapshot manifests activate atomically after R2 readback and serve sta
       value: { ...release, id: "gated", state: "sponsor-period", repository: "getpatched/packaging-libxml2", tag: "getpatched/2.9.10+dfsg-5ubuntu0.20.04.10+getpatched1", sponsor_delay_hours: 168, sponsor_publication_complete: true, public_after: new Date(Date.now() + 86400000).toISOString() },
       etag: "gated-release",
     });
-    const prematurePublic = await gateway.fetch(request("https://repo.getpatched.dev/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-snapshot-gated", release_ids: ["gated"], files })), env);
+    const prematurePublic = await gateway.fetch(request("https://repo.getpatched.dev/internal/repository-snapshots/public", "POST", JSON.stringify({ id: "focal-20261025T130000-r102-public", release_ids: ["gated"], files })), env);
     assert.equal(prematurePublic.status, 409, "a seven-day release cannot enter the anonymous public index before promotion");
     const beforeUpload = await gateway.fetch(request(`https://repo.getpatched.dev/internal/repository-snapshots/public/${firstId}/activate`, "POST", "{}"), env);
     assert.equal(beforeUpload.status, 409);
@@ -1149,6 +1285,16 @@ test("protected retention keeps the active snapshot and five rollback snapshots 
     for (const file of buildFiles) bucket.blobs.set(`repository-snapshot-builds/public/${id}/${file.path}`, { bytes: Buffer.from("x") });
   }
   bucket.entries.set("repository-current/public.json", { value: { id: ids[0], channel: "public" }, etag: "active" });
+  const debianOrphanId = "bookworm-amd64-20261001T000000-r88-public";
+  const debianStaleBuildId = "bookworm-amd64-20261001T000000-r89-public";
+  bucket.entries.set(`repository-snapshots/public/${debianOrphanId}.json`, {
+    value: { id: debianOrphanId, channel: "public", suite: "bookworm", architecture: "amd64", release_ids: [], files: [] }, etag: "debian-orphan",
+  });
+  bucket.blobs.set(`repository-snapshots/public/${debianOrphanId}/orphan`, { bytes: Buffer.from("orphan") });
+  bucket.entries.set(`repository-snapshot-builds/public/${debianStaleBuildId}.json`, {
+    value: { id: debianStaleBuildId, channel: "public", suite: "bookworm", architecture: "amd64", release_ids: [], files: [] }, etag: "debian-stale-build",
+  });
+  bucket.blobs.set(`repository-snapshot-builds/public/${debianStaleBuildId}/orphan`, { bytes: Buffer.from("orphan") });
   const env = { RELEASES: bucket };
   try {
     const unauthorized = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/repository-snapshots/retention", {
@@ -1168,8 +1314,11 @@ test("protected retention keeps the active snapshot and five rollback snapshots 
     }), env);
     assert.equal(retained.status, 200, await retained.clone().text());
     const result = await retained.json();
-    assert.equal(result.channels.public.deleted_snapshots, 2);
-    assert.equal(result.channels.public.deleted_builds, 1);
+    assert.equal(result.channels.public.deleted_snapshots, 3);
+    assert.equal(result.channels.public.deleted_builds, 2);
+    assert.equal(bucket.entries.has(`repository-snapshots/public/${debianOrphanId}.json`), false, "Debian orphan snapshots are included in target-specific retention");
+    assert.equal(bucket.blobs.has(`repository-snapshots/public/${debianOrphanId}/orphan`), false);
+    assert.equal(bucket.entries.has(`repository-snapshot-builds/public/${debianStaleBuildId}.json`), false, "Debian stale builds are included in target-specific retention");
     assert.equal(bucket.entries.has(`repository-snapshot-builds/public/${staleBuildId}.json`), false, "stale unsigned build manifests are pruned");
     assert.equal(bucket.blobs.has(`repository-snapshot-builds/public/${staleBuildId}/${buildFiles[0].path}`), false);
     assert.equal(bucket.entries.has(`repository-snapshot-builds/public/${freshBuildId}.json`), true, "the newest build is retained during its recovery window");
@@ -1534,6 +1683,38 @@ test("signed source commit must be reachable from the supported packaging branch
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("Debian source tag ancestry is checked against its configured target branch", async () => {
+  const originalFetch = globalThis.fetch;
+  let comparisonSha = "b".repeat(40);
+  let comparisonUrl;
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    if (value.endsWith("/git/ref/tags/getpatched/1.2.3")) {
+      return Response.json({ ref: "refs/tags/getpatched/1.2.3", object: { type: "tag", sha: "d".repeat(40) } });
+    }
+    if (value.endsWith("/graphql")) return Response.json({ data: { repository: { object: {
+      __typename: "Tag", oid: "d".repeat(40), name: "getpatched/1.2.3",
+      tagger: { email: "releases@getpatched.dev", user: { login: TEST_RELEASE_TAG_SIGNER } },
+    } } } });
+    if (value.includes("/git/tags/")) {
+      return Response.json({ sha: "d".repeat(40), verification: { verified: true, reason: "valid" },
+        tagger: { email: "releases@getpatched.dev" }, object: { type: "commit", sha: "b".repeat(40) } });
+    }
+    comparisonUrl = value;
+    return Response.json({ merge_base_commit: { sha: comparisonSha } });
+  };
+  const env = { GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER };
+  try {
+    await verifySignedSourceTag(env, "getpatched/packaging-tiff", "getpatched/1.2.3", "b".repeat(40), "getpatched/debian-bookworm");
+    assert.match(comparisonUrl, /compare\/getpatched%2Fdebian-bookworm\.\.\./);
+    comparisonSha = "e".repeat(40);
+    await assert.rejects(
+      verifySignedSourceTag(env, "getpatched/packaging-tiff", "getpatched/1.2.3", "b".repeat(40), "getpatched/debian-bookworm"),
+      /reachable from getpatched\/debian-bookworm/,
+    );
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test("public releases require repository-level immutable-release enforcement", async () => {

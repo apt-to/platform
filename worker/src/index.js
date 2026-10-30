@@ -9,6 +9,11 @@ const SNAPSHOT_BUILD_RECOVERY_MS = 24 * 60 * 60 * 1000;
 const MAX_RETENTION_DELETIONS_PER_CHANNEL = 50;
 const PUBLIC_RELEASE_STAGING_RECOVERY_MS = 30 * 24 * 60 * 60 * 1000;
 const SNAPSHOT_ID_PATTERN = /^focal-([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})-r[0-9]{1,20}-(public|early)$/;
+const REPOSITORY_TARGETS = {
+  focal: { amd64: "ubuntu-focal-amd64" },
+  bookworm: { amd64: "debian-bookworm-amd64" },
+  trixie: { amd64: "debian-trixie-amd64" },
+};
 const MAX_SNAPSHOT_BYTES = 128 * 1024 * 1024;
 const MAX_SPONSOR_WEBHOOK_BYTES = 256 * 1024;
 const SPONSOR_ENTITLEMENTS_KEY = "sponsor-entitlements/current.json";
@@ -212,6 +217,26 @@ function checksumHex(value) {
   return [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function repositoryTarget(suite, architecture) {
+  if (!Object.hasOwn(REPOSITORY_TARGETS, suite) || !Object.hasOwn(REPOSITORY_TARGETS[suite], architecture)) {
+    throw requestError("unsupported repository suite and architecture", 400);
+  }
+  return { suite, architecture, targetId: REPOSITORY_TARGETS[suite][architecture] };
+}
+
+function repositoryCurrentKey(channel, target) {
+  if (!["public", "early"].includes(channel)) throw requestError("invalid repository channel", 400);
+  return target.suite === "focal" && target.architecture === "amd64"
+    ? `repository-current/${channel}.json`
+    : `repository-current/${channel}/${target.suite}/${target.architecture}.json`;
+}
+
+function validSnapshotId(id, channel, suite, architecture) {
+  const channelPattern = channel === "public" || channel === "early" ? channel : "(?!)";
+  const prefix = suite === "focal" && architecture === "amd64" ? "focal-" : `${suite}-${architecture}-`;
+  return typeof id === "string" && new RegExp(`^${prefix}([0-9]{8})T([0-9]{6})-r[0-9]{1,20}-${channelPattern}$`).test(id);
+}
+
 function snapshotKey(channel, id) {
   if (!['public', 'early'].includes(channel) || !/^[A-Za-z0-9][A-Za-z0-9-]{2,79}$/.test(id)) {
     throw requestError("invalid repository snapshot identity", 400);
@@ -226,18 +251,21 @@ function snapshotBuildKey(channel, id) {
   return `repository-snapshot-builds/${channel}/${id}.json`;
 }
 
-function snapshotBuildFilePath(value) {
+function snapshotBuildFilePath(value, suite = "focal") {
+  if (!Object.hasOwn(REPOSITORY_TARGETS, suite)) return false;
+  const root = `dists/${suite}`;
   return typeof value === "string" && value.length <= 512 &&
-    /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(value) &&
-    !["dists/focal/InRelease", "dists/focal/Release.gpg"].includes(value);
+    new RegExp(`^${root}/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$`).test(value) &&
+    ![`${root}/InRelease`, `${root}/Release.gpg`].includes(value);
 }
 
-function canonicalSnapshotBuildFiles(files) {
-  if (!Array.isArray(files) || files.length < 7 || files.length > MAX_SNAPSHOT_FILES) throw requestError("snapshot build must contain focal indexes", 400);
+function canonicalSnapshotBuildFiles(files, suite = "focal", architecture = "amd64") {
+  const target = repositoryTarget(suite, architecture);
+  if (!Array.isArray(files) || files.length < 7 || files.length > MAX_SNAPSHOT_FILES) throw requestError(`snapshot build must contain ${suite} indexes`, 400);
   const seen = new Set();
   let total = 0;
   const normalized = files.map((file) => {
-    if (!file || !snapshotBuildFilePath(file.path) || seen.has(file.path) || !/^[a-f0-9]{64}$/.test(file.sha256) ||
+    if (!file || !snapshotBuildFilePath(file.path, suite) || seen.has(file.path) || !/^[a-f0-9]{64}$/.test(file.sha256) ||
         !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > MAX_RELEASE_ASSET_BYTES) {
       throw requestError("snapshot build file path, size or SHA-256 is invalid", 400);
     }
@@ -247,19 +275,21 @@ function canonicalSnapshotBuildFiles(files) {
     return { path: file.path, size: file.size, sha256: file.sha256, content_type: snapshotContentType(file.path) };
   }).sort((a, b) => a.path.localeCompare(b.path));
   const required = [
-    "dists/focal/Release",
-    "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
-    "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
+    `dists/${suite}/Release`,
+    `dists/${suite}/main/binary-${target.architecture}/Packages`, `dists/${suite}/main/binary-${target.architecture}/Packages.gz`, `dists/${suite}/main/binary-${target.architecture}/Packages.xz`,
+    `dists/${suite}/main/source/Sources`, `dists/${suite}/main/source/Sources.gz`, `dists/${suite}/main/source/Sources.xz`,
   ];
-  if (required.some((path) => !seen.has(path))) throw requestError("snapshot build is missing required focal indexes", 400);
+  if (required.some((path) => !seen.has(path))) throw requestError(`snapshot build is missing required ${suite} indexes`, 400);
   return normalized;
 }
 
-function snapshotFilePath(value) {
+function snapshotFilePath(value, suite = "focal") {
   if (typeof value !== "string" || value.length > 512) return false;
   if (value === "getpatched-archive-keyring.gpg") return true;
-  return /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$/.test(value) ||
-    /^dists\/focal\/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*\/)*[A-Za-z0-9][A-Za-z0-9._+~-]*\/by-hash\/SHA256\/[a-f0-9]{64}$/.test(value);
+  if (!Object.hasOwn(REPOSITORY_TARGETS, suite)) return false;
+  const root = `dists/${suite}`;
+  return new RegExp(`^${root}/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*$`).test(value) ||
+    new RegExp(`^${root}/(?:[A-Za-z0-9][A-Za-z0-9._+~-]*/)*[A-Za-z0-9][A-Za-z0-9._+~-]*/by-hash/SHA256/[a-f0-9]{64}$`).test(value);
 }
 
 function snapshotContentType(path) {
@@ -270,14 +300,15 @@ function snapshotContentType(path) {
   return "text/plain; charset=utf-8";
 }
 
-function canonicalSnapshotFiles(files) {
+function canonicalSnapshotFiles(files, suite = "focal", architecture = "amd64") {
+  const target = repositoryTarget(suite, architecture);
   if (!Array.isArray(files) || files.length < 10 || files.length > MAX_SNAPSHOT_FILES) {
-    throw requestError("snapshot must contain signed focal indexes and the public archive key", 400);
+    throw requestError(`snapshot must contain signed ${suite} indexes and the public archive key`, 400);
   }
   const seen = new Set();
   let total = 0;
   const normalized = files.map((file) => {
-    if (!file || !snapshotFilePath(file.path) || seen.has(file.path)) throw requestError("snapshot file path is invalid or duplicated", 400);
+    if (!file || !snapshotFilePath(file.path, suite) || seen.has(file.path)) throw requestError("snapshot file path is invalid or duplicated", 400);
     if (!/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > MAX_RELEASE_ASSET_BYTES) {
       throw requestError("snapshot file size or SHA-256 is invalid", 400);
     }
@@ -289,16 +320,17 @@ function canonicalSnapshotFiles(files) {
     return { path: file.path, sha256: file.sha256, size: file.size, content_type: contentType };
   }).sort((a, b) => a.path.localeCompare(b.path));
   const required = [
-    "dists/focal/Release", "dists/focal/InRelease", "dists/focal/Release.gpg",
-    "dists/focal/main/binary-amd64/Packages", "dists/focal/main/binary-amd64/Packages.gz", "dists/focal/main/binary-amd64/Packages.xz",
-    "dists/focal/main/source/Sources", "dists/focal/main/source/Sources.gz", "dists/focal/main/source/Sources.xz",
+    `dists/${suite}/Release`, `dists/${suite}/InRelease`, `dists/${suite}/Release.gpg`,
+    `dists/${suite}/main/binary-${target.architecture}/Packages`, `dists/${suite}/main/binary-${target.architecture}/Packages.gz`, `dists/${suite}/main/binary-${target.architecture}/Packages.xz`,
+    `dists/${suite}/main/source/Sources`, `dists/${suite}/main/source/Sources.gz`, `dists/${suite}/main/source/Sources.xz`,
     "getpatched-archive-keyring.gpg",
   ];
-  if (required.some((path) => !seen.has(path))) throw requestError("snapshot is missing signed focal indexes or the public archive key", 400);
+  if (required.some((path) => !seen.has(path))) throw requestError(`snapshot is missing signed ${suite} indexes or the public archive key`, 400);
   return normalized;
 }
 
-async function snapshotEligibilityError(env, channel, releaseIds, now = Date.now()) {
+async function snapshotEligibilityError(env, channel, releaseIds, now = Date.now(), suite = "focal", architecture = "amd64") {
+  const target = repositoryTarget(suite, architecture);
   for (const id of releaseIds) {
     let releaseKey;
     try { releaseKey = stateKey(id); }
@@ -307,6 +339,7 @@ async function snapshotEligibilityError(env, channel, releaseIds, now = Date.now
     if (!release) return `snapshot release is missing: ${id}`;
     try { assertRelease(release); }
     catch (error) { return String(error.message || error); }
+    if ((release.target_id || "ubuntu-focal-amd64") !== target.targetId) return `release does not match the ${suite}/${architecture} repository target: ${id}`;
     const allowed = channel === "public" ? release.state === "public" :
       release.state === "public" || (release.state === "sponsor-period" && release.sponsor_publication_complete === true && Date.parse(release.public_after) > now);
     if (!allowed || release.release_checks_passed !== true) return `release is not eligible for the ${channel} repository snapshot: ${id}`;
@@ -314,15 +347,16 @@ async function snapshotEligibilityError(env, channel, releaseIds, now = Date.now
   return null;
 }
 
-async function activeSnapshotHealth(env, channel, activeId) {
+async function activeSnapshotHealth(env, channel, activeId, suite = "focal", architecture = "amd64") {
   if (!activeId) return null;
   let key;
   try { key = snapshotKey(channel, activeId); } catch { return null; }
   const snapshot = (await readRecord(env.RELEASES, key))?.record;
-  if (!snapshot || snapshot.id !== activeId || snapshot.channel !== channel || !Array.isArray(snapshot.release_ids)) return null;
+  if (!snapshot || snapshot.id !== activeId || snapshot.channel !== channel ||
+      (snapshot.suite || "focal") !== suite || (snapshot.architecture || "amd64") !== architecture || !Array.isArray(snapshot.release_ids)) return null;
   let files;
-  try { files = canonicalSnapshotFiles(snapshot.files); } catch { return null; }
-  if (await snapshotEligibilityError(env, channel, snapshot.release_ids)) return { id: activeId, release_ids: snapshot.release_ids, healthy: false };
+  try { files = canonicalSnapshotFiles(snapshot.files, suite, architecture); } catch { return null; }
+  if (await snapshotEligibilityError(env, channel, snapshot.release_ids, Date.now(), suite, architecture)) return { id: activeId, release_ids: snapshot.release_ids, healthy: false };
   for (const file of files) {
     const object = await env.RELEASES.head(`repository-snapshots/${channel}/${activeId}/${file.path}`);
     if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256 ||
@@ -383,8 +417,11 @@ async function deleteRepositorySnapshotBuild(env, channel, id) {
   return deletedFiles + 1;
 }
 
-function snapshotTimestampFromId(id) {
-  const match = typeof id === "string" ? SNAPSHOT_ID_PATTERN.exec(id) : null;
+function snapshotTimestampFromId(id, suite, architecture) {
+  const prefix = suite === "focal" && architecture === "amd64" ? "focal-" : `${suite}-${architecture}-`;
+  const match = typeof id === "string"
+    ? new RegExp(`^${prefix}([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})-r[0-9]{1,20}-(?:public|early)$`).exec(id)
+    : null;
   if (!match) return null;
   const value = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`;
   const timestamp = Date.parse(value);
@@ -392,20 +429,22 @@ function snapshotTimestampFromId(id) {
   return timestamp;
 }
 
-function validRetainedSnapshot(snapshot, channel, id) {
+function validRetainedSnapshot(snapshot, channel, id, suite = "focal", architecture = "amd64") {
   if (!snapshot || snapshot.id !== id || snapshot.channel !== channel || !Array.isArray(snapshot.release_ids) ||
       !snapshot.release_ids.length || snapshot.release_ids.length > 32 || new Set(snapshot.release_ids).size !== snapshot.release_ids.length ||
-      snapshot.release_ids.some((releaseId) => typeof releaseId !== "string" || !/^[a-z0-9][a-z0-9-]{1,100}$/.test(releaseId))) return false;
-  try { canonicalSnapshotFiles(snapshot.files); } catch { return false; }
+      snapshot.release_ids.some((releaseId) => typeof releaseId !== "string" || !/^[a-z0-9][a-z0-9-]{1,100}$/.test(releaseId)) ||
+      (snapshot.suite || "focal") !== suite || (snapshot.architecture || "amd64") !== architecture) return false;
+  try { canonicalSnapshotFiles(snapshot.files, suite, architecture); } catch { return false; }
   return true;
 }
 
-async function pruneRepositorySnapshotChannel(env, channel) {
+async function pruneRepositorySnapshotTarget(env, channel, suite, architecture) {
   const now = Date.now();
-  const pointer = (await readRecord(env.RELEASES, `repository-current/${channel}.json`))?.record;
+  const target = repositoryTarget(suite, architecture);
+  const pointer = (await readRecord(env.RELEASES, repositoryCurrentKey(channel, target)))?.record;
   const activeId = pointer?.id ?? null;
-  if (activeId !== null && (!SNAPSHOT_ID_PATTERN.test(activeId) || !activeId.endsWith(`-${channel}`))) {
-    throw new Error(`active ${channel} snapshot pointer is invalid`);
+  if (activeId !== null && !validSnapshotId(activeId, channel, suite, architecture)) {
+    throw new Error(`active ${channel} ${suite}/${architecture} snapshot pointer is invalid`);
   }
   const manifestPrefix = `repository-snapshots/${channel}/`;
   const manifestKeys = await listRetentionManifests(env.RELEASES, manifestPrefix);
@@ -413,16 +452,16 @@ async function pruneRepositorySnapshotChannel(env, channel) {
   for (const key of manifestKeys) {
     const match = key.match(/^repository-snapshots\/(public|early)\/([A-Za-z0-9][A-Za-z0-9-]{2,79})\.json$/);
     if (!match || match[1] !== channel) throw new Error("snapshot retention found an invalid manifest key");
-    allIds.add(match[2]);
+    if (validSnapshotId(match[2], channel, suite, architecture)) allIds.add(match[2]);
   }
   if (activeId && !allIds.has(activeId)) throw new Error("active snapshot manifest is missing; retention stopped");
 
   let activeSnapshot = null;
   if (activeId) {
     activeSnapshot = (await readRecord(env.RELEASES, snapshotKey(channel, activeId)))?.record;
-    if (!validRetainedSnapshot(activeSnapshot, channel, activeId)) throw new Error("active snapshot manifest is invalid; retention stopped");
-    if (await snapshotEligibilityError(env, channel, activeSnapshot.release_ids)) throw new Error("active snapshot is no longer eligible; retention stopped");
-    for (const file of canonicalSnapshotFiles(activeSnapshot.files)) {
+    if (!validRetainedSnapshot(activeSnapshot, channel, activeId, suite, architecture)) throw new Error("active snapshot manifest is invalid; retention stopped");
+    if (await snapshotEligibilityError(env, channel, activeSnapshot.release_ids, now, suite, architecture)) throw new Error("active snapshot is no longer eligible; retention stopped");
+    for (const file of canonicalSnapshotFiles(activeSnapshot.files, suite, architecture)) {
       const object = await env.RELEASES.head(`repository-snapshots/${channel}/${activeId}/${file.path}`);
       if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256 ||
           object.customMetadata?.snapshotId !== activeId || object.customMetadata?.channel !== channel || object.customMetadata?.path !== file.path) {
@@ -431,22 +470,25 @@ async function pruneRepositorySnapshotChannel(env, channel) {
     }
   }
 
-  const history = (await readRecord(env.RELEASES, snapshotHistoryKey(channel)))?.record;
-  if (history && (history.channel !== channel || !Array.isArray(history.snapshot_ids) || history.snapshot_ids.length > SNAPSHOT_ROLLBACK_RETENTION + 1 ||
+  const historyKey = snapshotHistoryKey(channel, suite, architecture);
+  const history = (await readRecord(env.RELEASES, historyKey))?.record;
+  if (history && (history.channel !== channel || (history.suite || "focal") !== suite || (history.architecture || "amd64") !== architecture ||
+      !Array.isArray(history.snapshot_ids) || history.snapshot_ids.length > SNAPSHOT_ROLLBACK_RETENTION + 1 ||
       new Set(history.snapshot_ids).size !== history.snapshot_ids.length || history.snapshot_ids.some((id) =>
-        !SNAPSHOT_ID_PATTERN.test(id) || !id.endsWith(`-${channel}`)))) {
+        !validSnapshotId(id, channel, suite, architecture)))) {
     throw new Error("repository snapshot activation history is invalid; retention stopped");
   }
   if (activeId) {
-    try { await recordSnapshotActivation(env, channel, activeId); }
+    try { await recordSnapshotActivation(env, channel, activeId, null, suite, architecture); }
     catch { throw new Error("repository snapshot activation history could not be reconciled; retention stopped"); }
   }
-  const updatedHistory = (await readRecord(env.RELEASES, snapshotHistoryKey(channel)))?.record;
+  const updatedHistory = (await readRecord(env.RELEASES, historyKey))?.record;
   const retainedIds = new Set(activeId ? [activeId] : []);
   for (const id of updatedHistory?.snapshot_ids || []) {
     if (id === activeId || !allIds.has(id)) continue;
     const snapshot = (await readRecord(env.RELEASES, snapshotKey(channel, id)))?.record;
-    if (!validRetainedSnapshot(snapshot, channel, id) || await snapshotEligibilityError(env, channel, snapshot.release_ids)) continue;
+    if (!validRetainedSnapshot(snapshot, channel, id, suite, architecture) ||
+        await snapshotEligibilityError(env, channel, snapshot.release_ids, now, suite, architecture)) continue;
     retainedIds.add(id);
   }
 
@@ -461,7 +503,8 @@ async function pruneRepositorySnapshotChannel(env, channel) {
   for (const key of buildManifestKeys) {
     const match = key.match(/^repository-snapshot-builds\/(public|early)\/([A-Za-z0-9][A-Za-z0-9-]{2,79})\.json$/);
     if (!match || match[1] !== channel) throw new Error("snapshot retention found an invalid build manifest key");
-    const timestamp = snapshotTimestampFromId(match[2]);
+    if (!validSnapshotId(match[2], channel, suite, architecture)) continue;
+    const timestamp = snapshotTimestampFromId(match[2], suite, architecture);
     if (timestamp === null || timestamp > now + 5 * 60 * 1000) buildIds.push({ id: match[2], timestamp: null });
     else buildIds.push({ id: match[2], timestamp });
   }
@@ -480,6 +523,18 @@ async function pruneRepositorySnapshotChannel(env, channel) {
     pending_builds: expiredBuilds.length - buildBatch.length,
     deleted_objects: deletedObjects,
   };
+}
+
+async function pruneRepositorySnapshotChannel(env, channel) {
+  const results = [];
+  for (const [suite, architectures] of Object.entries(REPOSITORY_TARGETS)) {
+    for (const architecture of Object.keys(architectures)) {
+      results.push(await pruneRepositorySnapshotTarget(env, channel, suite, architecture));
+    }
+  }
+  return results.reduce((total, result) => Object.fromEntries(
+    Object.keys(result).map((key) => [key, (total[key] || 0) + result[key]]),
+  ), {});
 }
 
 async function pruneRepositorySnapshots(request, env) {
@@ -527,6 +582,11 @@ async function githubActionsClaims(request, env) {
 async function listSnapshotReleases(request, env, channel) {
   if (!await snapshotBuilderIdentity(request, env)) return json({ error: "protected snapshot builder identity required" }, 401);
   if (!env.RELEASES) return json({ error: "release storage is unavailable" }, 503);
+  let target;
+  try {
+    const url = new URL(request.url);
+    target = repositoryTarget(url.searchParams.get("suite") || "focal", url.searchParams.get("architecture") || "amd64");
+  } catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   let cursor;
   const releases = [];
   do {
@@ -535,6 +595,7 @@ async function listSnapshotReleases(request, env, channel) {
       const loaded = await readRecord(env.RELEASES, item.key);
       const record = loaded?.record;
       if (!record || !["public", "sponsor-period"].includes(record.state)) continue;
+      if ((record.target_id || "ubuntu-focal-amd64") !== target.targetId) continue;
       try { assertRelease(record); } catch { return json({ error: "stored release state failed validation" }, 503); }
       if (record.release_checks_passed !== true || (channel === "public" && record.state !== "public")) continue;
       if (channel === "early" && record.state === "sponsor-period" &&
@@ -548,14 +609,14 @@ async function listSnapshotReleases(request, env, channel) {
         required_assets: required.map(({ name, sha256 }) => ({ name, sha256 })),
         source_assets: source.map(({ name, sha256 }) => ({ name, sha256 })),
       });
-      if (releases.length > 32) return json({ error: "too many releases for one focal snapshot" }, 413);
+      if (releases.length > 32) return json({ error: `too many releases for one ${target.suite} snapshot` }, 413);
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
   releases.sort((a, b) => a.id.localeCompare(b.id));
-  const activePointer = (await readRecord(env.RELEASES, `repository-current/${channel}.json`))?.record;
-  const activeSnapshot = await activeSnapshotHealth(env, channel, activePointer?.id);
-  return json({ channel, suite: "focal", architecture: "amd64", releases, active_snapshot: activeSnapshot });
+  const activePointer = (await readRecord(env.RELEASES, repositoryCurrentKey(channel, target)))?.record;
+  const activeSnapshot = await activeSnapshotHealth(env, channel, activePointer?.id, target.suite, target.architecture);
+  return json({ channel, suite: target.suite, architecture: target.architecture, releases, active_snapshot: activeSnapshot });
 }
 
 async function readSnapshotReleaseAsset(request, env, channel, id, name) {
@@ -589,17 +650,22 @@ async function registerRepositorySnapshotBuild(request, env, channel) {
   let body;
   try { body = await readBoundedJson(request, MAX_REGISTRATION_BYTES); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  let target;
+  try { target = repositoryTarget(body.suite || "focal", body.architecture || "amd64"); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  if (!validSnapshotId(body.id, channel, target.suite, target.architecture)) return json({ error: "snapshot build ID does not match its target and channel" }, 400);
   let key;
   try { key = snapshotBuildKey(channel, body.id); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   if (!Array.isArray(body.release_ids) || body.release_ids.length === 0 || body.release_ids.length > 32 ||
       new Set(body.release_ids).size !== body.release_ids.length) return json({ error: "snapshot build must name unique release ids" }, 400);
   let files;
-  try { files = canonicalSnapshotBuildFiles(body.files); }
+  try { files = canonicalSnapshotBuildFiles(body.files, target.suite, target.architecture); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
-  const ineligibility = await snapshotEligibilityError(env, channel, body.release_ids);
+  const ineligibility = await snapshotEligibilityError(env, channel, body.release_ids, Date.now(), target.suite, target.architecture);
   if (ineligibility) return json({ error: ineligibility }, 409);
-  const record = { id: body.id, channel, suite: "focal", architecture: "amd64", release_ids: [...body.release_ids].sort(), files, created_at: new Date().toISOString() };
+  const record = { id: body.id, channel, suite: target.suite, architecture: target.architecture,
+    release_ids: [...body.release_ids].sort(), files, created_at: new Date().toISOString() };
   const prior = await readRecord(env.RELEASES, key);
   if (prior && JSON.stringify({ ...prior.record, created_at: undefined }) === JSON.stringify({ ...record, created_at: undefined })) return json({ id: body.id, channel, replay: true }, 200);
   if (prior) return json({ error: "snapshot build id is immutable and already registered" }, 409);
@@ -612,13 +678,15 @@ async function uploadRepositorySnapshotBuildFile(request, env, channel, id, enco
   let path;
   try { path = decodeURIComponent(encodedPath); }
   catch { return json({ error: "invalid snapshot build path encoding" }, 400); }
-  if (!snapshotBuildFilePath(path)) return json({ error: "invalid snapshot build file path" }, 400);
   let key;
   try { key = snapshotBuildKey(channel, id); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   const build = (await readRecord(env.RELEASES, key))?.record;
   if (!build) return json({ error: "snapshot build is not registered" }, 404);
-  const ineligibility = await snapshotEligibilityError(env, channel, build.release_ids);
+  const suite = build.suite || "focal";
+  const architecture = build.architecture || "amd64";
+  if (!snapshotBuildFilePath(path, suite)) return json({ error: "invalid snapshot build file path" }, 400);
+  const ineligibility = await snapshotEligibilityError(env, channel, build.release_ids, Date.now(), suite, architecture);
   if (ineligibility) return json({ error: ineligibility }, 409);
   const file = build.files.find((candidate) => candidate.path === path);
   if (!file) return json({ error: "file is not in the immutable snapshot build manifest" }, 404);
@@ -649,10 +717,12 @@ async function readRepositorySnapshotBuild(request, env, channel, id, encodedPat
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   const build = (await readRecord(env.RELEASES, key))?.record;
   if (!build) return json({ error: "snapshot build is not available" }, 404);
-  const ineligibility = await snapshotEligibilityError(env, channel, build.release_ids);
+  const suite = build.suite || "focal";
+  const architecture = build.architecture || "amd64";
+  const ineligibility = await snapshotEligibilityError(env, channel, build.release_ids, Date.now(), suite, architecture);
   if (ineligibility) return json({ error: "snapshot build release set is no longer eligible" }, 409);
   if (path === "manifest.json") return json(build);
-  if (!snapshotBuildFilePath(path)) return json({ error: "invalid snapshot build file path" }, 400);
+  if (!snapshotBuildFilePath(path, suite)) return json({ error: "invalid snapshot build file path" }, 400);
   const file = build.files.find((candidate) => candidate.path === path);
   if (!file) return json({ error: "file is not in the snapshot build manifest" }, 404);
   const objectKey = `repository-snapshot-builds/${channel}/${id}/${path}`;
@@ -680,25 +750,29 @@ async function discardRepositorySnapshotBuild(env, channel, id) {
   } catch { return false; }
 }
 
-function snapshotHistoryKey(channel) {
+function snapshotHistoryKey(channel, suite = "focal", architecture = "amd64") {
   if (!["public", "early"].includes(channel)) throw new Error("invalid repository snapshot channel");
-  return `repository-history/${channel}.json`;
+  const target = repositoryTarget(suite, architecture);
+  return target.suite === "focal" && target.architecture === "amd64"
+    ? `repository-history/${channel}.json`
+    : `repository-history/${channel}/${suite}/${architecture}.json`;
 }
 
-async function recordSnapshotActivation(env, channel, id, previousId = null) {
-  const key = snapshotHistoryKey(channel);
+async function recordSnapshotActivation(env, channel, id, previousId = null, suite = "focal", architecture = "amd64") {
+  const key = snapshotHistoryKey(channel, suite, architecture);
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     const loaded = await readRecord(env.RELEASES, key);
     const previous = loaded?.record;
-    if (previous && (previous.channel !== channel || !Array.isArray(previous.snapshot_ids) || previous.snapshot_ids.length > SNAPSHOT_ROLLBACK_RETENTION + 1 ||
+    if (previous && (previous.channel !== channel || (previous.suite || "focal") !== suite || (previous.architecture || "amd64") !== architecture ||
+        !Array.isArray(previous.snapshot_ids) || previous.snapshot_ids.length > SNAPSHOT_ROLLBACK_RETENTION + 1 ||
         new Set(previous.snapshot_ids).size !== previous.snapshot_ids.length || previous.snapshot_ids.some((value) =>
-          typeof value !== "string" || !SNAPSHOT_ID_PATTERN.test(value) || value.endsWith(`-${channel}`) === false))) {
+          !validSnapshotId(value, channel, suite, architecture)))) {
       throw new Error("repository snapshot activation history is invalid");
     }
     const ordered = [id, previousId, ...(previous?.snapshot_ids || [])]
       .filter(Boolean).filter((value, index, values) => values.indexOf(value) === index)
       .slice(0, SNAPSHOT_ROLLBACK_RETENTION + 1);
-    const next = { channel, snapshot_ids: ordered, updated_at: new Date().toISOString() };
+    const next = { channel, suite, architecture, snapshot_ids: ordered, updated_at: new Date().toISOString() };
     const saved = await writeRecord(env.RELEASES, key, next, loaded?.etag || null);
     if (saved) return next;
   }
@@ -710,17 +784,22 @@ async function registerRepositorySnapshot(request, env, channel) {
   let body;
   try { body = await readBoundedJson(request, MAX_REGISTRATION_BYTES); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  let target;
+  try { target = repositoryTarget(body.suite || "focal", body.architecture || "amd64"); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  if (!validSnapshotId(body.id, channel, target.suite, target.architecture)) return json({ error: "snapshot ID does not match its target and channel" }, 400);
   let key;
   try { key = snapshotKey(channel, body.id); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   if (!Array.isArray(body.release_ids) || body.release_ids.length === 0 || body.release_ids.length > 32 ||
       new Set(body.release_ids).size !== body.release_ids.length) return json({ error: "snapshot must name unique verified release ids" }, 400);
   let files;
-  try { files = canonicalSnapshotFiles(body.files); }
+  try { files = canonicalSnapshotFiles(body.files, target.suite, target.architecture); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
-  const ineligibility = await snapshotEligibilityError(env, channel, body.release_ids);
+  const ineligibility = await snapshotEligibilityError(env, channel, body.release_ids, Date.now(), target.suite, target.architecture);
   if (ineligibility) return json({ error: ineligibility }, 409);
-  const snapshot = { id: body.id, channel, suite: "focal", architecture: "amd64", release_ids: [...body.release_ids].sort(), files, created_at: new Date().toISOString() };
+  const snapshot = { id: body.id, channel, suite: target.suite, architecture: target.architecture,
+    release_ids: [...body.release_ids].sort(), files, created_at: new Date().toISOString() };
   const prior = await readRecord(env.RELEASES, key);
   if (prior && JSON.stringify({ ...prior.record, created_at: undefined }) === JSON.stringify({ ...snapshot, created_at: undefined })) return json({ id: body.id, channel, replay: true }, 200);
   if (prior) return json({ error: "snapshot id is immutable and already registered" }, 409);
@@ -733,13 +812,15 @@ async function uploadRepositorySnapshotFile(request, env, channel, id, encodedPa
   let path;
   try { path = decodeURIComponent(encodedPath); }
   catch { return json({ error: "invalid snapshot file path encoding" }, 400); }
-  if (!snapshotFilePath(path)) return json({ error: "invalid snapshot file path" }, 400);
   let key;
   try { key = snapshotKey(channel, id); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   const snapshot = (await readRecord(env.RELEASES, key))?.record;
   if (!snapshot) return json({ error: "repository snapshot is not registered" }, 404);
-  const ineligibility = await snapshotEligibilityError(env, channel, snapshot.release_ids);
+  const suite = snapshot.suite || "focal";
+  const architecture = snapshot.architecture || "amd64";
+  if (!snapshotFilePath(path, suite)) return json({ error: "invalid snapshot file path" }, 400);
+  const ineligibility = await snapshotEligibilityError(env, channel, snapshot.release_ids, Date.now(), suite, architecture);
   if (ineligibility) return json({ error: ineligibility }, 409);
   const file = snapshot.files.find((candidate) => candidate.path === path);
   if (!file) return json({ error: "file is not in the immutable snapshot manifest" }, 404);
@@ -767,16 +848,20 @@ async function uploadRepositorySnapshotFile(request, env, channel, id, encodedPa
 
 async function activateRepositorySnapshot(request, env, channel, id) {
   if (!await snapshotPublisherIdentity(request, env)) return json({ error: "protected snapshot workflow identity required" }, 401);
-  const snapshotIdMatch = typeof id === "string" ? SNAPSHOT_ID_PATTERN.exec(id) : null;
-  if (!snapshotIdMatch || snapshotIdMatch[7] !== channel) return json({ error: "snapshot ID does not match its repository channel" }, 400);
   let key;
   try { key = snapshotKey(channel, id); }
   catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
   const snapshot = (await readRecord(env.RELEASES, key))?.record;
   if (!snapshot) return json({ error: "repository snapshot is not registered" }, 404);
-  const ineligibility = await snapshotEligibilityError(env, channel, snapshot.release_ids);
+  const suite = snapshot.suite || "focal";
+  const architecture = snapshot.architecture || "amd64";
+  if (!validSnapshotId(id, channel, suite, architecture)) return json({ error: "snapshot ID does not match its repository target and channel" }, 400);
+  let normalizedFiles;
+  try { normalizedFiles = canonicalSnapshotFiles(snapshot.files, suite, architecture); }
+  catch (error) { return json({ error: String(error.message || error) }, error.status || 400); }
+  const ineligibility = await snapshotEligibilityError(env, channel, snapshot.release_ids, Date.now(), suite, architecture);
   if (ineligibility) return json({ error: ineligibility }, 409);
-  for (const file of snapshot.files) {
+  for (const file of normalizedFiles) {
     const objectKey = `repository-snapshots/${channel}/${id}/${file.path}`;
     const object = await env.RELEASES.head(objectKey);
     if (!object || object.size !== file.size || checksumHex(object.checksums?.sha256) !== file.sha256 ||
@@ -784,10 +869,11 @@ async function activateRepositorySnapshot(request, env, channel, id) {
       return json({ error: `snapshot upload is incomplete or failed readback: ${file.path}` }, 409);
     }
   }
-  const currentKey = `repository-current/${channel}.json`;
+  const target = repositoryTarget(suite, architecture);
+  const currentKey = repositoryCurrentKey(channel, target);
   const active = await readRecord(env.RELEASES, currentKey);
   if (active?.record.id === id) {
-    try { await recordSnapshotActivation(env, channel, id); }
+    try { await recordSnapshotActivation(env, channel, id, null, suite, architecture); }
     catch (error) { return json({ error: String(error.message || error) }, 503); }
     const cleanupPending = !await discardRepositorySnapshotBuild(env, channel, id);
     return json({ id, channel, active: true, replay: true, cleanup_pending: cleanupPending }, 200);
@@ -795,25 +881,33 @@ async function activateRepositorySnapshot(request, env, channel, id) {
   const next = { id, channel, activated_at: new Date().toISOString() };
   const saved = await writeRecord(env.RELEASES, currentKey, next, active?.etag || null);
   if (!saved) return json({ error: "repository pointer changed concurrently; retry activation" }, 409);
-  try { await recordSnapshotActivation(env, channel, id, active?.record.id || null); }
+  try { await recordSnapshotActivation(env, channel, id, active?.record.id || null, suite, architecture); }
   catch (error) { return json({ error: String(error.message || error), active: true, history_update_pending: true }, 503); }
   const cleanupPending = !await discardRepositorySnapshotBuild(env, channel, id);
   return json({ id, channel, active: true, cleanup_pending: cleanupPending }, 201);
 }
 
 async function serveRepositoryFile(request, env, channel, path) {
-  if (!snapshotFilePath(path)) return json({ error: "invalid repository metadata path" }, 400);
+  const requestedSuite = path.startsWith("dists/") ? path.split("/", 3)[1] : "focal";
+  let target;
+  try {
+    // This APT path currently contains suite but not architecture. amd64 is
+    // the only published architecture for these suite-specific streams.
+    target = repositoryTarget(requestedSuite || "focal", "amd64");
+  } catch { return json({ error: "invalid repository metadata path" }, 400); }
+  if (!snapshotFilePath(path, target.suite)) return json({ error: "invalid repository metadata path" }, 400);
   const keyring = path === "getpatched-archive-keyring.gpg";
   if (channel === "early" && !keyring && !await deviceTokenUser(request, env)) return new Response("sponsor authentication required", {
     status: 401,
     headers: { "www-authenticate": 'Basic realm="getpatched.dev early repository"', "cache-control": "private, no-store", vary: "Authorization" },
   });
   const selectedChannel = keyring ? "public" : channel;
-  const active = (await readRecord(env.RELEASES, `repository-current/${selectedChannel}.json`))?.record;
+  const selectedTarget = repositoryTarget(target.suite, target.architecture);
+  const active = (await readRecord(env.RELEASES, repositoryCurrentKey(selectedChannel, selectedTarget)))?.record;
   if (!active) return json({ error: "repository snapshot is not available" }, 503);
   const snapshot = (await readRecord(env.RELEASES, snapshotKey(selectedChannel, active.id)))?.record;
-  if (!snapshot) return json({ error: "repository snapshot is not available" }, 503);
-  const ineligibility = await snapshotEligibilityError(env, selectedChannel, snapshot.release_ids);
+  if (!snapshot || (snapshot.suite || "focal") !== target.suite || (snapshot.architecture || "amd64") !== target.architecture) return json({ error: "repository snapshot is not available" }, 503);
+  const ineligibility = await snapshotEligibilityError(env, selectedChannel, snapshot.release_ids, Date.now(), target.suite, target.architecture);
   if (ineligibility) return json({ error: "repository snapshot is unavailable pending release promotion" }, 503);
   let sourceSnapshot = snapshot;
   let file = snapshot.files.find((candidate) => candidate.path === path);
@@ -831,7 +925,8 @@ async function serveRepositoryFile(request, env, channel, path) {
         const id = item.key.slice(prefix.length, -5);
         if (id === active.id || !/^[A-Za-z0-9][A-Za-z0-9-]{2,79}$/.test(id)) continue;
         const candidate = (await readRecord(env.RELEASES, snapshotKey(selectedChannel, id)))?.record;
-        if (!candidate || await snapshotEligibilityError(env, selectedChannel, candidate.release_ids)) continue;
+        if (!candidate || (candidate.suite || "focal") !== target.suite || (candidate.architecture || "amd64") !== target.architecture ||
+            await snapshotEligibilityError(env, selectedChannel, candidate.release_ids, Date.now(), target.suite, target.architecture)) continue;
         const oldFile = candidate.files?.find((entry) => entry.path === path);
         if (oldFile && oldFile.sha256 === hash) { sourceSnapshot = candidate; file = oldFile; found = true; break; }
       }
@@ -1685,14 +1780,21 @@ function stateKey(id) {
 
 function assertRelease(record) {
   if (!record || !["prepared", "sponsor-period", "public"].includes(record.state)) throw new Error("invalid release state");
-  if (!["getpatched/packaging-libxml2", "getpatched/packaging-libarchive"].includes(record.repository)) throw new Error("repository is not an approved pilot package");
+  const approvedRepositories = new Set([
+    "getpatched/packaging-libxml2", "getpatched/packaging-libarchive",
+    "getpatched/packaging-libpng1.6", "getpatched/packaging-libgit2",
+    "getpatched/packaging-tiff", "getpatched/packaging-poppler",
+  ]);
+  if (!approvedRepositories.has(record.repository)) throw new Error("repository is not an approved package repository");
   if (typeof record.tag !== "string" || !/^getpatched\/(?:[a-z0-9-]+\/)?[A-Za-z0-9.+~-]+$/.test(record.tag)) throw new Error("invalid immutable release tag");
   const targetId = record.target_id || "ubuntu-focal-amd64";
-  if (targetId !== "ubuntu-focal-amd64") throw new Error("release Worker only routes the verified Ubuntu Focal amd64 target");
+  const supportedTargetIds = new Set(Object.values(REPOSITORY_TARGETS).flatMap((architectures) => Object.values(architectures)));
+  if (!supportedTargetIds.has(targetId)) throw new Error("release target is not a configured repository suite and architecture");
   if (record.public_contribution_spdx !== undefined && record.public_contribution_spdx !== "MIT") throw new Error("public GetPatched contributions must use the configured MIT license");
   if (!Number.isInteger(record.sponsor_delay_hours) || ![0, 168].includes(record.sponsor_delay_hours)) throw new Error("policy must be 0 or 168 hours");
   const expectedDelay = record.repository === "getpatched/packaging-libxml2" ? 168 : 0;
-  if (record.sponsor_delay_hours !== expectedDelay) throw new Error("release policy does not match the approved pilot package");
+  if (record.sponsor_delay_hours !== expectedDelay) throw new Error("release policy does not match the configured package");
+  if (expectedDelay === 0 && record.state === "sponsor-period") throw new Error("immediately public packages cannot enter a sponsor period");
   if (expectedDelay === 168 && record.early_binary_license_id !== undefined && record.early_binary_license_id !== "LicenseRef-GetPatched-Early-Binary-1.2") throw new Error("sponsor-first release has an unsupported early-binary license");
   if (!Array.isArray(record.required_assets) || record.required_assets.length === 0) throw new Error("required assets missing");
   canonicalAssets(record.required_assets);
@@ -1702,7 +1804,7 @@ function packageName(repository) {
   return repository.slice("getpatched/packaging-".length);
 }
 
-async function verifyPackageRun(env, repository, sourceCommit, tag, runId, targetId = "ubuntu-focal-amd64") {
+async function verifyPackageRun(env, repository, sourceCommit, tag, runId, targetId = "ubuntu-focal-amd64", sourceBranch = "getpatched/focal") {
   if (!Number.isSafeInteger(runId) || runId <= 0) throw new Error("verification_run_id must be a positive integer");
   if (typeof sourceCommit !== "string" || !/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error("source_commit must be a full Git commit SHA");
   const runResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}`);
@@ -1717,7 +1819,7 @@ async function verifyPackageRun(env, repository, sourceCommit, tag, runId, targe
   const requiredJob = `package (${packageName(repository)})`;
   const job = jobs.jobs?.find((candidate) => candidate.name === requiredJob && candidate.run_attempt === run.run_attempt);
   if (!job || job.conclusion !== "success") throw new Error(`required verification job did not pass: ${requiredJob}`);
-  await verifySignedSourceTag(env, repository, tag, sourceCommit);
+  await verifySignedSourceTag(env, repository, tag, sourceCommit, sourceBranch);
   return {
     run_id: run.id,
     run_url: run.html_url,
@@ -1728,7 +1830,10 @@ async function verifyPackageRun(env, repository, sourceCommit, tag, runId, targe
   };
 }
 
-async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
+async function verifySignedSourceTag(env, repository, tag, sourceCommit, sourceBranch = "getpatched/focal") {
+  if (typeof sourceBranch !== "string" || !/^getpatched\/[a-z0-9-]+$/.test(sourceBranch)) {
+    throw new Error("configured package source branch is invalid");
+  }
   const allowedSigner = String(env.GETPATCHED_RELEASE_TAG_SIGNER || "").trim().toLowerCase();
   if (!allowedSigner) throw new Error("allowed GitHub release-tag signer is not configured");
   const encodedTag = tag.split("/").map(encodeURIComponent).join("/");
@@ -1765,10 +1870,10 @@ async function verifySignedSourceTag(env, repository, tag, sourceCommit) {
       signedTag.tagger.user?.login?.toLowerCase() !== allowedSigner) {
     throw new Error("package release tag signer is not the configured GitHub account");
   }
-  const ancestry = await githubRequest(env, `/repos/${repository}/compare/getpatched%2Ffocal...${sourceCommit}`);
+  const ancestry = await githubRequest(env, `/repos/${repository}/compare/${encodeURIComponent(sourceBranch)}...${sourceCommit}`);
   const comparison = await ancestry.json();
   if (comparison.merge_base_commit?.sha !== sourceCommit) {
-    throw new Error("tested source commit must be reachable from getpatched/focal");
+    throw new Error(`tested source commit must be reachable from ${sourceBranch}`);
   }
   return annotated;
 }
@@ -1785,8 +1890,16 @@ async function registerRelease(request, env) {
   const platformPolicy = await policyResponse.json();
   const packageKey = typeof body.repository === "string" && body.repository.startsWith("getpatched/packaging-")
     ? body.repository.slice("getpatched/packaging-".length) : "";
-  const configured = platformPolicy.packages?.[packageKey]?.targets?.[body.target_id]?.releaseAccess;
-  if (!configured) throw requestError("release package target is not configured", 422);
+  const targetProfile = platformPolicy.targets?.[body.target_id];
+  const sourceBranch = targetProfile?.sourceBranch;
+  const packageTarget = platformPolicy.packages?.[packageKey]?.targets?.[body.target_id];
+  const configured = packageTarget?.releaseAccess;
+  if (!configured || typeof sourceBranch !== "string" || !/^getpatched\/[a-z0-9-]+$/.test(sourceBranch)) {
+    throw requestError("release package target or source branch is not configured", 422);
+  }
+  if (packageTarget.candidateStatus !== "development-verified-production-release-pending") {
+    throw requestError("package candidate has not passed its verification gates", 422);
+  }
   const requiredDelay = configured.sponsorDelayHours;
   const expectedPolicy = requiredDelay === 168 ? "sponsor-first" : "public-after-checks";
   if (![0, 168].includes(requiredDelay) || configured.policy !== expectedPolicy ||
@@ -1798,7 +1911,8 @@ async function registerRelease(request, env) {
       (requiredDelay === 0 && (configured.sponsorEligibility !== null || configured.earlyBinaryLicenseId !== null))) {
     throw requestError("configured release access or license policy is invalid", 503);
   }
-  if (body.target_id !== "ubuntu-focal-amd64" || body.public_contribution_spdx !== "MIT" ||
+  const supportedTargetIds = new Set(Object.values(REPOSITORY_TARGETS).flatMap((architectures) => Object.values(architectures)));
+  if (!supportedTargetIds.has(body.target_id) || body.public_contribution_spdx !== "MIT" ||
       body.sponsor_delay_hours !== requiredDelay ||
       body.early_binary_license_id !== (requiredDelay ? configured.earlyBinaryLicenseId : null)) {
     throw requestError("release target, sponsorship, or license policy is incomplete or unsupported", 422);
@@ -1820,7 +1934,7 @@ async function registerRelease(request, env) {
     ...(identity.type === "github-actions" ? { staging_run_id: identity.run_id } : {}),
   };
   assertRelease(record);
-  const verifiedRun = await verifyPackageRun(env, record.repository, record.source_commit, record.tag, body.verification_run_id, record.target_id);
+  const verifiedRun = await verifyPackageRun(env, record.repository, record.source_commit, record.tag, body.verification_run_id, record.target_id, sourceBranch);
   record.release_checks_passed = true;
   record.verification = verifiedRun;
   const existing = await readRecord(env.RELEASES, stateKey(record.id));

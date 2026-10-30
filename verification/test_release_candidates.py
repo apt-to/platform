@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 import sys
@@ -36,10 +37,20 @@ def source_policy(source):
 
 class ReleaseCandidateOutput(unittest.TestCase):
     def test_latest_public_focal_candidates_are_eligible_after_verification(self):
-        self.assertEqual(set(CONFIG["packages"]), {"libxml2", "libarchive"})
+        self.assertEqual(set(CONFIG["packages"]), {"libxml2", "libarchive", "libpng1.6", "libgit2", "tiff", "poppler"})
+        workflow = (ROOT / ".github/workflows/package-verification.yml").read_text()
+        options = re.search(r"options: \[([^]]+)\]", workflow).group(1)
+        runnable_candidates = {"libxml2", "libarchive", "libpng1.6", "tiff", "poppler"}
+        self.assertEqual(set(item.strip() for item in options.split(",")), runnable_candidates)
+        self.assertTrue(runnable_candidates.issubset(CONFIG["packages"]))
+        baseline_cli = (ROOT / "scripts/run-baseline.py").read_text()
+        self.assertNotIn('"libgit2"', baseline_cli)
         for source, package_record in CONFIG["packages"].items():
             package = package_record["targets"][TARGET_ID]
-            self.assertEqual(package["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
+            if source in ("libxml2", "libarchive"):
+                self.assertEqual(package["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
+            else:
+                self.assertNotIn("ubuntuProEsmCompatibility", package)
             policy = source_policy(source)
             validated_source, expected, profile = BUILD_PACKAGE.validate_release_policy(policy, CONFIG)
             self.assertEqual(validated_source, source)
@@ -57,7 +68,7 @@ class ReleaseCandidateOutput(unittest.TestCase):
             self.assertTrue(eligibility["verificationChecksPassed"])
             self.assertEqual(eligibility["supportScope"], TARGET_ID)
             self.assertEqual(eligibility["targetId"], TARGET_ID)
-            self.assertEqual(eligibility["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
+            self.assertEqual(eligibility["ubuntuProEsmCompatibility"], package.get("ubuntuProEsmCompatibility", "not-applicable"))
             self.assertIsNone(eligibility["reason"])
 
     def test_package_identity_and_sponsor_policy_must_match_project_policy(self):
@@ -81,10 +92,10 @@ class ReleaseCandidateOutput(unittest.TestCase):
         workflow = (SCRIPT.parents[1] / ".github/workflows/private-staging.yml").read_text()
         self.assertIn('test -s "$RUNNER_TEMP/candidate/release-eligibility.json"', workflow)
         self.assertIn('eligibility.get("releaseEligible") is not True', workflow)
-        self.assertIn('eligibility.get("targetId") != "ubuntu-focal-amd64"', workflow)
-        self.assertIn('eligibility.get("supportScope") != "ubuntu-focal-amd64"', workflow)
+        self.assertIn('eligibility.get("targetId") != target', workflow)
+        self.assertIn('eligibility.get("supportScope") != target', workflow)
         self.assertIn('eligibility.get("verificationChecksPassed") is not True', workflow)
-        self.assertIn('eligibility.get("ubuntuProEsmCompatibility") != "not-tested-out-of-scope"', workflow)
+        self.assertIn('expected_esm = "not-tested-out-of-scope" if target == "ubuntu-focal-amd64" else "not-applicable"', workflow)
 
     def test_only_verified_selected_binaries_are_persisted_with_identity(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -15,6 +15,12 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_ASSET_BYTES = 64 * 1024 * 1024
+SUPPORTED_SNAPSHOT_TARGETS = {"focal": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
+
+
+def snapshot_id_prefix(suite, architecture):
+    # Keep the existing public Focal IDs stable for live-client and rollback compatibility.
+    return "focal-" if (suite, architecture) == ("focal", "amd64") else f"{suite}-{architecture}-"
 PUBLISH_SPEC = importlib.util.spec_from_file_location("getpatched_snapshot_publisher", ROOT / "scripts" / "publish-apt-snapshot.py")
 PUBLISH = importlib.util.module_from_spec(PUBLISH_SPEC)
 PUBLISH_SPEC.loader.exec_module(PUBLISH)
@@ -27,24 +33,32 @@ def request_headers():
     return {"Authorization": "Bearer " + PUBLISH.request_token()}
 
 
-def fetch_inventory(endpoint, channel):
-    request = urllib.request.Request(f"{endpoint}/internal/repository-snapshots/{channel}/releases", headers=request_headers())
+def validate_snapshot_target(suite, architecture):
+    if architecture not in SUPPORTED_SNAPSHOT_TARGETS.get(suite, set()):
+        raise ValueError("repository snapshot target is not enabled for this suite and architecture")
+
+
+def fetch_inventory(endpoint, channel, suite="focal", architecture="amd64"):
+    validate_snapshot_target(suite, architecture)
+    query = urllib.parse.urlencode({"suite": suite, "architecture": architecture})
+    request = urllib.request.Request(f"{endpoint}/internal/repository-snapshots/{channel}/releases?{query}", headers=request_headers())
     with PUBLISH.open_without_redirect(request, timeout=60) as response:
         payload = json.load(response)
-    if payload.get("channel") != channel or payload.get("suite") != "focal" or payload.get("architecture") != "amd64":
+    if payload.get("channel") != channel or payload.get("suite") != suite or payload.get("architecture") != architecture:
         raise RuntimeError("release Worker returned an unexpected snapshot inventory identity")
     releases = payload.get("releases")
-    if not isinstance(releases, list) or not releases or len(releases) > 32:
-        raise RuntimeError("release Worker returned an empty or oversized snapshot inventory")
+    if not isinstance(releases, list) or len(releases) > 32:
+        raise RuntimeError("release Worker returned an invalid or oversized snapshot inventory")
     return {"releases": releases, "active_snapshot": payload.get("active_snapshot")}
 
 
-def snapshot_inventory_matches(releases, active_snapshot):
+def snapshot_inventory_matches(releases, active_snapshot, suite="focal", architecture="amd64"):
     """Trust a no-op only when the gateway confirms an eligible, intact active index."""
     if not isinstance(active_snapshot, dict) or active_snapshot.get("healthy") is not True:
         return False
     active_id = active_snapshot.get("id")
-    if not isinstance(active_id, str) or not re.fullmatch(r"focal-[0-9]{8}T[0-9]{6}-r[0-9]{1,20}-(public|early)", active_id):
+    if not isinstance(active_id, str) or not re.fullmatch(
+            rf"{re.escape(snapshot_id_prefix(suite, architecture))}[0-9]{{8}}T[0-9]{{6}}-r[0-9]{{1,20}}-(public|early)", active_id):
         return False
     current_ids = sorted(release.get("id") for release in releases if isinstance(release, dict))
     active_ids = active_snapshot.get("release_ids")
@@ -55,7 +69,7 @@ def snapshot_inventory_matches(releases, active_snapshot):
 def validate_release(release):
     if (not isinstance(release, dict) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,100}", str(release.get("id", ""))) or
             release.get("state") not in {"public", "sponsor-period"} or
-            not re.fullmatch(r"getpatched/packaging-(?:libxml2|libarchive)", str(release.get("repository", ""))) or
+            not re.fullmatch(r"getpatched/packaging-(?:libxml2|libarchive|libpng1\.6|libgit2|tiff|poppler)", str(release.get("repository", ""))) or
             not re.fullmatch(r"getpatched/[A-Za-z0-9.+~-]+", str(release.get("tag", ""))) or
             not re.fullmatch(r"[a-f0-9]{40}", str(release.get("source_commit", "")))):
         raise ValueError("release inventory contains an invalid pilot package record")
@@ -124,8 +138,8 @@ def download_asset(endpoint, channel, release, asset, target, *, private_binary=
         raise ValueError(f"downloaded package asset did not match its release SHA-256: {asset['name']}")
 
 
-def index_manifest(repository):
-    dist = repository / "dists/focal"
+def index_manifest(repository, suite="focal"):
+    dist = repository / "dists" / suite
     files = []
     for path in sorted(dist.rglob("*")):
         if path.is_symlink():
@@ -138,12 +152,13 @@ def index_manifest(repository):
     return files
 
 
-def register_unsigned_build(endpoint, channel, snapshot_id, release_ids, repository):
-    files = index_manifest(repository)
-    if any(path in {"dists/focal/InRelease", "dists/focal/Release.gpg"} for path in (item["path"] for item in files)):
+def register_unsigned_build(endpoint, channel, snapshot_id, release_ids, repository, suite="focal", architecture="amd64"):
+    files = index_manifest(repository, suite)
+    if any(path in {f"dists/{suite}/InRelease", f"dists/{suite}/Release.gpg"} for path in (item["path"] for item in files)):
         raise ValueError("unsigned snapshot unexpectedly contains signature files")
     base = f"{endpoint}/internal/repository-snapshot-builds/{channel}"
-    status, _ = PUBLISH.call(base, "POST", body={"id": snapshot_id, "release_ids": release_ids, "files": files})
+    status, _ = PUBLISH.call(base, "POST", body={"id": snapshot_id, "suite": suite, "architecture": architecture,
+                                                  "release_ids": release_ids, "files": files})
     if status not in (200, 201):
         raise RuntimeError(f"snapshot build registration returned unexpected HTTP {status}")
     for item in files:
@@ -154,20 +169,25 @@ def register_unsigned_build(endpoint, channel, snapshot_id, release_ids, reposit
     return len(files)
 
 
-def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
-    inventory = fetch_inventory(endpoint, channel)
+def assemble_channel(endpoint, channel, work_root, *, suite="focal", architecture="amd64", force_refresh=False):
+    validate_snapshot_target(suite, architecture)
+    inventory = fetch_inventory(endpoint, channel, suite, architecture)
     releases = inventory["releases"]
     if channel == "public":
         releases = [release for release in releases if release["state"] == "public"]
     elif channel == "early":
         releases = [release for release in releases if release["state"] in {"public", "sponsor-period"}]
     if not releases:
-        raise RuntimeError(f"no currently eligible releases for {channel} channel")
+        if inventory.get("active_snapshot") is not None:
+            raise RuntimeError(f"no currently eligible releases for {channel} channel, but an active snapshot still exists")
+        return {"channel": channel, "suite": suite, "architecture": architecture, "unchanged": True,
+                "snapshot_build": None, "release_count": 0, "index_count": 0, "file_count": 0}
     for release in releases:
         validate_release(release)
-    if not force_refresh and snapshot_inventory_matches(releases, inventory.get("active_snapshot")):
-        return {"channel": channel, "unchanged": True, "snapshot_build": None, "release_count": len(releases), "index_count": 0, "file_count": 0}
-    repository = work_root / channel
+    if not force_refresh and snapshot_inventory_matches(releases, inventory.get("active_snapshot"), suite, architecture):
+        return {"channel": channel, "suite": suite, "architecture": architecture, "unchanged": True,
+                "snapshot_build": None, "release_count": len(releases), "index_count": 0, "file_count": 0}
+    repository = work_root / f"{channel}-{suite}-{architecture}"
     repository.mkdir(parents=True, exist_ok=False)
     release_ids = []
     for release in releases:
@@ -188,19 +208,23 @@ def assemble_channel(endpoint, channel, work_root, *, force_refresh=False):
                 continue
             download_asset(endpoint, channel, release, asset, target)
         release_ids.append(release["id"])
-    result = GENERATOR.generate(repository, "focal", "amd64", "main", "GetPatched maintained packages")
+    result = GENERATOR.generate(repository, suite, architecture, "main", "GetPatched maintained packages")
     run_id = os.environ.get("GITHUB_RUN_ID", "")
     if not re.fullmatch(r"[0-9]{1,20}", run_id):
         raise RuntimeError("GitHub Actions run identity is required for immutable snapshot ids")
-    snapshot_id = "focal-" + dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S") + "-r" + run_id + "-" + channel
-    count = register_unsigned_build(endpoint, channel, snapshot_id, release_ids, repository)
-    return {"channel": channel, "unchanged": False, "snapshot_build": snapshot_id, "release_count": len(release_ids), "index_count": len(result["indexes"]), "file_count": count}
+    snapshot_id = snapshot_id_prefix(suite, architecture) + dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S") + "-r" + run_id + "-" + channel
+    count = register_unsigned_build(endpoint, channel, snapshot_id, release_ids, repository, suite, architecture)
+    return {"channel": channel, "suite": suite, "architecture": architecture, "unchanged": False,
+            "snapshot_build": snapshot_id, "release_count": len(release_ids), "index_count": len(result["indexes"]), "file_count": count}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--endpoint", default=os.environ.get("GETPATCHED_RELEASE_ENDPOINT", "https://repo.getpatched.dev"))
     parser.add_argument("--channel", choices=("public", "early", "both"), default="both")
+    parser.add_argument("--suite", choices=tuple(SUPPORTED_SNAPSHOT_TARGETS), default="focal",
+                        help="Ubuntu or Debian suite to publish")
+    parser.add_argument("--architecture", choices=("amd64",), default="amd64")
     parser.add_argument("--force-refresh", action="store_true", help="rebuild even when the eligible release set matches the healthy active snapshot")
     args = parser.parse_args()
     PUBLISH.validate_identity()
@@ -213,7 +237,8 @@ def main():
         channels = ("public", "early") if args.channel == "both" else (args.channel,)
         results = []
         for channel in channels:
-            results.append(assemble_channel(endpoint, channel, root, force_refresh=args.force_refresh))
+            results.append(assemble_channel(endpoint, channel, root, suite=args.suite, architecture=args.architecture,
+                                            force_refresh=args.force_refresh))
         for result in results:
             print(json.dumps(result, sort_keys=True))
 

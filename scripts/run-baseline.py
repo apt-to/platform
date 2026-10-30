@@ -36,7 +36,7 @@ def digest(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--package", required=True, choices=("libxml2", "libarchive"))
+    parser.add_argument("--package", required=True, choices=("libxml2", "libarchive", "libpng1.6", "tiff", "poppler"))
     parser.add_argument("--target", default="ubuntu-focal-amd64")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--database-snapshot", type=Path, help="Reuse an earlier scanner-db directory without updating it")

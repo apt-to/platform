@@ -38,6 +38,40 @@
         }
       ],
       "packageEcosystem": "Ubuntu:Pro:20.04:LTS"
+    },
+    "debian-bookworm-amd64": {
+      "distribution": "Debian",
+      "releaseVersion": "12",
+      "codename": "bookworm",
+      "architecture": "amd64",
+      "sourceBranch": "getpatched/debian-bookworm",
+      "advisoryEcosystem": "Debian:12",
+      "build": {"runner": "ubuntu-24.04", "containerPlatform": "linux/amd64"},
+      "repository": {"enabled": false, "suite": "bookworm", "architecture": "amd64"},
+      "archiveSnapshot": "20261030T000000Z",
+      "baseImage": "debian:bookworm@sha256:d74df7598108a173a621eda4d58a2adbf850b2d9a9d81bc2cca1a6c21174a880",
+      "aptSources": [
+        {"type": "both", "uri": "https://snapshot.debian.org/archive/debian/20261030T000000Z/", "suites": ["bookworm", "bookworm-updates"], "components": ["main"]},
+        {"type": "both", "uri": "https://snapshot.debian.org/archive/debian-security/20261030T000000Z/", "suites": ["bookworm-security"], "components": ["main"]}
+      ],
+      "packageEcosystem": "Debian:12"
+    },
+    "debian-trixie-amd64": {
+      "distribution": "Debian",
+      "releaseVersion": "13",
+      "codename": "trixie",
+      "architecture": "amd64",
+      "sourceBranch": "getpatched/debian-trixie",
+      "advisoryEcosystem": "Debian:13",
+      "build": {"runner": "ubuntu-24.04", "containerPlatform": "linux/amd64"},
+      "repository": {"enabled": false, "suite": "trixie", "architecture": "amd64"},
+      "archiveSnapshot": "20261030T000000Z",
+      "baseImage": "debian:trixie@sha256:2dc419c6d7fe3dad0a2f9fd469c34cc90b0f9ba642d8fde837fe3d7d34a0e7f1",
+      "aptSources": [
+        {"type": "both", "uri": "https://snapshot.debian.org/archive/debian/20261030T000000Z/", "suites": ["trixie", "trixie-updates"], "components": ["main"]},
+        {"type": "both", "uri": "https://snapshot.debian.org/archive/debian-security/20261030T000000Z/", "suites": ["trixie-security"], "components": ["main"]}
+      ],
+      "packageEcosystem": "Debian:13"
     }
   },
   "scanner": {
@@ -143,6 +177,131 @@
           "vendorFixedVersions": [
             "3.4.0-2ubuntu1.5+esm1"
           ]
+        }
+      }
+    },
+    "libpng1.6": {
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baselineVersion": "1.6.37-2",
+          "sourcePocket": "release",
+          "packageEcosystem": "Ubuntu:20.04:LTS",
+          "packageVersion": "1.6.37-2+getpatched1",
+          "releaseSerial": 1,
+          "binaryPackages": [
+            "libpng16-16",
+            "libpng-dev",
+            "libpng-tools"
+          ],
+          "targetCve": "CVE-2025-65018",
+          "targetCves": [
+            "CVE-2025-65018",
+            "CVE-2026-22801"
+          ],
+          "followUpAssessments": {
+            "CVE-2026-22695": {
+              "baselineApplicability": "not-affected",
+              "candidateDisposition": "fixed-in-backport",
+              "introducedBy": "218612ddd6b17944e21eda56caf8b4bf7779d1ea",
+              "fixedBy": "e4f7ad4ea2a471776c81dda4846b7691925d9786",
+              "regressionTestId": "CVE-2026-22695-padded-stride-follow-up",
+              "scannerTreatment": "not-a-target-finding; explicit installed regression required; scanner absence alone is not remediation evidence"
+            }
+          },
+          "advisory": "https://ubuntu.com/security/CVE-2025-65018",
+          "advisories": {
+            "CVE-2025-65018": "https://ubuntu.com/security/CVE-2025-65018",
+            "CVE-2026-22695": "https://ubuntu.com/security/CVE-2026-22695",
+            "CVE-2026-22801": "https://ubuntu.com/security/CVE-2026-22801"
+          },
+          "candidateStatus": "unverified-development-candidate",
+          "releaseAccess": {
+            "policy": "public-after-checks",
+            "sponsorDelayHours": 0,
+            "sponsorEligibility": null,
+            "earlyBinaryLicenseId": null,
+            "publicContributionSpdx": "MIT",
+            "earlyUse": ["private", "commercial"],
+            "earlyRedistributionAllowed": false,
+            "publicLicenseScope": "getpatched-authored-contributions-only"
+          }
+        }
+      }
+    },
+    "libgit2": {
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baselineVersion": "0.28.4+dfsg.1-2ubuntu0.1",
+          "sourcePocket": "updates",
+          "packageEcosystem": "Ubuntu:20.04:LTS",
+          "packageVersion": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+          "releaseSerial": 1,
+          "binaryPackages": ["libgit2-28", "libgit2-dev"],
+          "targetCve": "CVE-2026-53584",
+          "targetCves": ["CVE-2026-53584", "CVE-2026-53585", "CVE-2026-53586"],
+          "advisory": "https://ubuntu.com/security/CVE-2026-53584",
+          "advisories": {
+            "CVE-2026-53584": "https://ubuntu.com/security/CVE-2026-53584",
+            "CVE-2026-53585": "https://ubuntu.com/security/CVE-2026-53585",
+            "CVE-2026-53586": "https://ubuntu.com/security/CVE-2026-53586"
+          },
+          "candidateStatus": "unverified-development-candidate",
+          "releaseAccess": {
+            "policy": "public-after-checks",
+            "sponsorDelayHours": 0,
+            "sponsorEligibility": null,
+            "earlyBinaryLicenseId": null,
+            "publicContributionSpdx": "MIT",
+            "earlyUse": ["private", "commercial"],
+            "earlyRedistributionAllowed": false,
+            "publicLicenseScope": "getpatched-authored-contributions-only"
+          }
+        }
+      }
+    },
+    "poppler": {
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baselineVersion": "0.86.1-0ubuntu1.7",
+          "sourcePocket": "updates",
+          "packageEcosystem": "Ubuntu:20.04:LTS",
+          "packageVersion": "0.86.1-0ubuntu1.7+getpatched1",
+          "releaseSerial": 1,
+          "binaryPackages": ["libpoppler97", "libpoppler-dev", "libpoppler-private-dev", "libpoppler-glib8", "libpoppler-glib-dev", "libpoppler-glib-doc", "gir1.2-poppler-0.18", "libpoppler-qt5-1", "libpoppler-qt5-dev", "libpoppler-cpp0v5", "libpoppler-cpp-dev", "poppler-utils"],
+          "targetCve": "CVE-2025-52885",
+          "targetCves": ["CVE-2025-52885"],
+          "advisory": "https://ubuntu.com/security/CVE-2025-52885",
+          "advisories": {"CVE-2025-52885": "https://ubuntu.com/security/CVE-2025-52885"},
+          "candidateStatus": "unverified-development-candidate",
+          "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
+        }
+      }
+    },
+    "tiff": {
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baselineVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+          "sourcePocket": "updates",
+          "packageEcosystem": "Ubuntu:20.04:LTS",
+          "packageVersion": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1",
+          "releaseSerial": 1,
+          "binaryPackages": ["libtiff-tools"],
+          "targetCve": "CVE-2025-61144",
+          "targetCves": ["CVE-2025-61144"],
+          "advisory": "https://ubuntu.com/security/CVE-2025-61144",
+          "advisories": {"CVE-2025-61144": "https://ubuntu.com/security/CVE-2025-61144"},
+          "candidateStatus": "unverified-development-candidate",
+          "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
+        },
+        "debian-bookworm-amd64": {
+          "baselineVersion": "4.5.0-6+deb12u4", "sourcePocket": "release", "packageEcosystem": "Debian:12", "packageVersion": "4.5.0-6+deb12u4+getpatched1", "releaseSerial": 1,
+          "binaryPackages": ["libtiff-tools"], "targetCve": "CVE-2025-61144", "targetCves": ["CVE-2025-61144"], "advisory": "https://security-tracker.debian.org/tracker/CVE-2025-61144", "advisories": {"CVE-2025-61144": "https://security-tracker.debian.org/tracker/CVE-2025-61144"}, "candidateStatus": "unverified-development-candidate",
+          "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
+        },
+        "debian-trixie-amd64": {
+          "baselineVersion": "4.7.0-3+deb13u3", "sourcePocket": "release", "packageEcosystem": "Debian:13", "packageVersion": "4.7.0-3+deb13u3+getpatched1", "releaseSerial": 1,
+          "binaryPackages": ["libtiff-tools"], "targetCve": "CVE-2025-61144", "targetCves": ["CVE-2025-61144"], "advisory": "https://security-tracker.debian.org/tracker/CVE-2025-61144", "advisories": {"CVE-2025-61144": "https://security-tracker.debian.org/tracker/CVE-2025-61144"}, "candidateStatus": "unverified-development-candidate",
+          "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
         }
       }
     }

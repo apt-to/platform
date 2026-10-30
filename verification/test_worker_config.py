@@ -34,12 +34,15 @@ class WorkerRouteConfig(unittest.TestCase):
         self.assertRegex(workflow, r"vars\.GETPATCHED_REPOSITORY_ENABLED == 'true' &&\n\s+\(github\.event_name != 'workflow_dispatch' \|\| github\.event\.inputs\.operation != 'rollback'\) &&")
         self.assertRegex(workflow, r"rollback:\n\s+if: >-\n(?:\s+.*\n){3}\s+github\.event\.inputs\.operation == 'rollback'")
         self.assertRegex(workflow, r"rollback:\n(?:.*\n){0,12}\s+environment: getpatched-signing")
+        self.assertIn("rollback_target:", workflow)
+        self.assertIn("GETPATCHED_ROLLBACK_TARGET: ${{ inputs.rollback_target }}", workflow)
         self.assertIn("python3 scripts/rollback-apt-snapshot.py", workflow)
 
     def test_snapshot_workflow_skips_signing_when_both_channels_are_unchanged(self):
         workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()
-        self.assertIn('snapshot_ids = {row["channel"]: row["snapshot_build"] for row in rows if row.get("snapshot_build")}', workflow)
-        self.assertIn("needs.build-indexes.outputs.snapshot_ids != '{}'", workflow)
+        self.assertIn('for suite in focal bookworm trixie', workflow)
+        self.assertIn('"suite": row["suite"], "architecture": row["architecture"]', workflow)
+        self.assertIn("needs.build-indexes.outputs.snapshot_ids != '[]'", workflow)
 
     def test_snapshot_retention_is_weekly_or_manual_and_runs_in_the_protected_signing_environment(self):
         workflow = (ROOT / ".github" / "workflows" / "repository-snapshot.yml").read_text()

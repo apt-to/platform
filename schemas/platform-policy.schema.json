@@ -58,7 +58,7 @@
         "architecture": {"enum": ["amd64", "arm64"]},
         "sourceBranch": {"type": "string", "pattern": "^getpatched/[a-z0-9][a-z0-9._/-]*$"},
         "advisoryEcosystem": {"type": "string", "minLength": 1},
-        "packageEcosystem": {"type": "string", "minLength": 1},
+        "packageEcosystem": {"type": "string", "pattern": "^(Debian(:[0-9]+)?|Ubuntu(:Pro)?:[0-9]+\\.[0-9]+:LTS)$"},
         "build": {"type": "object", "additionalProperties": false, "required": ["runner", "containerPlatform"], "properties": {"runner": {"type": "string"}, "containerPlatform": {"type": "string", "pattern": "^linux/(amd64|arm64)$"}}},
         "repository": {"type": "object", "additionalProperties": false, "required": ["enabled"], "properties": {"enabled": {"type": "boolean"}, "suite": {"type": "string"}, "architecture": {"type": "string"}}},
         "archiveSnapshot": {"type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z$"},
@@ -104,11 +104,15 @@
       "required": ["baselineVersion", "sourcePocket", "packageVersion", "releaseSerial", "binaryPackages", "targetCve", "targetCves", "advisory", "candidateStatus", "releaseAccess"],
       "properties": {
         "baselineVersion": {"type": "string", "minLength": 1}, "sourcePocket": {"type": "string"},
+        "packageEcosystem": {"type": "string", "pattern": "^(Debian(:[0-9]+)?|Ubuntu(:Pro)?:[0-9]+\\.[0-9]+:LTS)$"},
         "packageVersion": {"type": "string", "minLength": 1}, "releaseSerial": {"type": "integer", "minimum": 1},
         "futureEsmVersion": {"type": "string"}, "esmPockets": {"type": "array", "items": {"type": "string"}}, "vendorFixedVersions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
         "ubuntuProEsmCompatibility": {"type": "string"}, "binaryPackages": {"type": "array", "minItems": 1, "items": {"type": "string"}},
         "targetCve": {"type": "string"}, "targetCves": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
-        "advisory": {"type": "string", "format": "uri"}, "candidateStatus": {"type": "string"}, "releaseAccess": {"$ref": "#/$defs/releaseAccess"}
+        "followUpAssessments": {"type": "object", "propertyNames": {"pattern": "^CVE-[0-9]{4}-[0-9]+$"}, "additionalProperties": {"type": "object", "additionalProperties": false, "required": ["baselineApplicability", "candidateDisposition", "introducedBy", "fixedBy", "regressionTestId", "scannerTreatment"], "properties": {"baselineApplicability": {"const": "not-affected"}, "candidateDisposition": {"const": "fixed-in-backport"}, "introducedBy": {"type": "string", "pattern": "^[a-f0-9]{40}$"}, "fixedBy": {"type": "string", "pattern": "^[a-f0-9]{40}$"}, "regressionTestId": {"type": "string", "minLength": 1}, "scannerTreatment": {"const": "not-a-target-finding; explicit installed regression required; scanner absence alone is not remediation evidence"}}}},
+        "advisory": {"type": "string", "format": "uri"},
+        "advisories": {"type": "object", "additionalProperties": {"type": "string", "format": "uri"}},
+        "candidateStatus": {"type": "string"}, "releaseAccess": {"$ref": "#/$defs/releaseAccess"}
       }
     },
     "package": {"type": "object", "additionalProperties": false, "required": ["targets"], "properties": {"targets": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/packageTarget"}}}}
