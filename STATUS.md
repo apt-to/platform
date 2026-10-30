@@ -328,3 +328,25 @@ The advisory scanner now treats an exact reviewed vulnerable baseline as affecte
 ### Next actions
 
 1. Open/complete the platform and package-repository PR workflow for these local changes. Keep live package publication disabled until the outstanding sponsor and signing gates pass.
+
+## Four-stream verification continuation — 30 Oct 2026
+
+- Libgit2 hosted verification [41051666938](https://github.com/getpatched/platform/actions/runs/41051666938) completed with failure after all three vulnerable installed-baseline regressions passed. The candidate build then exited nonzero; its retained report does not contain a candidate build manifest or scan. The cause still needs to be isolated.
+- Poppler hosted verification [41049401389](https://github.com/getpatched/platform/actions/runs/41049401389) built source version `0.86.1-0ubuntu1.7` as `0.86.1-0ubuntu1.7+getpatched1`. Baseline and patched regression reports passed, but the scan gate failed because it required all 12 output binaries in the amd64 advisory scan. `libpoppler-glib-doc` is a documentation-only `Architecture: all` output and is correctly absent from the amd64 installed-package scan. This run is not a completed before/after scan and does not verify the candidate.
+- The current fix separates all release outputs (`binaryPackages`) from CVE-bearing binaries (`advisoryPackages`). Poppler's documentation-only binary remains built and released with the source package but is excluded from its CVE feed and package-aware scan expectation. Platform and package-recipe contracts pass locally; the correction has not yet been independently reviewed or run on GitHub.
+- Candidate publication remains disabled. All four new package streams still target only Ubuntu Focal amd64 locally; no Debian or arm64 target is advertised.
+
+### Next actions
+
+1. Complete independent review and hosted quality for the advisory-package scope fix, then rerun Poppler verification. Diagnose the libgit2 candidate-build failure from its hosted step output and rerun it. Keep TIFF and libpng blocked on their unproven baseline findings; publish no binaries.
+
+## Libgit2 source-patch correction — 30 Oct 2026
+
+- The reviewed text-only CVE-2026-53585 regression fixture was pushed to `getpatched/packaging-libgit2` target branch `getpatched/focal` as commit `0901be51ee51dde21deb403b8f0fccd507818c77`. Its first full-SHA package run [41082505309](https://github.com/getpatched/platform/actions/runs/41082505309) checked out the exact commit but stopped during `dpkg-source`: the new `tests/pack/limits.c` hunk declared 45 added lines while containing 44, producing `unexpected end of diff`.
+- Corrected the hunk and patch summary counts, recalculated metadata SHA-256 to `683e33246d28ce13a20828cc7dc6468400ef16715bfbadc4a00efc740d3facf8`, and committed as `8e9544473fabe7c53518d61f2b90dc70dd68a30`. The exact 150-byte regression pack still matches the external fixture. Unified-diff hunk counts, `git apply --stat`, `git diff --check`, recipe loading, and a fresh independent review passed.
+- Fresh exact-commit Ubuntu Focal verification [41083191679](https://github.com/getpatched/platform/actions/runs/41083191679) is running. No binary or APT metadata has been published. This single target remains unverified until the hosted build, installed regressions, package-aware scans, and signed-client checks complete.
+- The Poppler `advisoryPackages` correction has passed local contract tests (33 release-candidate/catalogue/recipe/audit tests and 19 scanner tests) and independent review with no findings; it still needs platform quality and a fresh Poppler hosted run.
+
+### Next actions
+
+1. Inspect run 41083191679 through terminal state and review its retained artifacts. Then push and quality-check the reviewed Poppler advisory-scope correction and rerun Poppler. Keep TIFF and libpng blocked on accurate baseline reproductions; do not publish packages.

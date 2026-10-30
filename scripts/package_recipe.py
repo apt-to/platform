@@ -198,6 +198,9 @@ def load_recipe(root, platform_config, target_id=None):
         raise RuntimeError("Recipe package version must match the configured GetPatched release serial")
     if target.get("binaryPackages") != central["binaryPackages"]:
         raise RuntimeError("Recipe runtime package list differs from platform verification policy")
+    advisory_packages = target.get("advisoryPackages", target["binaryPackages"])
+    if advisory_packages != central["advisoryPackages"]:
+        raise RuntimeError("Recipe advisory package scope differs from platform verification policy")
     access = target.get("releaseAccess", {})
     configured_access = central.get("releaseAccess", {})
     delay = configured_access.get("sponsorDelayHours")
@@ -384,6 +387,7 @@ def load_recipe(root, platform_config, target_id=None):
         "publicContributionsSpdx": public_license["spdx"],
         "earlyBinaryLicenseId": early_license["licenseId"] if delay else None,
         "binaryPackages": target["binaryPackages"],
+        "advisoryPackages": advisory_packages,
         "ubuntuProEsmCompatibility": central.get("ubuntuProEsmCompatibility", "not-applicable"),
         "patches": patch_ids,
         "buildPatches": build_patch_ids,

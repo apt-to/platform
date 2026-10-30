@@ -100,6 +100,18 @@ def package_target_policy(config, package, target_id):
     policy = targets.get(target_id) if isinstance(targets, dict) else None
     if not isinstance(policy, dict):
         raise ValueError(f"package {package} is not configured for target {target_id}")
+    binary_packages = policy.get("binaryPackages")
+    advisory_packages = policy.get("advisoryPackages", binary_packages)
+    if (not isinstance(binary_packages, list) or not binary_packages
+            or any(not isinstance(name, str) or not name for name in binary_packages)
+            or len(set(binary_packages)) != len(binary_packages)
+            or not isinstance(advisory_packages, list) or not advisory_packages
+            or any(not isinstance(name, str) or not name for name in advisory_packages)
+            or len(set(advisory_packages)) != len(advisory_packages)
+            or not set(advisory_packages).issubset(binary_packages)):
+        raise ValueError(f"package {package}/{target_id} has an invalid advisory package scope")
+    policy = dict(policy)
+    policy["advisoryPackages"] = advisory_packages
     access = policy.get("releaseAccess")
     if (not isinstance(access, dict)
             or access.get("policy") not in ("sponsor-first", "public-after-checks")

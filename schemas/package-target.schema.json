@@ -12,7 +12,7 @@
     "supportedSourceVersions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
     "packageVersion": {"type": "string"}, "releaseSerial": {"type": "integer", "minimum": 1},
     "changelog": {"type": "object", "required": ["distribution", "urgency", "maintainer", "date"], "properties": {"distribution": {"type": "string"}, "urgency": {"enum": ["low", "medium", "high", "critical"]}, "maintainer": {"type": "string"}, "date": {"type": "string"}}},
-    "binaryPackages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}, "patches": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}, "buildPatches": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "binaryPackages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}, "advisoryPackages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}, "patches": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}, "buildPatches": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
     "releaseAccess": {
       "type": "object",
       "additionalProperties": false,

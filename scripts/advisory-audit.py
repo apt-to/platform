@@ -143,6 +143,7 @@ def main():
         if not set(targets).issubset(feed_ids):
             raise ValueError("GetPatched advisory feed is missing configured target CVEs")
         getpatched_scans = {}
+        expected_advisory_names = package["advisoryPackages"]
         for phase in ("before", "after"):
             scan = load(data[phase + "AptToScan"])
             expected_version = data["baselineVersion"] if phase == "before" else data["patchedVersion"]
@@ -153,7 +154,7 @@ def main():
                     scan.get("packagePolicySha256") != sha256(Path(__file__).resolve().parents[1] / "packages.json") or
                     scan.get("statusFileSha256") != sha256(data[phase + "AptToStatus"]) or
                     not isinstance(package_versions, dict) or
-                    any(package_versions.get(name) != expected_version for name in expected_binary_names)):
+                    any(package_versions.get(name) != expected_version for name in expected_advisory_names)):
                 raise ValueError(f"{phase} GetPatched scan does not bind the expected feed, image, package identities and versions")
             findings = scan.get("findings")
             if not isinstance(findings, list):
@@ -165,9 +166,9 @@ def main():
             if not isinstance(summary_ids, list) or set(summary_ids) != findings_by_id:
                 raise ValueError(f"{phase} GetPatched scan finding summary disagrees with its detailed findings")
             finding_pairs = {(item.get("id"), item.get("package")) for item in findings}
-            expected_pairs = {(cve, binary) for cve in targets for binary in expected_binary_names}
+            expected_pairs = {(cve, binary) for cve in targets for binary in expected_advisory_names}
             if phase == "before" and (not set(targets).issubset(findings_by_id) or not expected_pairs.issubset(finding_pairs)):
-                raise ValueError("before GetPatched scan did not detect every configured target CVE for every binary package")
+                raise ValueError("before GetPatched scan did not detect every configured target CVE for every vulnerable binary package")
             if phase == "after" and findings_by_id & set(targets):
                 raise ValueError(f"{phase} GetPatched scan does not prove the expected target advisory state")
             getpatched_scans[phase] = {
