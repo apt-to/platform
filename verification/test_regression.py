@@ -10,7 +10,16 @@ from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduc
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
                         tiff_baseline_reproduced, tiff_null_output_baseline_reproduced,
                         tiff_null_output_patched_succeeded, parse_callback_url,
-                        libgit2_redirect_reproduced, execute)
+                        libgit2_redirect_reproduced, tiff_cve_required, execute)
+
+
+class TiffPolicySelection(unittest.TestCase):
+    def test_only_configured_target_cves_require_installed_checks(self):
+        policy = {"targetCves": ["CVE-2025-61144"]}
+        self.assertTrue(tiff_cve_required(policy, "CVE-2025-61144"))
+        self.assertFalse(tiff_cve_required(policy, "CVE-2025-61143"))
+        self.assertFalse(tiff_cve_required({}, "CVE-2025-61143"))
+        self.assertFalse(tiff_cve_required({"targetCves": "CVE-2025-61143"}, "CVE-2025-61143"))
 
 
 class ExecuteTimeout(unittest.TestCase):

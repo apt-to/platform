@@ -112,6 +112,11 @@ def tiff_patched_regression_succeeded(check):
     )
 
 
+def tiff_cve_required(policy, cve):
+    configured = policy.get("targetCves") if isinstance(policy, dict) else None
+    return isinstance(configured, list) and cve in configured
+
+
 def valgrind_invalid_access_blocks(log):
     pattern = re.compile(
         r"(?ms)^==\d+== (?P<kind>Invalid (?:read|write) of size \d+)\n"
@@ -487,54 +492,56 @@ def main():
             fixture = fixtures / "multisample.tif"
             if not fixture.is_file() or not 0 < fixture.stat().st_size < 1024 * 1024:
                 raise RuntimeError("TIFF regression fixture is missing or exceeds its size bound")
-            dump_prefix = temp / "tiffcrop-debug"
             output = temp / "tiffcrop-output.tif"
-            null_dump_prefix = temp / "tiffcrop-null-output"
-            null_log = temp / "tiffcrop-null-output.valgrind"
-            null_check = execute([
-                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                "--read-var-info=yes", "--log-file=" + str(null_log),
-                "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
-                f"format:txt,level:2,output:{null_dump_prefix}", str(fixture), str(output),
-            ])
-            null_check["memoryLog"] = null_log.read_text() if null_log.exists() else ""
-            null_check["memoryLogPath"] = str(null_log)
-            debug_path = Path(str(null_dump_prefix) + "-write-001.txt")
-            null_check["debugOutputPath"] = str(debug_path)
-            null_check["debugOutputFiles"] = [path.name for path in sorted(temp.glob("tiffcrop-null-output-write-*.txt"))]
-            null_check["debugOutput"] = (
-                debug_path.read_text() if debug_path.is_file() and debug_path.stat().st_size <= 1024 * 1024 else ""
-            )
-            null_check["cve"] = "CVE-2025-61143"
-            null_check["testId"] = "tiffcrop-null-output-debug-log"
-            null_check["passed"] = (
-                tiff_null_output_baseline_reproduced(null_check)
-                if args.phase == "baseline"
-                else tiff_null_output_patched_succeeded(null_check)
-            )
-            checks.append(null_check)
+            if tiff_cve_required(policy, "CVE-2025-61143"):
+                null_dump_prefix = temp / "tiffcrop-null-output"
+                null_log = temp / "tiffcrop-null-output.valgrind"
+                null_check = execute([
+                    "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                    "--read-var-info=yes", "--log-file=" + str(null_log),
+                    "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                    f"format:txt,level:2,output:{null_dump_prefix}", str(fixture), str(output),
+                ])
+                null_check["memoryLog"] = null_log.read_text() if null_log.exists() else ""
+                null_check["memoryLogPath"] = str(null_log)
+                debug_path = Path(str(null_dump_prefix) + "-write-001.txt")
+                null_check["debugOutputPath"] = str(debug_path)
+                null_check["debugOutputFiles"] = [path.name for path in sorted(temp.glob("tiffcrop-null-output-write-*.txt"))]
+                null_check["debugOutput"] = (
+                    debug_path.read_text() if debug_path.is_file() and debug_path.stat().st_size <= 1024 * 1024 else ""
+                )
+                null_check["cve"] = "CVE-2025-61143"
+                null_check["testId"] = "tiffcrop-null-output-debug-log"
+                null_check["passed"] = (
+                    tiff_null_output_baseline_reproduced(null_check)
+                    if args.phase == "baseline"
+                    else tiff_null_output_patched_succeeded(null_check)
+                )
+                checks.append(null_check)
 
-            command = [
-                "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
-                str(fixture), str(output),
-            ]
-            memory_log = temp / "tiffcrop-valgrind.log"
-            check = execute([
-                "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                "--read-var-info=yes", "--log-file=" + str(memory_log), *command,
-            ])
-            check["memoryLog"] = memory_log.read_text() if memory_log.exists() else ""
-            check["memoryLogPath"] = str(memory_log)
-            check["cve"] = "CVE-2025-61144"
-            check["testId"] = "tiffcrop-debug-sample-bounds"
-            check["baselineStackFrames"] = tiff_baseline_stack_frames
-            check["passed"] = (
-                tiff_baseline_reproduced(check, tiff_baseline_stack_frames)
-                if args.phase == "baseline"
-                else tiff_patched_regression_succeeded(check)
-                and output.is_file() and output.stat().st_size > 0
-            )
-            checks.append(check)
+            if tiff_cve_required(policy, "CVE-2025-61144"):
+                dump_prefix = temp / "tiffcrop-debug"
+                command = [
+                    "tiffcrop", "-D", f"format:txt,level:2,input:{dump_prefix}",
+                    str(fixture), str(output),
+                ]
+                memory_log = temp / "tiffcrop-valgrind.log"
+                check = execute([
+                    "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+                    "--read-var-info=yes", "--log-file=" + str(memory_log), *command,
+                ])
+                check["memoryLog"] = memory_log.read_text() if memory_log.exists() else ""
+                check["memoryLogPath"] = str(memory_log)
+                check["cve"] = "CVE-2025-61144"
+                check["testId"] = "tiffcrop-debug-sample-bounds"
+                check["baselineStackFrames"] = tiff_baseline_stack_frames
+                check["passed"] = (
+                    tiff_baseline_reproduced(check, tiff_baseline_stack_frames)
+                    if args.phase == "baseline"
+                    else tiff_patched_regression_succeeded(check)
+                    and output.is_file() and output.stat().st_size > 0
+                )
+                checks.append(check)
 
             if args.phase == "patched":
                 consumer = execute(["tiffinfo", str(output)])
