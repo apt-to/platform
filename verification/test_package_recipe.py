@@ -49,7 +49,7 @@ class PackageRecipeContract(unittest.TestCase):
         (self.root / "LICENSES").mkdir()
         self.patch_bytes = b"diff --git a/libarchive/fix.c b/libarchive/fix.c\n"
         self.build_patch_bytes = b"diff --git a/libarchive/test.c b/libarchive/test.c\n"
-        self.fixture_bytes = b"bounded regression input\n"
+        self.fixture_bytes = b"bounded\x00regression input\n"
         self.reference_bytes = b"upstream-style regression source\n"
         (self.root / "patches/fix.patch").write_bytes(self.patch_bytes)
         (self.root / "patches/build-test.patch").write_bytes(self.build_patch_bytes)
@@ -280,6 +280,7 @@ class PackageRecipeContract(unittest.TestCase):
         self.assertEqual((source / "debian/patches/build-test.patch").read_bytes(), self.build_patch_bytes)
         self.assertEqual((source / "debian/tests/fixtures/input.bin").read_bytes(), self.fixture_bytes)
         self.assertEqual((source / "debian/tests/fixtures/reference.c").read_bytes(), self.reference_bytes)
+        self.assertEqual((source / "debian/source/include-binaries").read_text(), "debian/tests/fixtures/input.bin\n")
         self.assertTrue((source / "debian/getpatched/package-manifest.json").is_file())
         self.assertTrue((source / "debian/getpatched/patches.json").is_file())
         self.assertTrue((source / "debian/getpatched/release-policy.json").is_file())

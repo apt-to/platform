@@ -85,6 +85,7 @@ def main():
         separator = "" if not existing_series or existing_series.endswith("\n") else "\n"
         series_path.write_text(existing_series + separator + "\n".join(appended) + "\n")
     fixture_root = recipe / manifest["regressionTests"]["fixturesDirectory"]
+    binary_test_files = []
     for item in metadata["patches"]:
         if item["id"] not in selected_patch_ids:
             continue
@@ -96,10 +97,13 @@ def main():
             if (not reference_source.is_file()
                     or os.path.commonpath((str(reference_source.resolve()), str(recipe))) != str(recipe)):
                 raise RuntimeError("Declared reference file is missing or escapes the recipe")
+            destination = source_root / "debian/tests/fixtures" / relative.relative_to(fixture_root.relative_to(recipe))
             copy_identical(
                 reference_source,
-                source_root / "debian/tests/fixtures" / relative.relative_to(fixture_root.relative_to(recipe)),
+                destination,
             )
+            if b"\0" in reference_source.read_bytes():
+                binary_test_files.append(destination.relative_to(source_root).as_posix())
         for test in item["tests"]:
             for fixture in test.get("fixtures", []):
                 relative = Path(fixture["path"])
@@ -109,10 +113,22 @@ def main():
                 if (not fixture_source.is_file()
                         or os.path.commonpath((str(fixture_source.resolve()), str(recipe))) != str(recipe)):
                     raise RuntimeError("Declared regression fixture is missing or escapes the recipe")
+                destination = source_root / "debian/tests/fixtures" / relative.relative_to(fixture_root.relative_to(recipe))
                 copy_identical(
                     fixture_source,
-                    source_root / "debian/tests/fixtures" / relative.relative_to(fixture_root.relative_to(recipe)),
+                    destination,
                 )
+                if b"\0" in fixture_source.read_bytes():
+                    binary_test_files.append(destination.relative_to(source_root).as_posix())
+
+    if binary_test_files:
+        include_binaries = source_root / "debian/source/include-binaries"
+        existing = include_binaries.read_text().splitlines() if include_binaries.exists() else []
+        additions = sorted(set(binary_test_files) - set(existing))
+        if additions:
+            include_binaries.parent.mkdir(parents=True, exist_ok=True)
+            separator = "" if not include_binaries.exists() or not include_binaries.read_bytes() or include_binaries.read_bytes().endswith(b"\n") else "\n"
+            include_binaries.write_text((include_binaries.read_text() if include_binaries.exists() else "") + separator + "\n".join(additions) + "\n")
 
     policy = read_json(args.policy)
     provenance = read_json(args.provenance)

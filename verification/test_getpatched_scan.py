@@ -220,14 +220,28 @@ Architecture: i386
         with tempfile.TemporaryDirectory(prefix="getpatched-tiff-regression-proof-") as directory:
             proof = Path(directory)
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", candidate)):
+                checks = []
+                null_check = {
+                    "command": ["tiffcrop", "-D", "format:txt,level:2,input:fixture", "fixture.tif", "missing/output.tif"],
+                    "returncode": 97 if phase == "baseline" else 1, "stdout": "", "stderr": "",
+                    "timedOut": False, "cve": "CVE-2025-61143", "passed": True,
+                    "memoryLog": "Invalid read of size 8\nAddress 0x8 is not stack'd, malloc'd or (recently) free'd\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
+                }
+                checks.append(null_check)
                 cve_check = {
                     "command": ["tiffcrop", "-D", "format:txt,level:2,input:fixture", "fixture.tif", "output.tif"],
                     "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
                     "timedOut": False, "cve": "CVE-2025-61144", "passed": True,
-                    "memoryLog": "Invalid read of size 8\nat loadImage\n0 bytes after a block of size 64\nStack variable srcbuffs\n" if phase == "baseline" else "",
+                    "memoryLog": "Invalid read of size 8\nat loadImage\n0 bytes after a block of size 64\nStack variable srcbuffs\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
                 }
-                cve_check["memoryLog"] += "ERROR SUMMARY: 0 errors\n" if phase == "patched" else ""
-                checks = [cve_check]
+                checks.append(cve_check)
+                dither_check = {
+                    "command": ["tiffdither", "subscanline.tif", "dither-output.tif"],
+                    "returncode": 97 if phase == "baseline" else 1, "stdout": "", "stderr": "",
+                    "timedOut": False, "testId": "tiffdither-scanline-width-bound", "passed": True,
+                    "memoryLog": "Invalid write of size 1\nat fsdither\n" if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
+                }
+                checks.append(dither_check)
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "output.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "stderr": "", "timedOut": False, "passed": True})
@@ -273,7 +287,7 @@ Architecture: i386
                 docker_status_file=image_status_file,
             )
         self.assertEqual(baseline_result.returncode, 1, baseline_result.stderr)
-        self.assertEqual(json.loads(baseline_result.stdout)["findingsById"], ["CVE-2025-61144"])
+        self.assertEqual(json.loads(baseline_result.stdout)["findingsById"], ["CVE-2025-61143", "CVE-2025-61144"])
         self.assertEqual(mismatched_inventory.returncode, 2)
         self.assertIn("does not match the verified candidate image", mismatched_inventory.stderr)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -325,8 +339,15 @@ Architecture: i386
                     "imageId": "invented-" + phase, "verificationId": "c" * 32,
                     "distribution": "Ubuntu", "release": "focal", "architecture": "amd64", "phase": phase,
                     "installedVersion": version, "expectedVersion": version, "passed": True,
-                    "checks": [{"command": ["tiffcrop"], "returncode": 0, "passed": True,
-                                "cve": "CVE-2025-61144"}],
+                    "checks": [
+                        {"command": ["tiffcrop"], "returncode": 0, "passed": True, "cve": "CVE-2025-61143",
+                         "memoryLog": "ERROR SUMMARY: 0 errors\n"},
+                        {"command": ["tiffcrop"], "returncode": 0, "passed": True, "cve": "CVE-2025-61144",
+                         "memoryLog": "ERROR SUMMARY: 0 errors\n"},
+                        {"command": ["tiffdither"], "returncode": 0, "passed": True,
+                         "testId": "tiffdither-scanline-width-bound", "memoryLog": "ERROR SUMMARY: 0 errors\n"},
+                        {"command": ["tiffinfo"], "returncode": 0, "passed": True, "stdout": "Image Width: 16\n"},
+                    ],
                 }))
             scan_images = proof / "scan-images.json"
             scan_images.write_text(json.dumps({"baselineImageId": "invented-baseline", "patchedImageId": "invented-patched"}))
