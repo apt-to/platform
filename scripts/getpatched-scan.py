@@ -339,7 +339,7 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
     }
 
 
-def scan(status_path, feed_path, release, architecture, image_id=None, target_id=None, regression_directory=None, regression_phase=None, scan_images_path=None, recipe_directory=None, policy_path=None):
+def scan(status_path, feed_path, release, architecture, image_id=None, target_id=None, regression_directory=None, regression_phase=None, scan_images_path=None, recipe_directory=None, policy_path=None, effective_feed_output=None):
     verified_candidates = frozenset()
     regression_hashes = None
     if regression_directory is not None:
@@ -355,6 +355,24 @@ def scan(status_path, feed_path, release, architecture, image_id=None, target_id
             raise ValueError("candidate regression proof does not match the scanned image and phase")
         verified_candidates = frozenset({(source, target_id)})
     feed = load_feed(feed_path, verified_candidates)
+    if verified_candidates:
+        if effective_feed_output is None:
+            raise ValueError("candidate verification requires an output path for its exact advisory feed")
+        effective_feed_bytes = (json.dumps(feed, indent=2, sort_keys=True) + "\n").encode()
+        if len(effective_feed_bytes) > MAX_FEED_BYTES:
+            raise ValueError("verification advisory feed exceeds the 4 MiB scanner limit")
+        effective_feed_path = Path(effective_feed_output)
+        if effective_feed_path.resolve() == Path(feed_path).resolve():
+            raise ValueError("candidate verification feed output must not overwrite the canonical advisory feed")
+        effective_feed_path.parent.mkdir(parents=True, exist_ok=True)
+        effective_feed_path.write_bytes(effective_feed_bytes)
+        reported_feed_path = effective_feed_path
+        effective_feed_sha256 = hashlib.sha256(effective_feed_bytes).hexdigest()
+        feed_mode = "candidate-verification-only"
+    else:
+        reported_feed_path = Path(feed_path)
+        effective_feed_sha256 = hashlib.sha256(reported_feed_path.read_bytes()).hexdigest()
+        feed_mode = "canonical"
     candidates = {
         affected.get("ecosystem_specific", {}).get("target_id")
         for advisory in feed["vulns"] for affected in advisory["affected"]
@@ -435,7 +453,8 @@ def scan(status_path, feed_path, release, architecture, image_id=None, target_id
     return {
         "schemaVersion": 1, "scanner": "getpatched-dpkg-osv/1", "targetId": target_id, "release": release, "architecture": architecture,
         "imageId": image_id,
-        "advisoryFeed": str(feed_path), "advisoryFeedSha256": hashlib.sha256(Path(feed_path).read_bytes()).hexdigest(),
+        "advisoryFeed": str(reported_feed_path), "advisoryFeedMode": feed_mode,
+        "advisoryFeedSha256": effective_feed_sha256,
         "packagePolicySha256": hashlib.sha256(PACKAGES.read_bytes()).hexdigest(),
         "statusFileSha256": hashlib.sha256(status_bytes).hexdigest(),
         "scannedPackageVersions": dict(sorted(scanned.items())), "findings": findings,
@@ -466,11 +485,12 @@ def main():
     parser.add_argument("--scan-images", type=Path, help="paired baseline and patched image IDs produced by the build runner")
     parser.add_argument("--recipe-directory", type=Path, help="package recipe mounted read-only for independent installed regression execution")
     parser.add_argument("--policy-file", type=Path, help="build policy used by the independent installed regression runner")
+    parser.add_argument("--effective-feed-output", type=Path, help="retain the exact candidate-only advisory feed used for installed regression scans")
     args = parser.parse_args()
     try:
         report = scan(args.status_file, args.feed, args.release, args.architecture, args.image_id, args.target_id,
                       args.regression_directory, args.regression_phase, args.scan_images,
-                      args.recipe_directory, args.policy_file)
+                      args.recipe_directory, args.policy_file, args.effective_feed_output)
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError, subprocess.SubprocessError) as error:
         print("GetPatched scan failed: " + str(error), file=sys.stderr)
         return 2
