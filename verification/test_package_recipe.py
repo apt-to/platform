@@ -293,7 +293,9 @@ class PackageRecipeContract(unittest.TestCase):
 
 class PopplerRecipeContract(unittest.TestCase):
     def test_focal_recipe_pins_source_patch_licensing_and_public_access(self):
-        root = ROOT.parent / "packaging-poppler"
+        root = ROOT / "packaging-poppler"
+        if not root.is_dir():
+            root = ROOT.parent / "packaging-poppler"
         recipe = RECIPE.load_recipe(root, PLATFORM_CONFIG, "ubuntu-focal-amd64")
         self.assertEqual(recipe["policy"]["source"], "poppler")
         self.assertEqual(recipe["policy"]["baseVersion"], "0.86.1-0ubuntu1.7")
