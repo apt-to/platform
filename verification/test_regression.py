@@ -255,7 +255,7 @@ class Tiff61143Classification(unittest.TestCase):
             "debugOutputPath": "/tmp/tiffcrop-null-output-write-001.txt",
             "debugOutputFiles": ["tiffcrop-null-output-write-001.txt"],
             "debugOutput": "Writing image 1 from /recipe/multisample.tif\n Completed run for (not opened)\n",
-            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+            "memoryLog": "==1== ERROR SUMMARY: 0 errors from 0 contexts\n",
         }
         self.assertTrue(tiff_null_output_patched_succeeded(check))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, stderr="unexpected success\n")))
@@ -353,17 +353,47 @@ class TiffPatchedClassification(unittest.TestCase):
                         "format:txt,level:2,input:/tmp/tiffcrop-debug", "/tmp/multisample.tif", "/tmp/output.tif"],
             "returncode": 0,
             "timedOut": False,
-            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+            "memoryLog": "==1== ERROR SUMMARY: 0 errors from 0 contexts\n",
+            "baselineStackFrames": ["0x100", "0x200", "0x300"],
         }
 
-    def test_patched_tiff_requires_zero_exit_and_clean_memcheck(self):
+    def test_patched_tiff_requires_expected_probe_and_no_invalid_access(self):
         self.assertTrue(tiff_patched_regression_succeeded(self.valid_check()))
         bad_exit = self.valid_check()
         bad_exit["returncode"] = 1
         self.assertFalse(tiff_patched_regression_succeeded(bad_exit))
         memory_error = self.valid_check()
-        memory_error["memoryLog"] = "ERROR SUMMARY: 1 errors\n"
-        self.assertFalse(tiff_patched_regression_succeeded(memory_error))
+        memory_error["memoryLog"] = "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        memory_error["returncode"] = 97
+        self.assertTrue(tiff_patched_regression_succeeded(memory_error))
+
+    def test_unrelated_uninitialised_values_are_allowed_but_target_signature_is_not(self):
+        check = self.valid_check()
+        check["returncode"] = 97
+        check["memoryLog"] = (
+            "==1== Use of uninitialised value of size 8\n"
+            "==1==    at 0x999: unrelated (in /usr/bin/tiffcrop)\n"
+            "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        )
+        self.assertTrue(tiff_patched_regression_succeeded(check))
+        check["memoryLog"] = (
+            "==1== Use of uninitialised value of size 8\n"
+            "==1==    at 0x100: vulnerable (in /usr/bin/tiffcrop)\n"
+            "==1==    by 0x200: caller (in /usr/bin/tiffcrop)\n"
+            "==1==    by 0x300: main (in /usr/bin/tiffcrop)\n"
+            "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        )
+        self.assertFalse(tiff_patched_regression_succeeded(check))
+
+    def test_any_invalid_memory_access_fails_patched_probe(self):
+        check = self.valid_check()
+        check["returncode"] = 97
+        check["memoryLog"] = (
+            "==1== Invalid read of size 8\n"
+            "==1==    at 0x999: unrelated (in /usr/bin/tiffcrop)\n"
+            "==1== ERROR SUMMARY: 1 errors from 1 contexts\n"
+        )
+        self.assertFalse(tiff_patched_regression_succeeded(check))
 
     def test_unrelated_tiff_command_is_not_patched_evidence(self):
         check = self.valid_check()

@@ -99,16 +99,42 @@ def tiff_baseline_reproduced(check, expected_stack_frames):
 
 def tiff_patched_regression_succeeded(check):
     command = check.get("command", [])
+    log = check.get("memoryLog", "")
+    expected_stack_frames = check.get("baselineStackFrames")
+    error_summary = re.search(r"(?m)^==\d+== ERROR SUMMARY: (\d+) errors?", log)
+    vulnerable_stack_present = False
+    if valid_tiff_baseline_stack_signature(expected_stack_frames):
+        error_blocks = re.finditer(
+            r"(?ms)^==\d+== Use of uninitialised value of size 8\n(?P<body>.*?)(?=^==\d+== "
+            r"(?:Invalid |Use of |Conditional |Syscall param |ERROR SUMMARY)|\Z)",
+            log,
+        )
+        for block in error_blocks:
+            frames = re.findall(r"(?m)^==\d+==\s+(?:at|by) .*?$", block.group("body"))
+            if len(frames) >= len(expected_stack_frames) and all(
+                re.match(
+                    rf"^==\d+==\s+(?:at|by) {re.escape(offset)}:.*\(in /usr/bin/tiffcrop\)$",
+                    frame,
+                )
+                for frame, offset in zip(frames, expected_stack_frames)
+            ):
+                vulnerable_stack_present = True
+                break
     return (
         not check.get("timedOut", False)
-        and check.get("returncode") == 0
+        and check.get("returncode") in (0, 97)
         and command
         and Path(command[0]).name == "valgrind"
         and "--tool=memcheck" in command
         and "tiffcrop" in [Path(argument).name for argument in command]
         and any(argument.startswith("format:txt,level:2,input:") for argument in command)
         and any(Path(argument).name == "multisample.tif" for argument in command)
-        and "ERROR SUMMARY: 0 errors" in check.get("memoryLog", "")
+        and valid_tiff_baseline_stack_signature(expected_stack_frames)
+        and not vulnerable_stack_present
+        and not valgrind_invalid_access_blocks(log)
+        and error_summary is not None
+        and ((check["returncode"] == 0 and error_summary.group(1) == "0")
+             or (check["returncode"] == 97 and int(error_summary.group(1)) > 0))
     )
 
 

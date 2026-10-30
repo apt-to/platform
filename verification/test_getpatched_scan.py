@@ -36,6 +36,7 @@ TIFF_NULL_OUTPUT_BASELINE_LOG = (
     "==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n"
     "==123== ERROR SUMMARY: 1 errors from 1 contexts\n"
 )
+TIFF_PATCHED_LOG = "==123== ERROR SUMMARY: 0 errors from 0 contexts\n"
 import importlib.util
 sys.path.insert(0, str(ROOT / "scripts"))
 SCANNER_SPEC = importlib.util.spec_from_file_location("getpatched_scan", SCANNER)
@@ -366,7 +367,7 @@ Architecture: i386
                     "command": TIFF_BASELINE_COMMAND,
                     "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
                     "timedOut": False, "cve": "CVE-2025-61144", "passed": True,
-                    "memoryLog": TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
+                    "memoryLog": TIFF_BASELINE_LOG if phase == "baseline" else TIFF_PATCHED_LOG,
                     "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"],
                 }
                 if phase == "patched":
@@ -476,7 +477,7 @@ Architecture: i386
             for phase, version, code, log in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14", 97,
                                                TIFF_BASELINE_LOG),
                                               ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1", 0,
-                                               "ERROR SUMMARY: 0 errors\n")):
+                                              TIFF_PATCHED_LOG)):
                 is_baseline = phase == "baseline"
                 null_log_path = str(Path(directory) / "null-output.log")
                 null_output_path = Path(directory) / "tiffcrop-output.tif"
@@ -581,7 +582,7 @@ raise SystemExit(3)
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
                 checks = [{"cve": "CVE-2025-61144", "passed": True, "returncode": 97 if phase == "baseline" else 0,
                            "timedOut": False, "command": TIFF_BASELINE_COMMAND,
-                           "memoryLog": (TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n"),
+                           "memoryLog": (TIFF_BASELINE_LOG if phase == "baseline" else TIFF_PATCHED_LOG),
                            "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"]},
                           {"cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log", "passed": True,
                            "returncode": 97 if phase == "baseline" else 1, "timedOut": False,
