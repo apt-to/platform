@@ -9,6 +9,7 @@ RUN --mount=type=secret,id=runner-ca,target=/tmp/getpatched-runner-ca.crt,requir
     set -eu; \
     mkdir -p /etc/ssl/certs; \
     cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt; \
+    printf 'Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt";\n' > /etc/apt/apt.conf.d/99getpatched-ca; \
     test -n "$APT_SOURCES_B64"; \
     apt_get() { apt-get -o Acquire::Retries=3 -o Acquire::AllowInsecureRepositories=false -o Acquire::AllowDowngradeToInsecureRepositories=false "$@"; }; \
     apt_retry() { attempt=0; until apt_get "$@"; do attempt=$((attempt + 1)); if [ "$attempt" -ge 3 ]; then return 1; fi; sleep $((attempt * 10)); done; }; \
