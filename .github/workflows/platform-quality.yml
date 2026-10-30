@@ -14,6 +14,24 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the pinned Trixie image with the runner CA bundle
+        env:
+          SNAPSHOT_TIMESTAMP: 20261030T000000Z
+        run: |
+          set -euo pipefail
+          base_image="$(python3 -c 'import json; print(json.load(open("packages.json"))["targets"]["debian-trixie-amd64"]["baseImage"])')"
+          echo "Runner CA bundle SHA-256: $(sha256sum /etc/ssl/certs/ca-certificates.crt | awk '{print $1}')"
+          docker run --rm --platform linux/amd64 \
+            --mount type=bind,source=/etc/ssl/certs/ca-certificates.crt,target=/tmp/getpatched-runner-ca.crt,readonly \
+            --env SNAPSHOT_TIMESTAMP "$base_image" sh -ec '
+              mkdir -p /etc/ssl/certs
+              cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt
+              printf "deb [check-valid-until=no] https://snapshot-fastly.debian.org/archive/debian/%s/ trixie main\n" "$SNAPSHOT_TIMESTAMP" > /etc/apt/sources.list
+              apt-get -o Acquire::AllowInsecureRepositories=false -o Acquire::AllowDowngradeToInsecureRepositories=false update
+            '
       - name: Verify HTTPS and compare snapshot metadata across official endpoints
         env:
           SNAPSHOT_TIMESTAMP: 20261030T000000Z
