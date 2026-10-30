@@ -207,8 +207,8 @@ class TiffBaselineClassification(unittest.TestCase):
 class Tiff61143Classification(unittest.TestCase):
     def test_null_output_failure_requires_the_exact_debug_probe_and_TIFFFileName_fault(self):
         command = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                   "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-D",
-                   "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/tests/fixtures/load-error.tif",
+                   "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                   "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/tests/fixtures/multisample.tif",
                    "/tmp/tiffcrop-output.tif"]
         check = {
             "command": command, "returncode": 97, "timedOut": False,
@@ -237,22 +237,22 @@ class Tiff61143Classification(unittest.TestCase):
     def test_patched_null_output_failure_is_clean(self):
         check = {
             "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                        "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-D",
-                        "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/load-error.tif",
+                        "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                        "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/multisample.tif",
                         "/tmp/tiffcrop-output.tif"],
             "returncode": 1, "timedOut": False,
             "memoryLogPath": "/tmp/probe.log",
-            "stderr": "loadImage: Unable to read contiguous strips into buffer.\n",
+            "stderr": "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
             "debugOutputPath": "/tmp/tiffcrop-null-output-write-001.txt",
             "debugOutputFiles": ["tiffcrop-null-output-write-001.txt"],
-            "debugOutput": "Writing image 1 from /recipe/load-error.tif\n Completed run for (not opened)\n",
+            "debugOutput": "Writing image 1 from /recipe/multisample.tif\n Completed run for (not opened)\n",
             "memoryLog": "ERROR SUMMARY: 0 errors\n",
         }
         self.assertTrue(tiff_null_output_patched_succeeded(check))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, stderr="unexpected success\n")))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, returncode=0)))
         altered_probe = dict(check, command=[*check["command"]])
-        altered_probe["command"][8] = "format:txt,level:0,output:/tmp/tiffcrop-null-output"
+        altered_probe["command"][12] = "format:txt,level:0,output:/tmp/tiffcrop-null-output"
         self.assertFalse(tiff_null_output_patched_succeeded(altered_probe))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutput="")))
         altered_log = dict(check, command=[*check["command"]])
@@ -262,13 +262,13 @@ class Tiff61143Classification(unittest.TestCase):
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutputPath="/tmp/other-write-001.txt")))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutputFiles=["other-write-001.txt"])))
         prefix_spoof = dict(check, command=[*check["command"]])
-        prefix_spoof["command"][8] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
+        prefix_spoof["command"][12] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
         self.assertFalse(tiff_null_output_patched_succeeded(prefix_spoof))
         appended_option = dict(check, command=[*check["command"]])
-        appended_option["command"][8] += ",input:/tmp/unexpected"
+        appended_option["command"][12] += ",input:/tmp/unexpected"
         self.assertFalse(tiff_null_output_patched_succeeded(appended_option))
         mismatched_directory = dict(check, command=[*check["command"]])
-        mismatched_directory["command"][8] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
+        mismatched_directory["command"][12] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
         mismatched_directory["debugOutputPath"] = "/tmp/other/tiffcrop-null-output-write-001.txt"
         self.assertFalse(tiff_null_output_patched_succeeded(mismatched_directory))
 

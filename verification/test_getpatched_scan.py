@@ -26,8 +26,9 @@ TIFF_BASELINE_LOG = (
     "==123== ERROR SUMMARY: 1 errors\n"
 )
 TIFF_NULL_OUTPUT_COMMAND = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                            "--read-var-info=yes", "--log-file=/tmp/null-output.log", "tiffcrop", "-D",
-                            "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/tmp/load-error.tif",
+                            "--read-var-info=yes", "--log-file=/tmp/null-output.log", "tiffcrop", "-U", "px",
+                            "-m", "0,2,0,2", "-D", "format:txt,level:2,output:/tmp/tiffcrop-null-output",
+                            "/tmp/multisample.tif",
                             "/tmp/tiffcrop-output.tif"]
 TIFF_NULL_OUTPUT_BASELINE_LOG = (
     "==123== Invalid read of size 8\n"
@@ -366,15 +367,15 @@ Architecture: i386
                     "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
                     "timedOut": False, "cve": "CVE-2025-61144", "passed": True,
                     "memoryLog": TIFF_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
-                    "baselineStackFrames": ["0xDEADBEEF"],
+                    "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"],
                 }
                 if phase == "patched":
                     cve_check["command"] = ["valgrind", "--tool=memcheck", "tiffcrop", "-D",
                                              "format:txt,level:2,input:debug", "multisample.tif", "output.tif"]
                 null_output_check = {
-                    "command": [*null_command[:8], "format:txt,level:2,output:" + str(proof / "tiffcrop-null-output"), str(proof / "load-error.tif"), str(proof / "tiffcrop-output.tif")],
+                    "command": [*null_command[:12], "format:txt,level:2,output:" + str(proof / "tiffcrop-null-output"), str(proof / "multisample.tif"), str(proof / "tiffcrop-output.tif")],
                     "returncode": 97 if phase == "baseline" else 1, "stdout": "",
-                    "stderr": "" if phase == "baseline" else "loadImage: Unable to read contiguous strips into buffer.\n",
+                    "stderr": "" if phase == "baseline" else "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
                     "memoryLogPath": str(proof / "null-output.log"),
                     "debugOutputPath": str(proof / "tiffcrop-null-output-write-001.txt"),
                     "debugOutputFiles": [] if phase == "baseline" else ["tiffcrop-null-output-write-001.txt"],
@@ -478,9 +479,9 @@ Architecture: i386
                 null_log_path = str(Path(directory) / "null-output.log")
                 null_output_path = Path(directory) / "tiffcrop-output.tif"
                 null_debug_prefix = str(Path(directory) / "tiffcrop-null-output")
-                null_command = [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + null_log_path, "tiffcrop", "-D",
+                null_command = [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + null_log_path, "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
                                 "format:txt,level:2,output:" + null_debug_prefix,
-                                str(Path(directory) / "load-error.tif"), str(null_output_path)]
+                                str(Path(directory) / "multisample.tif"), str(null_output_path)]
                 checks = [
                     {"cve": "CVE-2025-61144", "passed": True, "returncode": code, "timedOut": False,
                      "command": TIFF_BASELINE_COMMAND if is_baseline else ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:fixture", "multisample.tif", "output.tif"], "memoryLog": log,
@@ -488,7 +489,7 @@ Architecture: i386
                     {"cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log", "passed": True,
                      "returncode": 97 if is_baseline else 1, "timedOut": False,
                      "command": null_command,
-                     "stderr": "" if is_baseline else "loadImage: Unable to read contiguous strips into buffer.\n",
+                     "stderr": "" if is_baseline else "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
                      "memoryLogPath": null_log_path,
                      "debugOutputPath": null_debug_prefix + "-write-001.txt",
                      "debugOutputFiles": [] if is_baseline else ["tiffcrop-null-output-write-001.txt"],
@@ -583,9 +584,10 @@ raise SystemExit(3)
                           {"cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log", "passed": True,
                            "returncode": 97 if phase == "baseline" else 1, "timedOut": False,
                     "command": [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + str(proof / "null-output.log"),
-                                "tiffcrop", "-D", "format:txt,level:2,output:" + str(proof / "tiffcrop-null-output"),
-                                str(proof / "load-error.tif"), str(proof / "tiffcrop-output.tif")],
-                           "stderr": "" if phase == "baseline" else "loadImage: Unable to read contiguous strips into buffer.\n",
+                                "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                                "format:txt,level:2,output:" + str(proof / "tiffcrop-null-output"),
+                                str(proof / "multisample.tif"), str(proof / "tiffcrop-output.tif")],
+                           "stderr": "" if phase == "baseline" else "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
                            "memoryLogPath": str(proof / "null-output.log"),
                            "debugOutputPath": str(proof / "tiffcrop-null-output-write-001.txt"),
                            "debugOutputFiles": [] if phase == "baseline" else ["tiffcrop-null-output-write-001.txt"],

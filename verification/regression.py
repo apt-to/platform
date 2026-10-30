@@ -135,14 +135,15 @@ def tiff_null_output_baseline_reproduced(check):
     output = Path(command[-1]) if command else Path("/")
     debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
     exact_probe = (
-        len(command) == 11
+        len(command) == 15
         and Path(command[0]).name == "valgrind"
         and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
         and memcheck_log_path_matches(check, command)
         and Path(command[6]).name == "tiffcrop"
-        and command[7] == "-D"
+        and command[7:11] == ["-U", "px", "-m", "0,2,0,2"]
+        and command[11] == "-D"
         and debug_dump.startswith("format:txt,level:2,output:")
-        and Path(command[9]).name == "load-error.tif"
+        and Path(command[13]).name == "multisample.tif"
         and Path(output).name == "tiffcrop-output.tif"
     )
     expected_fault = any(
@@ -166,30 +167,32 @@ def tiff_null_output_patched_succeeded(check):
     output_text = check.get("stdout", "") + check.get("stderr", "")
     output_path = command[-1] if command else ""
     debug_output_path = check.get("debugOutputPath", "")
-    debug_option = command[8] if len(command) > 8 else ""
+    debug_option = command[12] if len(command) > 12 else ""
     debug_prefix = debug_option.removeprefix("format:txt,level:2,output:")
     expected_debug_output = debug_prefix + "-write-001.txt"
     return (
         not check.get("timedOut", False)
         and check.get("returncode") == 1
-        and len(command) == 11
+        and len(command) == 15
         and Path(command[0]).name == "valgrind"
         and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
         and memcheck_log_path_matches(check, command)
         and Path(command[6]).name == "tiffcrop"
-        and command[7] == "-D"
+        and command[7:11] == ["-U", "px", "-m", "0,2,0,2"]
+        and command[11] == "-D"
         and debug_option.startswith("format:txt,level:2,output:")
         and bool(debug_prefix)
         and "," not in debug_prefix
         and Path(debug_prefix).is_absolute()
-        and Path(command[9]).name == "load-error.tif"
+        and Path(command[13]).name == "multisample.tif"
         and Path(output_path).name == "tiffcrop-output.tif"
         and Path(debug_prefix).parent.resolve() == Path(output_path).parent.resolve()
         and isinstance(debug_output_path, str)
         and Path(debug_output_path).is_absolute()
         and Path(debug_output_path).resolve() == Path(expected_debug_output).resolve()
         and Path(expected_debug_output).parent.resolve() == Path(output_path).parent.resolve()
-        and "Unable to read" in output_text
+        and "Unable to define crop regions" in output_text
+        and "Combined left and right margins exceed image width" in output_text
         and Path(debug_output_path).name in check.get("debugOutputFiles", [])
         and "Completed run for (not opened)" in check.get("debugOutput", "")
         and "ERROR SUMMARY: 0 errors" in log
@@ -482,10 +485,7 @@ def main():
                 checks.extend([create, extract])
         elif package == "tiff":
             fixture = fixtures / "multisample.tif"
-            null_output_fixture = fixtures / "load-error.tif"
-            if (not fixture.is_file() or not 0 < fixture.stat().st_size < 1024 * 1024
-                    or not null_output_fixture.is_file()
-                    or not 0 < null_output_fixture.stat().st_size < 1024 * 1024):
+            if not fixture.is_file() or not 0 < fixture.stat().st_size < 1024 * 1024:
                 raise RuntimeError("TIFF regression fixture is missing or exceeds its size bound")
             dump_prefix = temp / "tiffcrop-debug"
             output = temp / "tiffcrop-output.tif"
@@ -494,8 +494,8 @@ def main():
             null_check = execute([
                 "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
                 "--read-var-info=yes", "--log-file=" + str(null_log),
-                "tiffcrop", "-D", f"format:txt,level:2,output:{null_dump_prefix}",
-                str(null_output_fixture), str(output),
+                "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
+                f"format:txt,level:2,output:{null_dump_prefix}", str(fixture), str(output),
             ])
             null_check["memoryLog"] = null_log.read_text() if null_log.exists() else ""
             null_check["memoryLogPath"] = str(null_log)
