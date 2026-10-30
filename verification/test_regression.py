@@ -1,6 +1,7 @@
 """Protect classification of the real focal Schematron baseline crash."""
 import json
 from pathlib import Path
+import signal
 import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
@@ -25,6 +26,28 @@ class BaselineClassification(unittest.TestCase):
 
 
 class TiffBaselineClassification(unittest.TestCase):
+    def test_exact_tiffcrop_debug_dump_sigsegv_is_a_reproduction(self):
+        check = {
+            "command": ["tiffcrop", "-D", "format:txt,level:2,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": -signal.SIGSEGV,
+            "timedOut": False,
+        }
+        self.assertTrue(tiff_baseline_reproduced(check))
+
+    def test_sigsegv_outside_exact_tiffcrop_debug_dump_is_not_a_reproduction(self):
+        unrelated_command = {
+            "command": ["tiffinfo", "/fixture/multisample.tif"],
+            "returncode": -signal.SIGSEGV,
+            "timedOut": False,
+        }
+        wrong_debug_level = {
+            "command": ["tiffcrop", "-D", "format:txt,level:1,input:/tmp/debug", "/fixture/multisample.tif", "/tmp/out.tif"],
+            "returncode": -signal.SIGSEGV,
+            "timedOut": False,
+        }
+        self.assertFalse(tiff_baseline_reproduced(unrelated_command))
+        self.assertFalse(tiff_baseline_reproduced(wrong_debug_level))
+
     def test_specific_out_of_bounds_sample_pointer_read_is_a_reproduction(self):
         check = {
             "returncode": 97,
