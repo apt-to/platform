@@ -17,6 +17,22 @@ SCANNER_SPEC.loader.exec_module(SCANNER_MODULE)
 
 
 class GetPatchedScannerContract(unittest.TestCase):
+    def test_poppler_candidate_accepts_pdfinfo_version_on_stderr(self):
+        cve_check = {
+            "returncode": 0,
+            "timedOut": False,
+            "memoryLog": "ERROR SUMMARY: 0 errors\n",
+        }
+        consumer_check = {
+            "command": ["pdfinfo", "-v"],
+            "returncode": 0,
+            "timedOut": False,
+            "stdout": "",
+            "stderr": "pdfinfo version 0.86.1\n",
+            "passed": True,
+        }
+        self.assertTrue(SCANNER_MODULE.poppler_patched_checks_succeeded(cve_check, [consumer_check]))
+
     def test_followup_assessment_requires_the_paired_installed_regression(self):
         config = json.loads((ROOT / "packages.json").read_text())
         target = config["packages"]["libpng1.6"]["targets"]["ubuntu-focal-amd64"]

@@ -17,7 +17,7 @@ from platform_policy import package_ecosystem, package_target_policy, target_pro
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "verification"))
-from regression import (libpng_overwrite_reproduced, libpng_stride_read_reproduced,
+from regression import (consumer_version_succeeded, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         poppler_uaf_reproduced, schematron_baseline_reproduced,
                         tiff_baseline_reproduced)
 
@@ -43,6 +43,16 @@ def validate_followup_assessment_checks(target, checks, phase):
             raise ValueError(f"candidate regression report lacks the assessed follow-up check for {cve}")
         if assessment["candidateDisposition"] != "fixed-in-backport":
             raise ValueError(f"patched disposition for follow-up {cve} is not explicitly assessed")
+
+
+def poppler_patched_checks_succeeded(cve_check, checks):
+    return (
+        cve_check.get("returncode") == 0
+        and not cve_check.get("timedOut")
+        and "ERROR SUMMARY: 0 errors" in cve_check.get("memoryLog", "")
+        and any(item.get("passed") is True and item.get("command", [None])[0] == "pdfinfo"
+                and consumer_version_succeeded(item, "pdfinfo version") for item in checks)
+    )
 
 
 def parse_status_text(text):
@@ -263,10 +273,7 @@ def regression_verified_candidate(directory, scan_images_path, target_id, recipe
             if phase == "baseline":
                 if not poppler_uaf_reproduced(check):
                     raise ValueError("Poppler baseline evidence does not reproduce the configured StructTreeRoot use-after-free")
-            elif (check.get("returncode") != 0 or check.get("timedOut")
-                  or "ERROR SUMMARY: 0 errors" not in check.get("memoryLog", "")
-                  or not any(item.get("passed") is True and item.get("command", [None])[0] == "pdfinfo"
-                             and "pdfinfo version" in item.get("stdout", "") for item in checks)):
+            elif not poppler_patched_checks_succeeded(check, checks):
                 raise ValueError("Poppler patched evidence lacks a clean CVE regression and pdfinfo consumer check")
         else:
             raise ValueError("candidate regression runner has no package-specific evidence classifier")
