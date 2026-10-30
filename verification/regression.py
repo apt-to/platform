@@ -41,6 +41,11 @@ def tiff_baseline_reproduced(check):
     )
 
 
+def consumer_version_succeeded(check, expected_banner):
+    output = check.get("stdout", "") + check.get("stderr", "")
+    return not check.get("timedOut", False) and check.get("returncode") == 0 and expected_banner in output
+
+
 def libpng_overwrite_reproduced(check):
     log = check.get("memoryLog", "")
     return (not check.get("timedOut", False) and check.get("returncode") == 97
@@ -264,7 +269,7 @@ def main():
             checks.append(check)
             if args.phase == "patched":
                 consumer = execute(["pdfinfo", "-v"])
-                consumer["passed"] = consumer.get("returncode") == 0 and "pdfinfo version" in consumer.get("stdout", "")
+                consumer["passed"] = consumer_version_succeeded(consumer, "pdfinfo version")
                 checks.append(consumer)
         else:
             raise RuntimeError("Unsupported source package")

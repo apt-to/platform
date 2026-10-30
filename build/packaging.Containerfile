@@ -15,6 +15,7 @@ RUN set -eu; \
     case "$SOURCE_PACKAGE" in \
       libxml2) binaries="libxml2 libxml2-utils libxml2-dev" ;; \
       libarchive) binaries="libarchive13 libarchive-tools libarchive-dev" ;; \
+      libpng1.6) binaries="libpng16-16 libpng-dev libpng-tools" ;; \
       libgit2) binaries="libgit2-28 libgit2-dev" ;; \
       poppler) binaries="libpoppler97 libpoppler-dev libpoppler-private-dev libpoppler-glib8 libpoppler-glib-dev libpoppler-glib-doc gir1.2-poppler-0.18 libpoppler-qt5-1 libpoppler-qt5-dev libpoppler-cpp0v5 libpoppler-cpp-dev poppler-utils" ;; \
       tiff) binaries="libtiff-dev libtiff-tools" ;; \
