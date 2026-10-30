@@ -22,7 +22,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/snapshot-tls"
           report="$RUNNER_TEMP/snapshot-tls/report.tsv"
           printf '# snapshot_timestamp\t%s\n' "$SNAPSHOT_TIMESTAMP" > "$report"
-          printf 'host\tinrelease_sha256\ttls\n' >> "$report"
+          printf 'requested_host\tfinal_host\tinrelease_sha256\ttls\n' >> "$report"
           for host in snapshot.debian.org snapshot-fastly.debian.org snapshot-cloudflare.debian.org; do
             echo "Checking verified TLS for $host"
             openssl s_client -connect "$host:443" -servername "$host" \
@@ -30,10 +30,17 @@ jobs:
               -CAfile /etc/ssl/certs/ca-certificates.crt \
               -brief </dev/null
             path="/archive/debian/${SNAPSHOT_TIMESTAMP}/dists/trixie/InRelease"
-            status="$(curl --silent --show-error --max-redirs 0 --output \
-              "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" --write-out '%{http_code}' \
+            response="$(curl --fail --silent --show-error --location --max-redirs 3 \
+              --proto-redir '=https' --output "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" \
+              --write-out '%{http_code}\t%{url_effective}' \
               "https://${host}${path}")"
+            IFS=$'\t' read -r status final_url <<< "$response"
             test "$status" = 200 || { echo "$host returned HTTP $status" >&2; exit 1; }
+            final_host="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.urlparse(sys.argv[1]).hostname or "")' "$final_url")"
+            case "$final_host" in
+              snapshot.debian.org|snapshot-fastly.debian.org|snapshot-cloudflare.debian.org) ;;
+              *) echo "$host redirected to unapproved host $final_host" >&2; exit 1 ;;
+            esac
             test -s "$RUNNER_TEMP/snapshot-tls/${host}.InRelease"
             head -n 1 "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" | \
               grep -qx -- '-----BEGIN PGP SIGNED MESSAGE-----'
@@ -42,14 +49,14 @@ jobs:
             tail -n 1 "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" | \
               grep -qx -- '-----END PGP SIGNATURE-----'
             digest="$(sha256sum "$RUNNER_TEMP/snapshot-tls/${host}.InRelease" | awk '{print $1}')"
-            printf '%s\t%s\tverified\n' "$host" "$digest" | tee -a "$report"
+            printf '%s\t%s\t%s\tverified\n' "$host" "$final_host" "$digest" | tee -a "$report"
           done
           printf '%s\n' snapshot.debian.org snapshot-fastly.debian.org snapshot-cloudflare.debian.org | \
             sort > "$RUNNER_TEMP/snapshot-tls/expected-hosts.txt"
           cut -f1 "$report" | tail -n +3 | sort > "$RUNNER_TEMP/snapshot-tls/observed-hosts.txt"
           diff -u "$RUNNER_TEMP/snapshot-tls/expected-hosts.txt" "$RUNNER_TEMP/snapshot-tls/observed-hosts.txt"
           test "$(wc -l < "$RUNNER_TEMP/snapshot-tls/observed-hosts.txt")" -eq 3
-          test "$(cut -f2 "$report" | tail -n +3 | sort -u | wc -l)" -eq 1
+          test "$(cut -f3 "$report" | tail -n +3 | sort -u | wc -l)" -eq 1
           echo "All expected endpoints served byte-identical InRelease metadata for the pinned URL."
       - name: Retain TLS and metadata comparison report
         if: always() && github.event_name == 'pull_request' && github.head_ref == 'debian-snapshot-tls'
