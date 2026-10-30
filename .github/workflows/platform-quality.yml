@@ -27,9 +27,19 @@ jobs:
           docker run --rm --platform linux/amd64 \
             --mount type=bind,source=/etc/ssl/certs/ca-certificates.crt,target=/tmp/getpatched-runner-ca.crt,readonly \
             --env SNAPSHOT_TIMESTAMP "$base_image" sh -ec '
+              if test -r /etc/ssl/certs/ca-certificates.crt; then
+                echo "Pinned image CA bundle SHA-256: $(sha256sum /etc/ssl/certs/ca-certificates.crt | awk '\''{print $1}'\'')"
+              else
+                echo "Pinned image CA bundle is missing"
+              fi
+              apt-get update
+              apt-get install -y --no-install-recommends openssl
               mkdir -p /etc/ssl/certs
               cp /tmp/getpatched-runner-ca.crt /etc/ssl/certs/ca-certificates.crt
-              printf "deb [check-valid-until=no] https://snapshot-fastly.debian.org/archive/debian/%s/ trixie main\n" "$SNAPSHOT_TIMESTAMP" > /etc/apt/sources.list
+              openssl s_client -connect snapshot.debian.org:443 -servername snapshot.debian.org \
+                -verify_hostname snapshot.debian.org -verify_return_error \
+                -CAfile /etc/ssl/certs/ca-certificates.crt -brief </dev/null
+              printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/%s/ trixie main\n" "$SNAPSHOT_TIMESTAMP" > /etc/apt/sources.list
               apt-get -o Acquire::AllowInsecureRepositories=false -o Acquire::AllowDowngradeToInsecureRepositories=false update
             '
       - name: Verify HTTPS and compare snapshot metadata across official endpoints
