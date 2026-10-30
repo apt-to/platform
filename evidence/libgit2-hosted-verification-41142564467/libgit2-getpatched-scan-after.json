@@ -1,0 +1,39 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/libgit2-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "229c44fc07ae4f8607788a94cbb83156afb590e193911551e99bc4b9079499fc",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [],
+  "findingsById": [],
+  "imageId": "sha256:a94f1e5f94496a3ef7aaa420288883b925bc38d9e7e28137b234b1fa64870da5",
+  "packagePolicySha256": "5734124c59727eefc4360617f35ebfae3cfd4ef78f16b11b45be2b4163fb5c0e",
+  "regressionImageIds": {
+    "baseline": "sha256:2bf5890ca3cac99dcf76971fd862a40faa0d1c3b8bc88ffa5f1ce0e713ea85dc",
+    "patched": "sha256:a94f1e5f94496a3ef7aaa420288883b925bc38d9e7e28137b234b1fa64870da5"
+  },
+  "regressionReportSha256": {
+    "baseline": "5d969a8ad7a5dcd99448d6ea7eea8348b783ccbe8a800b15fb37e6c52ba1317b",
+    "patched": "6f8b4b0664041565babbcf2da51bf3e8323f79000375d76c320d5022494afea1"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "libgit2",
+      "targetId": "ubuntu-focal-amd64"
+    }
+  ],
+  "release": "focal",
+  "scannedPackageVersions": {
+    "libgit2-28": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+    "libgit2-dev": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "a437bd8e53612f546b4b689b20a53340fad486bfd8b734aa714e0dfb89e5f93d",
+  "summary": {
+    "findingCount": 0,
+    "scannedPackages": 2,
+    "vulnerablePackages": 0
+  },
+  "targetId": "ubuntu-focal-amd64"
+}

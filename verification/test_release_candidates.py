@@ -109,6 +109,8 @@ class ReleaseCandidateOutput(unittest.TestCase):
             package = package_record["targets"][TARGET_ID]
             if source in ("libxml2", "libarchive"):
                 self.assertEqual(package["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
+            elif source == "libgit2":
+                self.assertEqual(package["ubuntuProEsmCompatibility"], "not-applicable")
             else:
                 self.assertNotIn("ubuntuProEsmCompatibility", package)
             policy = source_policy(source)

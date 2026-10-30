@@ -51,7 +51,10 @@ def build_feed(config, verified_candidates=frozenset()):
                 "summary": SUMMARIES[cve],
                 "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
                 "affected": [], "references": [],
-                "database_specific": {"severity": "MEDIUM", "verification_status": "rebranded-package-build-pending"},
+                "database_specific": {
+                    "severity": "MEDIUM",
+                    "verification_status": "development-verified-production-release-pending",
+                },
             })
             advisory["affected"].extend({
                 "package": {"ecosystem": package_ecosystem(config, source, target_id), "name": binary},

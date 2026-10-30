@@ -139,9 +139,9 @@ class PublicCatalogueContract(unittest.TestCase):
                    for target in record["targets"].values())
         }
         self.assertEqual(set(entries), expected_catalogue)
-        self.assertEqual(expected_catalogue, {"libxml2", "libarchive"})
+        self.assertEqual(expected_catalogue, {"libxml2", "libarchive", "libgit2"})
         self.assertIn("libpng1.6", set(platform["packages"]) - set(entries))
-        self.assertIn("libgit2", set(platform["packages"]) - set(entries))
+        self.assertNotIn("libgit2", set(platform["packages"]) - set(entries))
         self.assertIn("poppler", set(platform["packages"]) - set(entries))
         self.assertEqual(catalogue["schemaVersion"], 3)
         self.assertEqual(set(catalogue["targets"]), set(platform["targets"]))
@@ -177,9 +177,13 @@ class PublicCatalogueContract(unittest.TestCase):
                 expected_run = {
                     "libxml2": "40899705050",
                     "libarchive": "40899709850",
+                    "libgit2": "41142564467",
                 }[source]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
-                self.assertEqual(entry["ubuntuProEsmCompatibility"], "not-tested-out-of-scope")
+                self.assertEqual(
+                    entry["ubuntuProEsmCompatibility"],
+                    policy.get("ubuntuProEsmCompatibility", "not-tested-out-of-scope"),
+                )
                 self.assertNotIn("verificationUrl", entry)
                 self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/tree/"))
                 self.assertTrue(entry["patchUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/blob/"))
@@ -189,8 +193,8 @@ class PublicCatalogueContract(unittest.TestCase):
 
         page = (ROOT / "site/index.html").read_text()
         self.assertIn("Hosted verification passed.", page)
-        self.assertIn("Both Focal packages have fresh hosted builds", page)
-        self.assertIn("Sponsor sign-in and production repository access setup remain incomplete", page)
+        self.assertIn("Three Focal package candidates have hosted builds", page)
+        self.assertIn("Production repository access setup remains incomplete", page)
         self.assertIn("no production package release has been published", page)
         self.assertIn("Live package publication and downloads remain disabled until GitHub sponsor sign-in and production access setup are complete", page)
         self.assertIn("Hosted verification has passed for both pilot builds", page)
