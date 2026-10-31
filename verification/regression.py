@@ -252,12 +252,23 @@ def libpng_probe_command_matches(check, test_id, executable, arguments):
     )
 
 
-def libpng_overwrite_reproduced(check):
+def memcheck_has_no_errors(log):
+    summaries = re.findall(r"(?m)^.*ERROR SUMMARY:\s*(.*?)\s*$", log)
+    return (len(summaries) == 1
+            and re.fullmatch(r"0 errors(?: from \d+ contexts)?(?: \(suppressed: \d+ from \d+\))?", summaries[0]) is not None)
+
+
+def libpng_output_buffer_result(check, expected_result):
     log = check.get("memoryLog", "")
-    return (libpng_probe_command_matches(check, "read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"])
-            and not check.get("timedOut", False) and check.get("returncode") == 97
-            and "Invalid write" in log and "png_image_finish_read" in log
-            and "libpng16.so." in log)
+    return (check.get("cve") == "CVE-2025-65018"
+            and libpng_probe_command_matches(check, "read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"])
+            and not check.get("timedOut", False) and check.get("returncode") == 0
+            and check.get("stdout", "").strip() == expected_result
+            and memcheck_has_no_errors(log))
+
+
+def libpng_overwrite_reproduced(check):
+    return libpng_output_buffer_result(check, "result=overrun:output-buffer")
 
 
 def libpng_stride_read_reproduced(check):
@@ -271,7 +282,7 @@ def libpng_stride_read_reproduced(check):
 def libpng_followup_read_is_clean(check):
     log = check.get("memoryLog", "")
     return (not check.get("timedOut", False) and check.get("returncode") == 0
-            and "ERROR SUMMARY: 0 errors" in log)
+            and memcheck_has_no_errors(log))
 
 
 def libpng_patched_checks_succeeded(checks):
@@ -292,7 +303,9 @@ def libpng_patched_checks_succeeded(checks):
                 or not libpng_probe_command_matches(check, test_id, executable, arguments)
                 or check.get("timedOut") is not False
                 or check.get("returncode") != 0
-                or "ERROR SUMMARY: 0 errors" not in check.get("memoryLog", "")):
+                or not memcheck_has_no_errors(check.get("memoryLog", ""))):
+            return False
+        if cve == "CVE-2025-65018" and check.get("stdout", "").strip() != "result=within-output-buffer":
             return False
     comparisons = [check for check in checks if check.get("testId") == "adam7-pixel-equality"]
     if len(comparisons) != 1:
@@ -589,9 +602,9 @@ def main():
             subprocess.run(["python3", str(generator), str(adam7)], check=True, timeout=10)
             subprocess.run(["python3", str(generator), str(flat), "--flat"], check=True, timeout=10)
             if args.phase == "baseline":
-                for cve, source, expected in (
-                    ("CVE-2025-65018", "read-interlaced-rgba.c", "Invalid write"),
-                    ("CVE-2026-22801", "write-negative-stride.c", "Invalid read"),
+                for cve, source in (
+                    ("CVE-2025-65018", "read-interlaced-rgba.c"),
+                    ("CVE-2026-22801", "write-negative-stride.c"),
                 ):
                     binary = compile_probe(source)
                     log = temp / (cve + ".valgrind")
@@ -601,7 +614,7 @@ def main():
                     check["memoryLog"] = log.read_text() if log.exists() else ""
                     check["cve"] = cve
                     check["testId"] = source
-                    check["passed"] = (libpng_overwrite_reproduced(check) if expected == "Invalid write"
+                    check["passed"] = (libpng_overwrite_reproduced(check) if cve == "CVE-2025-65018"
                                        else libpng_stride_read_reproduced(check))
                     checks.append(check)
                 binary = compile_probe("read-padded-stride.c")
@@ -615,10 +628,10 @@ def main():
                 check["passed"] = libpng_followup_read_is_clean(check)
                 checks.append(check)
             else:
-                for name, args_for_probe in (
-                    ("read-interlaced-rgba.c", [str(adam7)]),
-                    ("read-padded-stride.c", [str(adam7)]),
-                    ("write-negative-stride.c", []),
+                for cve, name, args_for_probe in (
+                    ("CVE-2025-65018", "read-interlaced-rgba.c", [str(adam7)]),
+                    ("CVE-2026-22695", "read-padded-stride.c", [str(adam7)]),
+                    ("CVE-2026-22801", "write-negative-stride.c", []),
                 ):
                     binary = compile_probe(name)
                     log = temp / (binary.name + ".valgrind")
@@ -626,20 +639,21 @@ def main():
                                      "--leak-check=no", "--read-var-info=yes", "--log-file=" + str(log),
                                      str(binary), *args_for_probe])
                     check["memoryLog"] = log.read_text() if log.exists() else ""
-                    check["passed"] = (libpng_followup_read_is_clean(check)
-                                       if name == "read-padded-stride.c"
-                                       else not check.get("timedOut") and check.get("returncode") == 0
-                                       and "ERROR SUMMARY: 0 errors" in check["memoryLog"])
+                    check["cve"] = cve
                     check["testId"] = name
+                    if cve == "CVE-2025-65018":
+                        check["passed"] = libpng_output_buffer_result(check, "result=within-output-buffer")
+                    elif cve == "CVE-2026-22695":
+                        check["passed"] = libpng_followup_read_is_clean(check)
+                    else:
+                        check["passed"] = (not check.get("timedOut") and check.get("returncode") == 0
+                                           and memcheck_has_no_errors(check["memoryLog"]))
                     checks.append(check)
-                checks[0]["cve"] = "CVE-2025-65018"
-                checks[2]["cve"] = "CVE-2026-22801"
                 comparison = compile_probe("compare-interlaced-read.c")
                 check = execute([str(comparison), str(adam7), str(flat)])
                 check["passed"] = check["returncode"] == 0 and "differing channels: 0 / 3072" in check["stdout"]
                 check["testId"] = "adam7-pixel-equality"
                 checks.append(check)
-                checks[1]["cve"] = "CVE-2026-22695"
                 checks[1]["testId"] = "CVE-2026-22695-padded-stride-follow-up"
         elif package == "poppler":
             fixture = fixtures / "bug.pdf"
