@@ -1,0 +1,58 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "b827af1c3a54a9313e18a08bb15c178d09bf7242f5bd71d3b77b3f7925dcbdc2",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [
+    {
+      "affected_versions": [
+        "4.7.0-3+deb13u3"
+      ],
+      "fixed_versions": [
+        "4.7.0-3+deb13u3+getpatched2"
+      ],
+      "id": "CVE-2025-61144",
+      "package": "libtiff-tools",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-61144",
+        "https://ubuntu.com/security/CVE-2025-61144"
+      ],
+      "severity": "LOW",
+      "summary": "tiffcrop can read beyond its sample buffer while producing level-2 debug output",
+      "version": "4.7.0-3+deb13u3"
+    }
+  ],
+  "findingsById": [
+    "CVE-2025-61144"
+  ],
+  "imageId": "sha256:2ab221f3b1b7df8a325612fdfc9faa8ff229cd510625b2ee2963fa8d89a1c0a1",
+  "packagePolicySha256": "73f64acac4dabee0ac7c2987a5baef3f3641a438a0ef752654fbc24baa6af5e0",
+  "regressionImageIds": {
+    "baseline": "sha256:2ab221f3b1b7df8a325612fdfc9faa8ff229cd510625b2ee2963fa8d89a1c0a1",
+    "patched": "sha256:6643fe843cb5ac2798b81b49e4b069721d5a7360e967a78f0f60a57f1b1655f6"
+  },
+  "regressionReportSha256": {
+    "baseline": "402319ad27b0e61f5b83fe56d19efba02c21ebf5904068dd210963d5bc950bd8",
+    "patched": "3a8d42388b1d416b598202d4bb71bd4373a8b1059880a0270fd02a3df0dbb102"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "debian-trixie-amd64"
+    }
+  ],
+  "release": "trixie",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.7.0-3+deb13u3"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "77238cd43e72515cd0206e72448988113d299dc699bcdc200d9b9dc3a1c0fe2a",
+  "summary": {
+    "findingCount": 1,
+    "scannedPackages": 1,
+    "vulnerablePackages": 1
+  },
+  "targetId": "debian-trixie-amd64"
+}

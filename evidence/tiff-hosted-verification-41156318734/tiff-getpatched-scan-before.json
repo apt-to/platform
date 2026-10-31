@@ -1,0 +1,58 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "b827af1c3a54a9313e18a08bb15c178d09bf7242f5bd71d3b77b3f7925dcbdc2",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [
+    {
+      "affected_versions": [
+        "4.5.0-6+deb12u4"
+      ],
+      "fixed_versions": [
+        "4.5.0-6+deb12u4+getpatched2"
+      ],
+      "id": "CVE-2025-61144",
+      "package": "libtiff-tools",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-61144",
+        "https://ubuntu.com/security/CVE-2025-61144"
+      ],
+      "severity": "LOW",
+      "summary": "tiffcrop can read beyond its sample buffer while producing level-2 debug output",
+      "version": "4.5.0-6+deb12u4"
+    }
+  ],
+  "findingsById": [
+    "CVE-2025-61144"
+  ],
+  "imageId": "sha256:678bcf9344aee568f2878f1571b63bcb547f36d8564496268cfad45a28181e31",
+  "packagePolicySha256": "73f64acac4dabee0ac7c2987a5baef3f3641a438a0ef752654fbc24baa6af5e0",
+  "regressionImageIds": {
+    "baseline": "sha256:678bcf9344aee568f2878f1571b63bcb547f36d8564496268cfad45a28181e31",
+    "patched": "sha256:eb774d86257fe2d14f6d49b41c25a53b571d114e63aafaf740a40eb5f2ef37b7"
+  },
+  "regressionReportSha256": {
+    "baseline": "090090224cf127bc6137cf7daf6f3319d3d7a9e85964f01e37611bbc300c8f49",
+    "patched": "41c1744071ba6a548a46f5eb9ebe233e7f0d58f0ee38e5ad58eb3adc0e37d5fd"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "debian-bookworm-amd64"
+    }
+  ],
+  "release": "bookworm",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.5.0-6+deb12u4"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "f9ff7371081a1944addeff1ed89dbf821eaa5d107e4157f9a32929208faea2da",
+  "summary": {
+    "findingCount": 1,
+    "scannedPackages": 1,
+    "vulnerablePackages": 1
+  },
+  "targetId": "debian-bookworm-amd64"
+}

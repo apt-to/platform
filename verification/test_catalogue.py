@@ -180,9 +180,9 @@ class PublicCatalogueContract(unittest.TestCase):
                     "libgit2": {"ubuntu-focal-amd64": "41144391227"},
                     "poppler": {"ubuntu-focal-amd64": "41149614570"},
                     "tiff": {
-                        "ubuntu-focal-amd64": "41154300127",
-                        "debian-bookworm-amd64": "41154301399",
-                        "debian-trixie-amd64": "41154300175",
+                        "ubuntu-focal-amd64": "41156319268",
+                        "debian-bookworm-amd64": "41156318734",
+                        "debian-trixie-amd64": "41156319535",
                     },
                 }[source][target_id]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")

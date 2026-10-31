@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "source": "tiff",
+  "targetId": "ubuntu-focal-amd64",
+  "distribution": "Ubuntu",
+  "release": "focal",
+  "architecture": "amd64",
+  "baselineVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+  "patchedVersion": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+  "sourceCommit": "be64539b5883cb6cc7631a941f9ff41050f46910",
+  "scanner": {
+    "image": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+    "databaseReference": "mirror.gcr.io/aquasec/trivy-db@sha256:b8efa8fc3ddd6b76c0c6267292768efa113bf02ac27c5ef26b95c6844aa81ed4",
+    "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+    "before": {
+      "imageId": "sha256:d88711c07c1057b56b147cfaa3f76f54dcc8f89a1c65d1eae4f16e25d1b0ba91",
+      "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "reportSha256": "732890171f9e81a5468f81e76ab7059afc1e17d6bf76b62e74b33747ae473cf4"
+    },
+    "after": {
+      "imageId": "sha256:bd7b66fc3dc8f401b0d4529bdae6c6c21637832bfafbee277965b0e77c9a47f3",
+      "databaseSha256": "05a1fa5372e54059b6a7c1fc41afb812fafd9bd56a8e0ab6aa20d7f3f154ff31",
+      "reportSha256": "b6a1082e6286d26f5c7ca8db6cd97fc1b611e4e7a5c931ce4470a7b4e0e8b9c6"
+    }
+  },
+  "canonicalOsv": {
+    "ecosystem": "Ubuntu:20.04:LTS",
+    "before": {
+      "responseSha256": "b3f4bd470f4e0b569bfe3194b08833cad433e7688faac12cf08f03953d68576a",
+      "targetRecords": {
+        "CVE-2025-61144": []
+      },
+      "missingTargetIds": [
+        "CVE-2025-61144"
+      ],
+      "allRecordIds": []
+    },
+    "after": {
+      "responseSha256": "e817b9e45acf1080edbb421d1e1499971acc5ad92045f4c10c670fa5fcadaaa1",
+      "targetRecords": {
+        "CVE-2025-61144": []
+      },
+      "missingTargetIds": [
+        "CVE-2025-61144"
+      ],
+      "allRecordIds": []
+    }
+  },
+  "trivy": {
+    "before": {
+      "sha256": "732890171f9e81a5468f81e76ab7059afc1e17d6bf76b62e74b33747ae473cf4",
+      "packageCount": 158,
+      "findingCount": 0,
+      "targetFindings": []
+    },
+    "after": {
+      "sha256": "b6a1082e6286d26f5c7ca8db6cd97fc1b611e4e7a5c931ce4470a7b4e0e8b9c6",
+      "packageCount": 158,
+      "findingCount": 0,
+      "targetFindings": []
+    },
+    "unrelatedFindings": []
+  },
+  "aptToAdvisoryIntegration": {
+    "source": "GetPatched OSV-format candidate feed scan of installed dpkg status plus distribution OSV vendor-reference queries and installed regression evidence",
+    "scanner": "getpatched-dpkg-osv/1",
+    "feedMode": "candidate-verification-only",
+    "canonicalFeedSha256": "b827af1c3a54a9313e18a08bb15c178d09bf7242f5bd71d3b77b3f7925dcbdc2",
+    "verificationFeedSha256": "b827af1c3a54a9313e18a08bb15c178d09bf7242f5bd71d3b77b3f7925dcbdc2",
+    "feedSha256": "b827af1c3a54a9313e18a08bb15c178d09bf7242f5bd71d3b77b3f7925dcbdc2",
+    "before": {
+      "imageId": "sha256:d88711c07c1057b56b147cfaa3f76f54dcc8f89a1c65d1eae4f16e25d1b0ba91",
+      "reportSha256": "1906322fa09f92d48320e2ebc19d86cd811a93b838fa4910d673adb9ee029adc",
+      "statusSha256": "1fce7263dd4789030a0c52ab9da6308f637e1f83ffe2516f1a0335a631e3d5ca",
+      "targetFindingIds": [
+        "CVE-2025-61144"
+      ],
+      "unrelatedFindingIds": []
+    },
+    "after": {
+      "imageId": "sha256:bd7b66fc3dc8f401b0d4529bdae6c6c21637832bfafbee277965b0e77c9a47f3",
+      "reportSha256": "23a45b4b7daf22fd07be926a27a8e9f03b28fc57cab397ec958f261118131220",
+      "statusSha256": "d68d2e4d954e204bf9b8ffd138f6841f5b2ea9b07f148f3ee1dee8dcefa4dcf2",
+      "targetFindingIds": [],
+      "unrelatedFindingIds": []
+    },
+    "baselineTargetFindingIds": [
+      "CVE-2025-61144"
+    ],
+    "patchedTargetFindingIds": [],
+    "unrelatedFindingIds": [],
+    "rawTrivyBaselineTargetFindingIds": [],
+    "rawTrivyPatchedTargetFindingIds": [],
+    "findings": [
+      {
+        "id": "CVE-2025-61144",
+        "baseline": "public distribution OSV target record recorded when present; vulnerable baseline regression reproduced",
+        "patched": "resolved by GetPatched backport; exact installed version and target regression passed",
+        "vendorFeedAfter": "Distribution OSV may continue to classify +getpatched builds within the vendor affected range; see unmodified raw response",
+        "evidence": {
+          "baselineOsvSha256": "b3f4bd470f4e0b569bfe3194b08833cad433e7688faac12cf08f03953d68576a",
+          "patchedOsvSha256": "e817b9e45acf1080edbb421d1e1499971acc5ad92045f4c10c670fa5fcadaaa1",
+          "baselineRegression": "/home/runner/work/platform/platform/build/output/baseline-regression.json",
+          "patchedRegression": "/home/runner/work/platform/platform/build/output/patched-regression.json",
+          "sourceCommit": "be64539b5883cb6cc7631a941f9ff41050f46910"
+        }
+      }
+    ],
+    "claim": "isolated candidate verification feed, generated from the canonical feed and exact candidate policy; raw vendor Trivy findings, including any target findings, remain separately preserved and do not determine backport eligibility"
+  },
+  "regression": {
+    "baseline": "/home/runner/work/platform/platform/build/output/baseline-regression.json",
+    "patched": "/home/runner/work/platform/platform/build/output/patched-regression.json",
+    "targetCves": [
+      "CVE-2025-61144"
+    ]
+  },
+  "assessment": {
+    "vendorPublishedVersionStatus": {
+      "targetRecords": {
+        "CVE-2025-61144": []
+      },
+      "missingTargetIds": [
+        "CVE-2025-61144"
+      ],
+      "interpretation": "public distribution OSV response preserved as vendor-reference evidence; target-record absence is not interpreted as clean or affected status"
+    },
+    "aptToStatus": "backport regression and exact installed-package scan verified for configured target CVEs",
+    "rawTrivyTargetFindingsAfter": [],
+    "unrelatedTrivyFindingsPreserved": true
+  },
+  "passed": true
+}

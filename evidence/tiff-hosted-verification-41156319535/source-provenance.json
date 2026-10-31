@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "source": "tiff",
+  "targetId": "debian-trixie-amd64",
+  "baseVersion": "4.7.0-3+deb13u3",
+  "packageVersion": "4.7.0-3+deb13u3+getpatched2",
+  "releaseSerial": 2,
+  "recipeCommit": "be64539b5883cb6cc7631a941f9ff41050f46910",
+  "recipeManifestSha256": "d03a0d91b57c46fc6309d9ede9fc71196fffb814728408be2259862ec93f7a85",
+  "patchMetadataSha256": "498461f5f0aa702bd046d95cd8da75277111553c6faadbf5408409293f79ec2d",
+  "platformPolicySha256": "73f64acac4dabee0ac7c2987a5baef3f3641a438a0ef752654fbc24baa6af5e0",
+  "sourcePublication": "https://tracker.debian.org/news/1776819/accepted-tiff-470-3deb13u3-source-into-stable-security/",
+  "sourcePublishedAt": "2026-07-19T18:55:07Z",
+  "sourceDescriptor": {
+    "name": "tiff_4.7.0-3+deb13u3.dsc",
+    "url": "https://snapshot.debian.org/archive/debian/20261030T000000Z/pool/main/t/tiff/tiff_4.7.0-3+deb13u3.dsc",
+    "sha256": "51cdbd32322b5d35ef35677ace1cb7cd6591325da4ecd470ec6ccefab47d6a29",
+    "bytes": 2442
+  },
+  "sourceFiles": [
+    {
+      "name": "tiff_4.7.0.orig.tar.bz2",
+      "role": "upstream-source",
+      "url": "https://snapshot.debian.org/archive/debian/20261030T000000Z/pool/main/t/tiff/tiff_4.7.0.orig.tar.bz2",
+      "sha256": "2b8b5c4e79cb2a4651796602e45d6179b7f18bc283feab417b8e881ef7e81862",
+      "bytes": 2111254
+    },
+    {
+      "name": "tiff_4.7.0-3+deb13u3.debian.tar.xz",
+      "role": "debian-packaging",
+      "url": "https://snapshot.debian.org/archive/debian/20261030T000000Z/pool/main/t/tiff/tiff_4.7.0-3+deb13u3.debian.tar.xz",
+      "sha256": "c0cbcb717e20a69964bfa7471cbb0137dd39a451434932972bc7fbcdb86345f8",
+      "bytes": 28212
+    }
+  ],
+  "downloadedSources": [
+    {
+      "name": "tiff_4.7.0-3+deb13u3.dsc",
+      "bytes": 2442,
+      "sha256": "51cdbd32322b5d35ef35677ace1cb7cd6591325da4ecd470ec6ccefab47d6a29"
+    },
+    {
+      "name": "tiff_4.7.0.orig.tar.bz2",
+      "bytes": 2111254,
+      "sha256": "2b8b5c4e79cb2a4651796602e45d6179b7f18bc283feab417b8e881ef7e81862"
+    },
+    {
+      "name": "tiff_4.7.0-3+deb13u3.debian.tar.xz",
+      "bytes": 28212,
+      "sha256": "c0cbcb717e20a69964bfa7471cbb0137dd39a451434932972bc7fbcdb86345f8"
+    }
+  ],
+  "signatureVerification": {
+    "verified": false,
+    "note": "The signed Debian source index authenticates these descriptor and archive hashes; individual .dsc signatures have not been separately verified."
+  },
+  "patches": [
+    {
+      "id": "cve-2025-61144-debian",
+      "kind": "security",
+      "file": "CVE-2025-61144-debian.patch",
+      "sha256": "4a68096fa50e295af6b318c78e3f0c8cc6642752ff8b5365bced6b82235fbfc3",
+      "cves": [
+        "CVE-2025-61144"
+      ],
+      "upstream": {
+        "repository": "https://gitlab.com/libtiff/libtiff",
+        "commit": "88cf9dbb48f6e172629795ecffae35d5052f68aa",
+        "url": "https://gitlab.com/libtiff/libtiff/-/commit/88cf9dbb48f6e172629795ecffae35d5052f68aa"
+      },
+      "sourceVersion": "4.7.0-3+deb13u3"
+    }
+  ]
+}

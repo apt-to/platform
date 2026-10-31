@@ -1,0 +1,11 @@
+{
+  "request": {
+    "package": {
+      "name": "tiff",
+      "ecosystem": "Ubuntu:20.04:LTS"
+    },
+    "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2"
+  },
+  "endpoint": "https://api.osv.dev/v1/query",
+  "response": {}
+}

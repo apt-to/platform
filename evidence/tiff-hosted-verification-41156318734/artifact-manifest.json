@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "run": "https://github.com/getpatched/platform/actions/runs/41156318734",
+  "artifact": {
+    "id": 13025236402,
+    "name": "verification-tiff-debian-bookworm-amd64-41156318734-1",
+    "sha256": "a97402296553fb9929c17f31cc3bcfefa554cf5c6f2b4b66ece6953e385c99f6",
+    "expiresAt": "2026-11-30T01:42:45Z"
+  },
+  "retainedFiles": [
+    "advisory-comparison.json",
+    "baseline-regression.json",
+    "patched-regression.json",
+    "binary-manifest.json",
+    "build-provenance.json",
+    "build-toolchain.tsv",
+    "package-policy.json",
+    "release-candidates.json",
+    "release-eligibility.json",
+    "repository-smoke.json",
+    "scan-images.json",
+    "source-provenance.json",
+    "tiff-getpatched-scan-before.json",
+    "tiff-getpatched-scan-after.json",
+    "tiff-getpatched-status-before.txt",
+    "tiff-getpatched-status-after.txt",
+    "tiff-osv-before.json",
+    "tiff-osv-after.json",
+    "tiff-trivy-before-metadata.json",
+    "tiff-trivy-after-metadata.json",
+    "tiff-verification-advisory-osv.json",
+    "trivy-database.json",
+    "version-ordering.txt",
+    "tiff-trivy-before.json.gz",
+    "tiff-trivy-after.json.gz"
+  ],
+  "rawTrivyReports": {
+    "before": {
+      "originalSha256": "8c2fab305bc276afe02e271c20a8970d41957bb739c20e78c71af6c441a42e5b",
+      "compressedSha256": "40bb8d206509c24e1f94f27eb67346f45d9b92dae098cf84f2faaa76930a9600"
+    },
+    "after": {
+      "originalSha256": "f7c38fcd3e76bc2eb0997c9440f8be53e576659c0cdfb6e7b9df102a156fd26b",
+      "compressedSha256": "c0f68d6f5be36c2e7a305b9723be4d62f1817e78ed8ddb79f8c4de34332d67d8"
+    }
+  }
+}

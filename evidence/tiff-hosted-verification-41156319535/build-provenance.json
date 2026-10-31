@@ -1,0 +1,54 @@
+{
+  "source": "tiff",
+  "version": "4.7.0-3+deb13u3+getpatched2",
+  "sourceCommit": "be64539b5883cb6cc7631a941f9ff41050f46910",
+  "targetId": "debian-trixie-amd64",
+  "baseImage": "debian:trixie@sha256:2dc419c6d7fe3dad0a2f9fd469c34cc90b0f9ba642d8fde837fe3d7d34a0e7f1",
+  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "runnerCaBundleSource": "linux-system-default",
+  "runnerCaBundleSha256": "e05a523d99de77c6b1f2c7b7c3af502c8378f29e6e8484358ec55f96b0972ad6",
+  "archiveSnapshot": "20261030T000000Z",
+  "builderImageId": "sha256:c9fa203f9a2490b56dc4cc0bb4167cfac2d35ecdd301618d5ab45684215366f8",
+  "toolchainInventory": "build-toolchain.tsv",
+  "publication": "none; binary outputs remained inside the disposable container",
+  "releaseSerial": 2,
+  "sourceDescriptor": {
+    "name": "tiff_4.7.0-3+deb13u3.dsc",
+    "sha256": "51cdbd32322b5d35ef35677ace1cb7cd6591325da4ecd470ec6ccefab47d6a29"
+  },
+  "downloadedSourceAssets": [
+    {
+      "name": "tiff_4.7.0-3+deb13u3.dsc",
+      "bytes": 2442,
+      "sha256": "51cdbd32322b5d35ef35677ace1cb7cd6591325da4ecd470ec6ccefab47d6a29"
+    },
+    {
+      "name": "tiff_4.7.0.orig.tar.bz2",
+      "bytes": 2111254,
+      "sha256": "2b8b5c4e79cb2a4651796602e45d6179b7f18bc283feab417b8e881ef7e81862"
+    },
+    {
+      "name": "tiff_4.7.0-3+deb13u3.debian.tar.xz",
+      "bytes": 28212,
+      "sha256": "c0cbcb717e20a69964bfa7471cbb0137dd39a451434932972bc7fbcdb86345f8"
+    }
+  ],
+  "patches": [
+    {
+      "id": "cve-2025-61144-debian",
+      "kind": "security",
+      "file": "CVE-2025-61144-debian.patch",
+      "sha256": "4a68096fa50e295af6b318c78e3f0c8cc6642752ff8b5365bced6b82235fbfc3",
+      "cves": [
+        "CVE-2025-61144"
+      ],
+      "upstream": {
+        "repository": "https://gitlab.com/libtiff/libtiff",
+        "commit": "88cf9dbb48f6e172629795ecffae35d5052f68aa",
+        "url": "https://gitlab.com/libtiff/libtiff/-/commit/88cf9dbb48f6e172629795ecffae35d5052f68aa"
+      },
+      "sourceVersion": "4.7.0-3+deb13u3"
+    }
+  ],
+  "recipeManifestSha256": "d03a0d91b57c46fc6309d9ede9fc71196fffb814728408be2259862ec93f7a85"
+}
