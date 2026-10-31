@@ -247,7 +247,12 @@ def libpng_probe_command_matches(check, test_id, executable, arguments):
         return False
     binary = Path(command[6])
     log = Path(command[5].split("=", 1)[1])
-    if binary.name != executable or log.name != binary.name + ".valgrind":
+    allowed_log_names = {binary.name + ".valgrind"}
+    cve = check.get("cve")
+    if isinstance(cve, str) and cve.startswith("CVE-"):
+        allowed_log_names.add(cve + ".valgrind")
+    if (binary.name != executable or log.parent != binary.parent
+            or log.name not in allowed_log_names):
         return False
     return all(
         Path(argument).name == expected and Path(argument).parent == binary.parent
@@ -276,7 +281,8 @@ def libpng_overwrite_reproduced(check):
 
 def libpng_stride_read_reproduced(check):
     log = check.get("memoryLog", "")
-    return (libpng_probe_command_matches(check, "write-negative-stride.c", "write-negative-stride", [])
+    return (check.get("cve") == "CVE-2026-22801"
+            and libpng_probe_command_matches(check, "write-negative-stride.c", "write-negative-stride", [])
             and not check.get("timedOut", False) and check.get("returncode") == 97
             and "Invalid read" in log and "png_image_write_to_file" in log
             and "libpng16.so." in log)
