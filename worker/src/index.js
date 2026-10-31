@@ -13,6 +13,7 @@ const PUBLIC_RELEASE_STAGING_RECOVERY_MS = 30 * 24 * 60 * 60 * 1000;
 const SNAPSHOT_ID_PATTERN = /^focal-([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})-r[0-9]{1,20}-(public|early)$/;
 const REPOSITORY_TARGETS = {
   focal: { amd64: "ubuntu-focal-amd64" },
+  jammy: { amd64: "ubuntu-jammy-amd64" },
   bookworm: { amd64: "debian-bookworm-amd64" },
   trixie: { amd64: "debian-trixie-amd64" },
 };

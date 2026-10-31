@@ -213,9 +213,17 @@ test("APT snapshot inventory and gated package export require the dedicated sign
     required_assets: [{ name: "libtiff-tools_amd64.deb", sha256: digest, r2_key: `staging/${debianId}/${digest}` }],
     source_assets: [{ name: "tiff_4.5.0.dsc", sha256: "e".repeat(64), r2_key: `staging/${debianId}/source/${"e".repeat(64)}` }],
   };
+  const jammyId = "libgit2-jammy-public";
+  const jammyRelease = {
+    ...debianRelease, id: jammyId, target_id: "ubuntu-jammy-amd64",
+    repository: "getpatched/packaging-libgit2", tag: "getpatched/jammy-1.1.0+getpatched1",
+    required_assets: [{ name: "libgit2_amd64.deb", sha256: digest, r2_key: `staging/${jammyId}/${digest}` }],
+    source_assets: [{ name: "libgit2_1.1.0.dsc", sha256: "f".repeat(64), r2_key: `staging/${jammyId}/source/${"f".repeat(64)}` }],
+  };
   const bucket = new MemorySnapshotBucket({
     [`release-state/${id}.json`]: gated,
     [`release-state/${debianId}.json`]: debianRelease,
+    [`release-state/${jammyId}.json`]: jammyRelease,
     "repository-current/public.json": { id: "focal-20261025T120000-r1-public" },
   });
   bucket.blobs.set(objectKey, {
@@ -245,6 +253,12 @@ test("APT snapshot inventory and gated package export require the dedicated sign
     assert.equal(bookwormInventory.architecture, "amd64");
     assert.deepEqual(bookwormInventory.releases.map((entry) => entry.id), [debianId]);
     assert.equal(bookwormInventory.active_snapshot, null, "a Focal active pointer cannot be reported as Bookworm state");
+    const jammyInventoryResponse = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/repository-snapshots/public/releases?suite=jammy&architecture=amd64", { headers: { authorization } }), env);
+    assert.equal(jammyInventoryResponse.status, 200);
+    const jammyInventory = await jammyInventoryResponse.json();
+    assert.equal(jammyInventory.suite, "jammy");
+    assert.equal(jammyInventory.architecture, "amd64");
+    assert.deepEqual(jammyInventory.releases.map((entry) => entry.id), [jammyId]);
     const unsupportedTarget = await gateway.fetch(new Request("https://repo.getpatched.dev/internal/repository-snapshots/public/releases?suite=bookworm&architecture=arm64", { headers: { authorization } }), env);
     assert.equal(unsupportedTarget.status, 400);
     const downloaded = await gateway.fetch(new Request(`https://repo.getpatched.dev/internal/repository-snapshots/early/releases/${id}/assets/libxml2_amd64.deb`, { headers: { authorization } }), env);
@@ -369,6 +383,58 @@ test("Bookworm snapshot builds require Bookworm indexes and retain target identi
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("Jammy snapshot builds require Jammy indexes and retain target identity for the signer", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const keyId = "jammy-snapshot-build-test";
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes("/.well-known/jwks") ? Response.json({ keys: [jwk] }) : Response.json({});
+  const release = {
+    id: "ubuntu-libgit2-jammy", target_id: "ubuntu-jammy-amd64", state: "public",
+    repository: "getpatched/packaging-libgit2", tag: "getpatched/jammy-1.1.0+getpatched1",
+    source_commit: "f".repeat(40), release_checks_passed: true, sponsor_delay_hours: 0,
+    required_assets: [{ name: "libgit2_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/ubuntu-libgit2-jammy/${"a".repeat(64)}` }],
+  };
+  const bucket = new MemorySnapshotBucket({ "release-state/ubuntu-libgit2-jammy.json": release });
+  const env = { RELEASES: bucket };
+  const workflowRef = "getpatched/platform/.github/workflows/repository-snapshot.yml@refs/heads/main";
+  const builderToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-index-build" }, privateKey, keyId)}`;
+  const signerToken = `Bearer ${signedOidcToken(privateKey, { workflow_ref: workflowRef, event_name: "workflow_dispatch", environment: "getpatched-signing" }, privateKey, keyId)}`;
+  const contents = new Map([
+    ["dists/jammy/Release", "Origin: GetPatched\nSuite: jammy\n"],
+    ["dists/jammy/main/binary-amd64/Packages", "Package: libgit2-1.1\n"],
+    ["dists/jammy/main/binary-amd64/Packages.gz", "gzip"],
+    ["dists/jammy/main/binary-amd64/Packages.xz", "xz"],
+    ["dists/jammy/main/source/Sources", "Package: libgit2\n"],
+    ["dists/jammy/main/source/Sources.gz", "gzip source"],
+    ["dists/jammy/main/source/Sources.xz", "xz source"],
+  ]);
+  const files = [...contents].map(([path, value]) => ({ path, size: Buffer.byteLength(value), sha256: createHash("sha256").update(value).digest("hex") }));
+  const buildId = "jammy-amd64-20261031T120000-r503-public";
+  const request = (authorization, url, method, body) => new Request(url, {
+    method, headers: { authorization, ...(body === undefined ? {} : { "content-length": String(Buffer.byteLength(body)) }) }, body,
+  });
+  try {
+    const register = await gateway.fetch(request(builderToken, "https://repo.getpatched.dev/internal/repository-snapshot-builds/public", "POST",
+      JSON.stringify({ id: buildId, suite: "jammy", architecture: "amd64", release_ids: [release.id], files })), env);
+    assert.equal(register.status, 201);
+    for (const [path, value] of contents) {
+      const upload = await gateway.fetch(request(builderToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}/files/${path}`, "PUT", value), env);
+      assert.equal(upload.status, 201, path);
+    }
+    const wrongSuite = await gateway.fetch(request(builderToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}/files/dists/focal/Release`, "PUT", "focal"), env);
+    assert.equal(wrongSuite.status, 400);
+    const manifestResponse = await gateway.fetch(request(signerToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}`, "GET"), env);
+    assert.equal(manifestResponse.status, 200);
+    const manifest = await manifestResponse.json();
+    assert.equal(manifest.suite, "jammy");
+    assert.equal(manifest.architecture, "amd64");
+    const read = await gateway.fetch(request(signerToken, `https://repo.getpatched.dev/internal/repository-snapshot-builds/public/${buildId}/files/dists/jammy/Release`, "GET"), env);
+    assert.equal(read.status, 200);
+    assert.equal(await read.text(), contents.get("dists/jammy/Release"));
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("public Bookworm APT paths use the Bookworm pointer and never fall back to Focal", async () => {
   const releaseId = "debian-tiff-public";
   const snapshotId = "bookworm-amd64-20261025T120000-r502-public";
@@ -418,6 +484,57 @@ test("public Bookworm APT paths use the Bookworm pointer and never fall back to 
   await bucket.delete("repository-current/public/bookworm/amd64.json");
   const noFallback = await gateway.fetch(new Request("https://repo.getpatched.dev/dists/bookworm/Release"), env);
   assert.equal(noFallback.status, 503, "a missing Debian pointer must not serve the active Focal snapshot");
+});
+
+test("public Jammy APT paths use the Jammy snapshot and never fall back to Focal", async () => {
+  const releaseId = "ubuntu-libgit2-jammy-public";
+  const snapshotId = "jammy-amd64-20261031T120000-r1-public";
+  const contents = new Map([
+    ["dists/jammy/Release", "Origin: GetPatched\nSuite: jammy\n"],
+    ["dists/jammy/InRelease", "signed jammy metadata"],
+    ["dists/jammy/Release.gpg", "signature"],
+    ["dists/jammy/main/binary-amd64/Packages", "Package: libgit2-1.1\n"],
+    ["dists/jammy/main/binary-amd64/Packages.gz", "gzip"],
+    ["dists/jammy/main/binary-amd64/Packages.xz", "xz"],
+    ["dists/jammy/main/source/Sources", "Package: libgit2\n"],
+    ["dists/jammy/main/source/Sources.gz", "source gzip"],
+    ["dists/jammy/main/source/Sources.xz", "source xz"],
+    ["getpatched-archive-keyring.gpg", "public key"],
+  ]);
+  const release = {
+    id: releaseId, state: "public", target_id: "ubuntu-jammy-amd64", sponsor_delay_hours: 0,
+    repository: "getpatched/packaging-libgit2", tag: "getpatched/jammy-1.1.0+getpatched1",
+    release_checks_passed: true,
+    required_assets: [{ name: "libgit2_amd64.deb", sha256: "a".repeat(64), r2_key: `staging/${releaseId}/${"a".repeat(64)}` }],
+  };
+  const files = [...contents].map(([path, value]) => ({
+    path, size: Buffer.byteLength(value), sha256: createHash("sha256").update(value).digest("hex"),
+  }));
+  const bucket = new MemorySnapshotBucket({
+    [`release-state/${releaseId}.json`]: release,
+    "repository-current/public.json": { id: "focal-20261025T120000-r40210000000-public" },
+    "repository-current/public/jammy/amd64.json": { id: snapshotId },
+    [`repository-snapshots/public/${snapshotId}.json`]: {
+      id: snapshotId, channel: "public", suite: "jammy", architecture: "amd64", release_ids: [releaseId], files,
+    },
+  });
+  for (const file of files) {
+    const bytes = Buffer.from(contents.get(file.path));
+    const digest = createHash("sha256").update(bytes).digest();
+    bucket.blobs.set(`repository-snapshots/public/${snapshotId}/${file.path}`, {
+      size: bytes.length,
+      checksums: { sha256: digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength) },
+      customMetadata: { snapshotId, channel: "public", path: file.path },
+      bytes,
+    });
+  }
+  const env = { RELEASES: bucket };
+  const served = await gateway.fetch(new Request("https://repo.getpatched.dev/dists/jammy/Release"), env);
+  assert.equal(served.status, 200, `response=${JSON.stringify(await served.clone().text())}`);
+  assert.equal(await served.text(), contents.get("dists/jammy/Release"));
+  await bucket.delete("repository-current/public/jammy/amd64.json");
+  const noFallback = await gateway.fetch(new Request("https://repo.getpatched.dev/dists/jammy/Release"), env);
+  assert.equal(noFallback.status, 503, "a missing Jammy pointer must not serve the active Focal snapshot");
 });
 
 class MemoryAssetBucket extends MemoryBucket {

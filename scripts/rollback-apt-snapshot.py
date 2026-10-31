@@ -14,6 +14,7 @@ PUBLISH = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PUBLISH)
 SNAPSHOT_TARGETS = {
     "ubuntu-focal-amd64": r"focal-",
+    "ubuntu-jammy-amd64": r"jammy-amd64-",
     "debian-bookworm-amd64": r"bookworm-amd64-",
     "debian-trixie-amd64": r"trixie-amd64-",
 }
