@@ -5,7 +5,7 @@ import signal
 import sys
 import unittest
 
-from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
+from regression import (libpng_followup_read_is_clean, libpng_output_buffer_result, libpng_overwrite_reproduced, libpng_stride_read_reproduced, memcheck_has_no_errors,
                         libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
                         tiff_baseline_reproduced, tiff_null_output_baseline_reproduced,
@@ -33,7 +33,8 @@ class ExecuteTimeout(unittest.TestCase):
         self.assertIsInstance(result["stdout"], str)
 
 
-def libpng_memcheck(test_id, executable, arguments, cve, returncode=0, memory_log="ERROR SUMMARY: 0 errors\n"):
+def libpng_memcheck(test_id, executable, arguments, cve, returncode=0,
+                    memory_log="==123== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n"):
     root = Path("/tmp/getpatched-regression-fixture")
     return {
         "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
@@ -282,6 +283,12 @@ class Tiff61143Classification(unittest.TestCase):
         self.assertFalse(tiff_null_output_patched_succeeded(mismatched_directory))
 
 class LibpngBaselineClassification(unittest.TestCase):
+    def test_clean_memcheck_requires_one_unambiguous_zero_error_summary(self):
+        clean = "==12== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)\n"
+        self.assertTrue(memcheck_has_no_errors(clean))
+        self.assertFalse(memcheck_has_no_errors(clean + "==13== ERROR SUMMARY: 1 errors from 1 contexts\n"))
+        self.assertFalse(memcheck_has_no_errors("==12== ERROR SUMMARY: 1 errors from 1 contexts\n"))
+
     def test_padded_stride_followup_requires_a_clean_memcheck_result(self):
         clean = {"returncode": 0, "timedOut": False, "memoryLog": "ERROR SUMMARY: 0 errors"}
         error = {"returncode": 97, "timedOut": False, "memoryLog": "ERROR SUMMARY: 1 errors"}
@@ -290,14 +297,34 @@ class LibpngBaselineClassification(unittest.TestCase):
 
     def test_specific_simplified_read_overwrite_is_a_reproduction(self):
         check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
-                                "CVE-2025-65018", 97,
-                                "Invalid write of size 4\nat png_image_finish_read\nlibpng16.so.16")
+                                "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
+        check["stdout"] = "result=overrun:output-buffer\n"
         self.assertTrue(libpng_overwrite_reproduced(check))
 
-    def test_unrelated_write_does_not_match(self):
+    def test_overwrite_cannot_be_mislabeled_as_another_cve(self):
         check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
-                                "CVE-2025-65018", 97,
-                                "Invalid write of size 4\nat unrelated\nlibpng16.so.16")
+                                "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
+        check["stdout"] = "result=overrun:output-buffer\n"
+        check["cve"] = "CVE-2026-22801"
+        self.assertFalse(libpng_overwrite_reproduced(check))
+
+    def test_patched_read_requires_intact_output_buffer(self):
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+                                "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
+        check["stdout"] = "result=within-output-buffer\n"
+        self.assertTrue(libpng_output_buffer_result(check, "result=within-output-buffer"))
+        check["stdout"] = "result=overrun:output-buffer\n"
+        self.assertFalse(libpng_output_buffer_result(check, "result=within-output-buffer"))
+
+    def test_no_reported_overrun_does_not_match(self):
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+                                "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
+        self.assertFalse(libpng_overwrite_reproduced(check))
+
+    def test_nonzero_memcheck_result_does_not_match_redzone_reproduction(self):
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+                                "CVE-2025-65018", 97, "ERROR SUMMARY: 1 errors")
+        check["stdout"] = "result=overrun:output-buffer\n"
         self.assertFalse(libpng_overwrite_reproduced(check))
 
     def test_specific_negative_stride_read_is_a_reproduction(self):
@@ -334,6 +361,7 @@ class LibpngBaselineClassification(unittest.TestCase):
             ], "returncode": 0, "timedOut": False, "passed": True,
                 "stdout": "differing channels: 0 / 3072\n"},
         ]
+        checks[0]["stdout"] = "result=within-output-buffer\n"
         self.assertTrue(libpng_patched_checks_succeeded(checks))
         wrong_probe = json.loads(json.dumps(checks))
         wrong_probe[0]["command"][6] = "/tmp/getpatched-regression-fixture/unrelated"
