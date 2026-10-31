@@ -234,7 +234,7 @@ def tiff_null_output_patched_succeeded(check):
 
 
 def make_tiff_loadimage_failure_fixture(source_path, destination_path):
-    """Create a bounded malformed-strip TIFF that fails inside tiffcrop loadImage."""
+    """Create a bounded malformed TIFF that fails before tiffcrop opens output."""
     source = bytearray(Path(source_path).read_bytes())
     if len(source) < 8 or source[:2] not in (b"II", b"MM"):
         raise ValueError("TIFF fixture has an invalid byte-order marker")
@@ -248,8 +248,29 @@ def make_tiff_loadimage_failure_fixture(source_path, destination_path):
     entry_count = struct.unpack_from(endian + "H", source, ifd_offset)[0]
     if entry_count > 4096 or ifd_offset + 2 + entry_count * 12 > len(source):
         raise ValueError("TIFF fixture directory exceeds its bounds")
-    for index in range(entry_count):
-        entry = ifd_offset + 2 + index * 12
+    entries_start = ifd_offset + 2
+    entries = [
+        bytes(source[entries_start + index * 12:entries_start + (index + 1) * 12])
+        for index in range(entry_count)
+    ]
+    has_photometric = any(struct.unpack_from(endian + "H", entry)[0] == 262 for entry in entries)
+    if not has_photometric:
+        raise ValueError("TIFF fixture has no PhotometricInterpretation tag to remove")
+    has_strip_offsets = any(struct.unpack_from(endian + "H", entry)[0] == 273 for entry in entries)
+    if not has_strip_offsets:
+        raise ValueError("TIFF fixture has no StripOffsets tag")
+
+    next_ifd_position = entries_start + entry_count * 12
+    if next_ifd_position + 4 > len(source):
+        raise ValueError("TIFF fixture next-directory pointer is outside the file")
+    next_ifd = struct.unpack_from(endian + "I", source, next_ifd_position)[0]
+    entries = [entry for entry in entries if struct.unpack_from(endian + "H", entry)[0] != 262]
+    struct.pack_into(endian + "H", source, ifd_offset, len(entries))
+    source[entries_start:entries_start + len(entries) * 12] = b"".join(entries)
+    struct.pack_into(endian + "I", source, entries_start + len(entries) * 12, next_ifd)
+
+    for index in range(len(entries)):
+        entry = entries_start + index * 12
         tag, kind, count = struct.unpack_from(endian + "HHI", source, entry)
         if tag != 273:
             continue

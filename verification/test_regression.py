@@ -226,10 +226,11 @@ class Tiff61143Classification(unittest.TestCase):
         "main: Unable to load source image.\n"
     )
 
-    def test_malformed_fixture_moves_strip_offset_outside_file(self):
-        minimal_tiff = (b"II*\x00\x08\x00\x00\x00\x01\x00"
-                        b"\x11\x01\x04\x00\x01\x00\x00\x00\x1a\x00\x00\x00"
-                        b"\x00\x00\x00\x00")
+    def test_fixture_removes_photometric_tag_and_moves_strip_offset_outside_file(self):
+        minimal_tiff = (b"II*\x00\x08\x00\x00\x00\x02\x00"
+                        b"\x06\x01\x03\x00\x01\x00\x00\x00\x01\x00\x00\x00"
+                        b"\x11\x01\x04\x00\x01\x00\x00\x00\x26\x00\x00\x00"
+                        b"\x00\x00\x00\x00data")
         with tempfile.TemporaryDirectory(prefix="getpatched-tiff-fixture-test-") as directory:
             source = Path(directory) / "source.tif"
             destination = Path(directory) / "loadimage-failure.tif"
@@ -237,8 +238,15 @@ class Tiff61143Classification(unittest.TestCase):
             make_tiff_loadimage_failure_fixture(source, destination)
             generated = destination.read_bytes()
             self.assertEqual(len(generated), len(minimal_tiff))
+            self.assertEqual(struct.unpack_from("<H", generated, 8)[0], 1)
+            self.assertEqual(struct.unpack_from("<H", generated, 10)[0], 273)
             self.assertEqual(struct.unpack_from("<I", generated, 18)[0], 0xFFFFFFF0)
-            self.assertEqual(generated[:18], minimal_tiff[:18])
+            self.assertEqual(struct.unpack_from("<I", generated, 22)[0], 0)
+            self.assertEqual(generated[:8], minimal_tiff[:8])
+            no_photometric = Path(directory) / "no-photometric.tif"
+            no_photometric.write_bytes(generated)
+            with self.assertRaises(ValueError):
+                make_tiff_loadimage_failure_fixture(no_photometric, destination)
             invalid = Path(directory) / "invalid.tif"
             invalid.write_bytes(b"not a TIFF")
             with self.assertRaises(ValueError):
