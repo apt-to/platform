@@ -178,7 +178,7 @@ class PublicCatalogueContract(unittest.TestCase):
                     "libxml2": "40899705050",
                     "libarchive": "40899709850",
                     "libgit2": "41142564467",
-                    "poppler": "41146751480",
+                    "poppler": "41149614570",
                 }[source]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
                 self.assertEqual(

@@ -219,7 +219,7 @@
           "earlyUse": ["private", "commercial"],
           "earlyRedistributionAllowed": false,
           "status": "development-verified-production-release-pending",
-          "verification": "https://github.com/getpatched/platform/actions/runs/41146751480",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41149614570",
           "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
           "sourceUrl": "https://github.com/getpatched/packaging-poppler/tree/getpatched/focal",
           "patchUrl": "https://github.com/getpatched/packaging-poppler/blob/getpatched/focal/patches/CVE-2025-52885-focal.patch",
