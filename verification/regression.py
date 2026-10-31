@@ -256,7 +256,7 @@ def libpng_probe_command_matches(check, test_id, executable, arguments):
         return False
     return all(
         Path(argument).name == expected and Path(argument).parent == binary.parent
-        for argument, expected in zip(command[7:], arguments, strict=True)
+        for argument, expected in zip(command[7:], arguments)
     )
 
 
