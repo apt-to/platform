@@ -14,7 +14,7 @@
         "containerPlatform": "linux/amd64"
       },
       "repository": {
-        "enabled": false,
+        "enabled": true,
         "suite": "focal",
         "architecture": "amd64"
       },
@@ -85,7 +85,7 @@
         "containerPlatform": "linux/amd64"
       },
       "repository": {
-        "enabled": false,
+        "enabled": true,
         "suite": "jammy",
         "architecture": "amd64"
       },
