@@ -1,5 +1,17 @@
 # GetPatched evidence index
 
+## Production repository gate and release prerequisites — 31 October 2026
+
+- Platform PR [#97](https://github.com/getpatched/platform/pull/97) merged as `0ad16a5a79681aeda7d799846c613117fb50d0be`, enabling the Focal and Jammy amd64 repository profiles while leaving Debian profiles disabled. Main quality run [41171884254](https://github.com/getpatched/platform/actions/runs/41171884254) passed.
+- The deployed R2 binding passed write/read/hash/delete cleanup in [run 41171975272](https://github.com/getpatched/platform/actions/runs/41171975272). The deployed signing-key check passed in [run 41172024295](https://github.com/getpatched/platform/actions/runs/41172024295). APT host requests for Focal and Jammy return HTTP 503 with `repository snapshot is not available`, as expected before a signed snapshot exists; no packages or repository metadata have been published.
+- The organization Actions variables page contains no variables, and repository plus environment checks found no `GETPATCHED_REPOSITORY_ENABLED` variable. The publication gate remains off. The organization GitHub Apps page lists no installed Apps. The Worker currently consumes a static `GITHUB_TOKEN`; its permission set cannot be inspected from Cloudflare. The linked GitHub account shows no clearly identified GetPatched fine-grained token. No token was created, replaced, or copied.
+- GitHub's [immutable-release API](https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository) reports immutable releases enabled for `getpatched/packaging-libgit2` and `getpatched/packaging-poppler`; no releases existed in those repositories when checked. The settings remain disabled for unverified libpng and TIFF candidates.
+- The Worker token-scope implementation is being changed to support two fine-grained tokens: Actions read on `getpatched/platform`, and Contents write plus Administration read on the six package repositories. GitHub documents Actions run reads under [workflow-run permissions](https://docs.github.com/en/rest/actions/workflow-runs) and release creation under [release permissions](https://docs.github.com/en/rest/releases/releases); the immutable-release check requires Administration read. `GITHUB_TOKEN` remains a temporary fallback while migrating. The code, test, and runbook changes are not deployed until independent review and CI complete.
+
+### Next actions
+
+Obtain approval immediately before creating and storing the two purpose-limited Cloudflare Worker credentials. Then run fresh package builds from main, stage only verified zero-delay candidates, publish signed snapshots, and validate the live APT endpoints from fresh clients.
+
 ## libpng Focal baseline rerun after Python 3.8 fix — 31 October 2026
 
 - Hosted run [41166668036](https://github.com/getpatched/platform/actions/runs/41166668036) used the corrected classifier on Ubuntu Focal amd64 with public recipe commit `59bc42705b209884df5c335580c36c60c26f313b`. It recognized the installed CVE-2026-22801 baseline invalid reads and the clean CVE-2026-22695 padded-stride check. The CVE-2025-65018 fixture still returned `result=within-output-buffer` with zero Memcheck errors, so the baseline gate stopped before patched-package verification or scanning.

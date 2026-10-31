@@ -1672,11 +1672,13 @@ test("deadline parser requires an explicit timezone", () => {
 test("release gate requires the named successful package job and exact tested source commit", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
+  const authorizations = new Map();
   let displayTitle = `Verify libxml2 on ubuntu-focal-amd64 at ${"b".repeat(40)}`;
   let signerLogin = TEST_RELEASE_TAG_SIGNER;
   let annotatedSha = "d".repeat(40);
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, options = {}) => {
     calls.push(String(url));
+    authorizations.set(String(url), options.headers?.authorization);
     if (String(url).endsWith("/actions/runs/456")) {
       return Response.json({
         id: 456, event: "workflow_dispatch", conclusion: "success", head_branch: "main",
@@ -1701,12 +1703,20 @@ test("release gate requires the named successful package job and exact tested so
   };
   try {
     const verified = await verifyPackageRun(
-      { GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER },
+      { GITHUB_API: "https://api.github.com", GITHUB_ACTIONS_TOKEN: "actions-only", GITHUB_RELEASE_TOKEN: "release-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER },
       "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456,
     );
     assert.equal(verified.job_id, 9);
     assert.equal(verified.run_id, 456);
     assert.equal(calls.length, 6);
+    assert.equal(authorizations.get("https://api.github.com/repos/getpatched/platform/actions/runs/456"), "Bearer actions-only");
+    assert.equal(authorizations.get("https://api.github.com/repos/getpatched/platform/actions/runs/456/jobs?per_page=100"), "Bearer actions-only");
+    assert.equal(authorizations.get("https://api.github.com/repos/getpatched/packaging-libxml2/git/ref/tags/getpatched/1.2.3"), "Bearer release-only");
+    assert.equal(authorizations.get("https://api.github.com/graphql"), "Bearer release-only");
+    await assert.rejects(
+      verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_RELEASE_TOKEN: "release-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456),
+      /GitHub actions token is not configured/,
+    );
     annotatedSha = "e".repeat(40);
     await assert.rejects(
       verifyPackageRun({ GITHUB_API: "https://api.github.com", GITHUB_TOKEN: "test-only", GETPATCHED_RELEASE_TAG_SIGNER: TEST_RELEASE_TAG_SIGNER }, "getpatched/packaging-libxml2", "b".repeat(40), "getpatched/1.2.3", 456),

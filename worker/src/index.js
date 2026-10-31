@@ -1810,14 +1810,14 @@ function packageName(repository) {
 async function verifyPackageRun(env, repository, sourceCommit, tag, runId, targetId = "ubuntu-focal-amd64", sourceBranch = "getpatched/focal") {
   if (!Number.isSafeInteger(runId) || runId <= 0) throw new Error("verification_run_id must be a positive integer");
   if (typeof sourceCommit !== "string" || !/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error("source_commit must be a full Git commit SHA");
-  const runResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}`);
+  const runResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}`, {}, "actions");
   const run = await runResponse.json();
   const expectedPath = ".github/workflows/package-verification.yml";
   const expectedTitle = `Verify ${packageName(repository)} on ${targetId} at ${sourceCommit}`;
   if (run.event !== "workflow_dispatch" || run.conclusion !== "success" || run.head_branch !== "main" || run.path !== expectedPath || run.display_title !== expectedTitle) {
     throw new Error("verification run must be a successful package-verification dispatch from main");
   }
-  const jobsResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}/jobs?per_page=100`);
+  const jobsResponse = await githubRequest(env, `/repos/getpatched/platform/actions/runs/${runId}/jobs?per_page=100`, {}, "actions");
   const jobs = await jobsResponse.json();
   const requiredJob = `package (${packageName(repository)})`;
   const job = jobs.jobs?.find((candidate) => candidate.name === requiredJob && candidate.run_attempt === run.run_attempt);
@@ -1855,7 +1855,7 @@ async function verifySignedSourceTag(env, repository, tag, sourceCommit, sourceB
     method: "POST",
     headers: {
       accept: "application/vnd.github+json",
-      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      authorization: `Bearer ${githubToken(env, "release")}`,
       "content-type": "application/json",
       "x-github-api-version": "2022-11-28",
     },
@@ -2008,13 +2008,21 @@ async function uploadReleaseAsset(request, env, id, name, kind = "binary") {
   return json({ error: "staging key already exists with different content" }, 409);
 }
 
-async function githubRequest(env, path, options = {}) {
-  if (!env.GITHUB_TOKEN) throw new Error("GitHub publication token is not configured");
+function githubToken(env, purpose) {
+  const token = purpose === "actions"
+    ? env.GITHUB_ACTIONS_TOKEN || env.GITHUB_TOKEN
+    : env.GITHUB_RELEASE_TOKEN || env.GITHUB_TOKEN;
+  if (!token) throw new Error(`GitHub ${purpose} token is not configured`);
+  return token;
+}
+
+async function githubRequest(env, path, options = {}, purpose = "release") {
+  const token = githubToken(env, purpose);
   const response = await fetch(`${env.GITHUB_API}${path}`, {
     ...options,
     headers: {
       accept: "application/vnd.github+json",
-      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      authorization: `Bearer ${token}`,
       "x-github-api-version": "2022-11-28",
       ...(options.headers || {}),
     },
@@ -2032,7 +2040,7 @@ async function githubUpload(url, env, options = {}) {
     ...options,
     headers: {
       accept: "application/vnd.github+json",
-      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      authorization: `Bearer ${githubToken(env, "release")}`,
       "x-github-api-version": "2022-11-28",
       ...(options.headers || {}),
     },
@@ -2045,7 +2053,7 @@ async function ensureGithubRelease(env, record) {
   const [owner, repo] = record.repository.split("/");
   const tag = encodeURIComponent(record.tag);
   const existing = await fetch(`${env.GITHUB_API}/repos/${owner}/${repo}/releases/tags/${tag}`, {
-    headers: { accept: "application/vnd.github+json", authorization: `Bearer ${env.GITHUB_TOKEN}`, "x-github-api-version": "2022-11-28" },
+    headers: { accept: "application/vnd.github+json", authorization: `Bearer ${githubToken(env, "release")}`, "x-github-api-version": "2022-11-28" },
   });
   if (existing.ok) {
     const release = await existing.json();
@@ -2066,7 +2074,7 @@ async function publishSourceAssets(env, record) {
   const [owner, repo] = record.repository.split("/");
   const tagName = sourceReleaseTag(record);
   const lookup = await fetch(`${env.GITHUB_API}/repos/${owner}/${repo}/releases/tags/${tagName.split("/").map(encodeURIComponent).join("/")}`, {
-    headers: { accept: "application/vnd.github+json", authorization: `Bearer ${env.GITHUB_TOKEN}`, "x-github-api-version": "2022-11-28" },
+    headers: { accept: "application/vnd.github+json", authorization: `Bearer ${githubToken(env, "release")}`, "x-github-api-version": "2022-11-28" },
   });
   let release;
   if (lookup.ok) {
@@ -2120,7 +2128,7 @@ async function assetReadback(env, release, name) {
   const asset = assets.find((candidate) => candidate.name === name);
   if (!asset) return null;
   const download = await fetch(asset.url, {
-    headers: { accept: "application/octet-stream", authorization: `Bearer ${env.GITHUB_TOKEN}`, "x-github-api-version": "2022-11-28" },
+    headers: { accept: "application/octet-stream", authorization: `Bearer ${githubToken(env, "release")}`, "x-github-api-version": "2022-11-28" },
     redirect: "follow",
   });
   if (!download.ok) throw new Error(`GitHub asset readback returned ${download.status}`);
