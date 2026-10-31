@@ -84,7 +84,7 @@ def validate_source_asset(asset, package, version, *, distribution, descriptor=F
     approved_hosts = {
         "Ubuntu": {
             "launchpad.net", "www.launchpad.net", "archive.ubuntu.com",
-            "security.ubuntu.com",
+            "security.ubuntu.com", "snapshot.ubuntu.com",
         },
         "Debian": {"snapshot.debian.org"},
     }.get(distribution, set())

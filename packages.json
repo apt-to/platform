@@ -72,6 +72,43 @@
         {"type": "both", "uri": "https://snapshot.debian.org/archive/debian-security/20261030T000000Z/", "suites": ["trixie-security"], "components": ["main"]}
       ],
       "packageEcosystem": "Debian:13"
+    },
+    "ubuntu-jammy-amd64": {
+      "distribution": "Ubuntu",
+      "releaseVersion": "22.04",
+      "codename": "jammy",
+      "architecture": "amd64",
+      "sourceBranch": "getpatched/jammy",
+      "advisoryEcosystem": "Ubuntu:22.04:LTS",
+      "build": {
+        "runner": "ubuntu-24.04",
+        "containerPlatform": "linux/amd64"
+      },
+      "repository": {
+        "enabled": false,
+        "suite": "jammy",
+        "architecture": "amd64"
+      },
+      "archiveSnapshot": "20261030T000000Z",
+      "baseImage": "ubuntu:22.04@sha256:076e7bf82319619f28dd0aa9c02ab34b055ad37100395b4f49a2ffba04fb5e11",
+      "aptSources": [
+        {
+          "type": "both",
+          "uri": "https://snapshot.ubuntu.com/ubuntu/20261030T000000Z/",
+          "suites": [
+            "jammy",
+            "jammy-updates",
+            "jammy-security"
+          ],
+          "components": [
+            "main",
+            "universe",
+            "restricted",
+            "multiverse"
+          ]
+        }
+      ],
+      "packageEcosystem": "Ubuntu:22.04:LTS"
     }
   },
   "scanner": {
@@ -257,7 +294,45 @@
             "earlyRedistributionAllowed": false,
             "publicLicenseScope": "getpatched-authored-contributions-only"
           }
-        }
+        },
+          "ubuntu-jammy-amd64": {
+            "baselineVersion": "1.1.0+dfsg.1-4.1ubuntu0.1",
+            "sourcePocket": "security",
+            "packageEcosystem": "Ubuntu:22.04:LTS",
+            "packageVersion": "1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1",
+            "releaseSerial": 1,
+            "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+            "binaryPackages": [
+              "libgit2-1.1",
+              "libgit2-dev"
+            ],
+            "targetCve": "CVE-2026-53584",
+            "targetCves": [
+              "CVE-2026-53584",
+              "CVE-2026-53585",
+              "CVE-2026-53586"
+            ],
+            "advisory": "https://ubuntu.com/security/CVE-2026-53584",
+            "advisories": {
+              "CVE-2026-53584": "https://ubuntu.com/security/CVE-2026-53584",
+              "CVE-2026-53585": "https://ubuntu.com/security/CVE-2026-53585",
+              "CVE-2026-53586": "https://ubuntu.com/security/CVE-2026-53586"
+            },
+            "candidateStatus": "unverified-development-candidate",
+            "releaseAccess": {
+              "policy": "public-after-checks",
+              "sponsorDelayHours": 0,
+              "sponsorEligibility": null,
+              "earlyBinaryLicenseId": null,
+              "publicContributionSpdx": "MIT",
+              "earlyUse": [
+                "private",
+                "commercial"
+              ],
+              "earlyRedistributionAllowed": false,
+              "publicLicenseScope": "getpatched-authored-contributions-only"
+            }
+          }
       }
     },
     "poppler": {

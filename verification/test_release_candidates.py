@@ -164,7 +164,9 @@ class ReleaseCandidateOutput(unittest.TestCase):
         self.assertIn('eligibility.get("candidateStatus") != "development-verified-production-release-pending"', workflow)
         self.assertIn('eligibility.get("candidateVerified") is not True', workflow)
         self.assertIn('eligibility.get("verificationChecksPassed") is not True', workflow)
-        self.assertIn('expected_esm = "not-tested-out-of-scope" if target == "ubuntu-focal-amd64" else "not-applicable"', workflow)
+        self.assertIn('"not-tested-out-of-scope" if target.startswith("ubuntu-")', workflow)
+        self.assertIn('"not-applicable" if target.startswith("debian-")', workflow)
+        self.assertIn('expected_esm is None or eligibility.get("ubuntuProEsmCompatibility") != expected_esm', workflow)
 
     def test_only_verified_selected_binaries_are_persisted_with_identity(self):
         with tempfile.TemporaryDirectory() as directory:
