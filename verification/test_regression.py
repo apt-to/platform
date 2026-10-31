@@ -5,7 +5,7 @@ import signal
 import sys
 import unittest
 
-from regression import (libpng_followup_read_is_clean, libpng_output_buffer_result, libpng_overwrite_reproduced, libpng_stride_read_reproduced, memcheck_has_no_errors,
+from regression import (LIBPNG_CVE_2025_65018_FIXTURE, libpng_followup_read_is_clean, libpng_output_buffer_result, libpng_overwrite_reproduced, libpng_stride_read_reproduced, memcheck_has_no_errors,
                         libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
                         tiff_baseline_reproduced, tiff_null_output_baseline_reproduced,
@@ -296,20 +296,20 @@ class LibpngBaselineClassification(unittest.TestCase):
         self.assertFalse(libpng_followup_read_is_clean(error))
 
     def test_specific_simplified_read_overwrite_is_a_reproduction(self):
-        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE],
                                 "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
         check["stdout"] = "result=overrun:output-buffer\n"
         self.assertTrue(libpng_overwrite_reproduced(check))
 
     def test_overwrite_cannot_be_mislabeled_as_another_cve(self):
-        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE],
                                 "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
         check["stdout"] = "result=overrun:output-buffer\n"
         check["cve"] = "CVE-2026-22801"
         self.assertFalse(libpng_overwrite_reproduced(check))
 
     def test_patched_read_requires_intact_output_buffer(self):
-        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE],
                                 "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
         check["stdout"] = "result=within-output-buffer\n"
         self.assertTrue(libpng_output_buffer_result(check, "result=within-output-buffer"))
@@ -317,12 +317,12 @@ class LibpngBaselineClassification(unittest.TestCase):
         self.assertFalse(libpng_output_buffer_result(check, "result=within-output-buffer"))
 
     def test_no_reported_overrun_does_not_match(self):
-        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE],
                                 "CVE-2025-65018", 0, "ERROR SUMMARY: 0 errors")
         self.assertFalse(libpng_overwrite_reproduced(check))
 
     def test_nonzero_memcheck_result_does_not_match_redzone_reproduction(self):
-        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"],
+        check = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE],
                                 "CVE-2025-65018", 97, "ERROR SUMMARY: 1 errors")
         check["stdout"] = "result=overrun:output-buffer\n"
         self.assertFalse(libpng_overwrite_reproduced(check))
@@ -340,7 +340,7 @@ class LibpngBaselineClassification(unittest.TestCase):
         self.assertFalse(libpng_stride_read_reproduced(check))
 
     def test_mislabeled_probe_or_missing_fixture_cannot_reproduce_libpng_cve(self):
-        wrong_probe = libpng_memcheck("read-interlaced-rgba.c", "unrelated", ["adam7.png"],
+        wrong_probe = libpng_memcheck("read-interlaced-rgba.c", "unrelated", [LIBPNG_CVE_2025_65018_FIXTURE],
                                       "CVE-2025-65018", 97,
                                       "Invalid write png_image_finish_read libpng16.so.16")
         wrong_fixture = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["flat.png"],
@@ -351,7 +351,7 @@ class LibpngBaselineClassification(unittest.TestCase):
 
     def test_patched_libpng_gate_binds_all_cve_checks_and_adam7_comparison(self):
         checks = [
-            libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"], "CVE-2025-65018"),
+            libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE], "CVE-2025-65018"),
             libpng_memcheck("CVE-2026-22695-padded-stride-follow-up", "read-padded-stride", ["adam7.png"], "CVE-2026-22695"),
             libpng_memcheck("write-negative-stride.c", "write-negative-stride", [], "CVE-2026-22801"),
             {"testId": "adam7-pixel-equality", "command": [
