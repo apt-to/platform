@@ -177,7 +177,7 @@ class PublicCatalogueContract(unittest.TestCase):
         self.assertNotIn("libgit2", set(platform["packages"]) - set(entries))
         self.assertIn("ubuntu-jammy-amd64", entries["libgit2"]["targets"])
         jammy = entries["libgit2"]["targets"]["ubuntu-jammy-amd64"]
-        self.assertEqual(jammy["verification"], "https://github.com/getpatched/platform/actions/runs/41165518728")
+        self.assertEqual(jammy["verification"], "https://github.com/getpatched/platform/actions/runs/41167536831")
         self.assertEqual(
             {patch["slug"] for patch in jammy["patches"]},
             {"cve-2026-53584-jammy", "cve-2026-53585-jammy", "cve-2026-53586-jammy"},
@@ -226,7 +226,7 @@ class PublicCatalogueContract(unittest.TestCase):
                     ("libxml2", "ubuntu-focal-amd64"): "40899705050",
                     ("libarchive", "ubuntu-focal-amd64"): "40899709850",
                     ("libgit2", "ubuntu-focal-amd64"): "41162605227",
-                    ("libgit2", "ubuntu-jammy-amd64"): "41165518728",
+                    ("libgit2", "ubuntu-jammy-amd64"): "41167536831",
                     ("poppler", "ubuntu-focal-amd64"): "41149614570",
                 }[(source, target_id)]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
