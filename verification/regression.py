@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import shlex
 import signal
+import struct
 import subprocess
 import threading
 import tempfile
@@ -163,18 +164,18 @@ def memcheck_log_path_matches(check, command):
 def tiff_null_output_baseline_reproduced(check):
     command = check.get("command", [])
     log = check.get("memoryLog", "")
+    output_text = check.get("stdout", "") + check.get("stderr", "")
     output = Path(command[-1]) if command else Path("/")
     debug_dump = next((command[i + 1] for i, arg in enumerate(command[:-1]) if arg == "-D"), "")
     exact_probe = (
-        len(command) == 15
+        len(command) == 11
         and Path(command[0]).name == "valgrind"
         and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
         and memcheck_log_path_matches(check, command)
         and Path(command[6]).name == "tiffcrop"
-        and command[7:11] == ["-U", "px", "-m", "0,2,0,2"]
-        and command[11] == "-D"
+        and command[7] == "-D"
         and debug_dump.startswith("format:txt,level:2,output:")
-        and Path(command[13]).name == "multisample.tif"
+        and Path(command[9]).name == "tiffcrop-loadimage-failure.tif"
         and Path(output).name == "tiffcrop-output.tif"
     )
     expected_fault = any(
@@ -183,10 +184,12 @@ def tiff_null_output_baseline_reproduced(check):
         and re.search(r"(?m)^==\d+==\s+at .*TIFFFileName \(in /usr/lib(?:/[^ )]+)?/libtiff(?:xx)?\.so(?:\.[0-9]+)*\)", block.group("body"))
         for block in valgrind_invalid_access_blocks(log)
     )
+    loadimage_failed = "loadImage:" in output_text and "Unable to load source image." in output_text
     return (
         not check.get("timedOut", False)
         and check.get("returncode") == 97
         and exact_probe
+        and loadimage_failed
         and expected_fault
         and re.search(r"(?m)^==\d+== ERROR SUMMARY: [1-9]\d* errors?", log)
     )
@@ -198,36 +201,67 @@ def tiff_null_output_patched_succeeded(check):
     output_text = check.get("stdout", "") + check.get("stderr", "")
     output_path = command[-1] if command else ""
     debug_output_path = check.get("debugOutputPath", "")
-    debug_option = command[12] if len(command) > 12 else ""
+    debug_option = command[8] if len(command) > 8 else ""
     debug_prefix = debug_option.removeprefix("format:txt,level:2,output:")
     expected_debug_output = debug_prefix + "-write-001.txt"
     return (
         not check.get("timedOut", False)
         and check.get("returncode") == 1
-        and len(command) == 15
+        and len(command) == 11
         and Path(command[0]).name == "valgrind"
         and command[1:5] == ["--tool=memcheck", "--error-exitcode=97", "--leak-check=no", "--read-var-info=yes"]
         and memcheck_log_path_matches(check, command)
         and Path(command[6]).name == "tiffcrop"
-        and command[7:11] == ["-U", "px", "-m", "0,2,0,2"]
-        and command[11] == "-D"
+        and command[7] == "-D"
         and debug_option.startswith("format:txt,level:2,output:")
         and bool(debug_prefix)
         and "," not in debug_prefix
         and Path(debug_prefix).is_absolute()
-        and Path(command[13]).name == "multisample.tif"
+        and Path(command[9]).name == "tiffcrop-loadimage-failure.tif"
         and Path(output_path).name == "tiffcrop-output.tif"
         and Path(debug_prefix).parent.resolve() == Path(output_path).parent.resolve()
         and isinstance(debug_output_path, str)
         and Path(debug_output_path).is_absolute()
         and Path(debug_output_path).resolve() == Path(expected_debug_output).resolve()
         and Path(expected_debug_output).parent.resolve() == Path(output_path).parent.resolve()
-        and "Unable to define crop regions" in output_text
-        and "Combined left and right margins exceed image width" in output_text
+        and "loadImage:" in output_text
+        and "Unable to load source image." in output_text
+        and "Read error on strip 0" in output_text
         and Path(debug_output_path).name in check.get("debugOutputFiles", [])
         and "Completed run for (not opened)" in check.get("debugOutput", "")
         and "ERROR SUMMARY: 0 errors" in log
     )
+
+
+def make_tiff_loadimage_failure_fixture(source_path, destination_path):
+    """Create a bounded malformed-strip TIFF that fails inside tiffcrop loadImage."""
+    source = bytearray(Path(source_path).read_bytes())
+    if len(source) < 8 or source[:2] not in (b"II", b"MM"):
+        raise ValueError("TIFF fixture has an invalid byte-order marker")
+    endian = "<" if source[:2] == b"II" else ">"
+    magic = struct.unpack_from(endian + "H", source, 2)[0]
+    if magic != 42:
+        raise ValueError("TIFF fixture must use the bounded classic TIFF format")
+    ifd_offset = struct.unpack_from(endian + "I", source, 4)[0]
+    if ifd_offset + 2 > len(source):
+        raise ValueError("TIFF fixture directory is outside the file")
+    entry_count = struct.unpack_from(endian + "H", source, ifd_offset)[0]
+    if entry_count > 4096 or ifd_offset + 2 + entry_count * 12 > len(source):
+        raise ValueError("TIFF fixture directory exceeds its bounds")
+    for index in range(entry_count):
+        entry = ifd_offset + 2 + index * 12
+        tag, kind, count = struct.unpack_from(endian + "HHI", source, entry)
+        if tag != 273:
+            continue
+        if kind != 4 or count < 1:
+            raise ValueError("TIFF fixture strip offsets are not a LONG array")
+        values_offset = entry + 8 if count == 1 else struct.unpack_from(endian + "I", source, entry + 8)[0]
+        if values_offset + 4 > len(source):
+            raise ValueError("TIFF fixture strip-offset array is outside the file")
+        struct.pack_into(endian + "I", source, values_offset, 0xFFFFFFF0)
+        Path(destination_path).write_bytes(source)
+        return
+    raise ValueError("TIFF fixture has no StripOffsets tag")
 
 
 def consumer_version_succeeded(check, expected_banner):
@@ -520,13 +554,15 @@ def main():
                 raise RuntimeError("TIFF regression fixture is missing or exceeds its size bound")
             output = temp / "tiffcrop-output.tif"
             if tiff_cve_required(policy, "CVE-2025-61143"):
+                null_fixture = temp / "tiffcrop-loadimage-failure.tif"
+                make_tiff_loadimage_failure_fixture(fixture, null_fixture)
                 null_dump_prefix = temp / "tiffcrop-null-output"
                 null_log = temp / "tiffcrop-null-output.valgrind"
                 null_check = execute([
                     "valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
                     "--read-var-info=yes", "--log-file=" + str(null_log),
-                    "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
-                    f"format:txt,level:2,output:{null_dump_prefix}", str(fixture), str(output),
+                    "tiffcrop", "-D", f"format:txt,level:2,output:{null_dump_prefix}",
+                    str(null_fixture), str(output),
                 ])
                 null_check["memoryLog"] = null_log.read_text() if null_log.exists() else ""
                 null_check["memoryLogPath"] = str(null_log)

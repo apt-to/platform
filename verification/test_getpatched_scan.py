@@ -26,16 +26,41 @@ TIFF_BASELINE_LOG = (
     "==123== ERROR SUMMARY: 1 errors\n"
 )
 TIFF_NULL_OUTPUT_COMMAND = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                            "--read-var-info=yes", "--log-file=/tmp/null-output.log", "tiffcrop", "-U", "px",
-                            "-m", "0,2,0,2", "-D", "format:txt,level:2,output:/tmp/tiffcrop-null-output",
-                            "/tmp/multisample.tif",
+                            "--read-var-info=yes", "--log-file=/tmp/null-output.log", "tiffcrop", "-D",
+                            "format:txt,level:2,output:/tmp/tiffcrop-null-output",
+                            "/tmp/tiffcrop-loadimage-failure.tif",
                             "/tmp/tiffcrop-output.tif"]
 TIFF_NULL_OUTPUT_BASELINE_LOG = (
     "==123== Invalid read of size 8\n"
-    "==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n"
+    "==123==    at 0x123: TIFFFileName (in /usr/lib/x86_64-linux-gnu/libtiff.so.5.7.0)\n"
     "==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n"
     "==123== ERROR SUMMARY: 1 errors from 1 contexts\n"
 )
+TIFF_LOADIMAGE_FAILURE = (
+    "TIFFFillStrip: Read error on strip 0; got 18446744069414584593 bytes, expected 1.\n"
+    "loadImage: Unable to read separate strips into buffer.\n"
+    "main: Unable to load source image.\n"
+)
+
+
+def tiff_null_output_check(root, phase):
+    root = Path(root)
+    log_path = root / "null-output.log"
+    debug_prefix = root / "tiffcrop-null-output"
+    command = [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + str(log_path), "tiffcrop", "-D",
+               "format:txt,level:2,output:" + str(debug_prefix),
+               str(root / "tiffcrop-loadimage-failure.tif"), str(root / "tiffcrop-output.tif")]
+    patched = phase == "patched"
+    return {
+        "command": command, "returncode": 1 if patched else 97, "stdout": "",
+        "stderr": TIFF_LOADIMAGE_FAILURE, "memoryLogPath": str(log_path),
+        "debugOutputPath": str(debug_prefix) + "-write-001.txt",
+        "debugOutputFiles": [debug_prefix.name + "-write-001.txt"] if patched else [],
+        "debugOutput": "Reading image 1 of 1 total pages.\n Completed run for (not opened)\n" if patched else "",
+        "timedOut": False, "cve": "CVE-2025-61143",
+        "testId": "tiffcrop-null-output-debug-log", "passed": True,
+        "memoryLog": TIFF_NULL_OUTPUT_BASELINE_LOG if not patched else TIFF_PATCHED_LOG,
+    }
 TIFF_PATCHED_LOG = "==123== ERROR SUMMARY: 0 errors from 0 contexts\n"
 import importlib.util
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -354,7 +379,7 @@ Architecture: i386
         self.assertEqual(records, [])
 
     def test_unverified_candidate_requires_version_match_and_regression_evidence(self):
-        candidate = "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"
+        candidate = "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2"
 
         with tempfile.TemporaryDirectory(prefix="getpatched-tiff-regression-proof-") as directory:
             proof = Path(directory)
@@ -362,7 +387,6 @@ Architecture: i386
             self.make_tiff_recipe(recipe_directory)
             verification_feed = proof / "verification-advisory.json"
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", candidate)):
-                null_command = [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + str(proof / "null-output.log"), *TIFF_NULL_OUTPUT_COMMAND[6:]]
                 cve_check = {
                     "command": TIFF_BASELINE_COMMAND,
                     "returncode": 97 if phase == "baseline" else 0, "stdout": "", "stderr": "",
@@ -373,18 +397,7 @@ Architecture: i386
                 if phase == "patched":
                     cve_check["command"] = ["valgrind", "--tool=memcheck", "tiffcrop", "-D",
                                              "format:txt,level:2,input:debug", "multisample.tif", "output.tif"]
-                null_output_check = {
-                    "command": [*null_command[:12], "format:txt,level:2,output:" + str(proof / "tiffcrop-null-output"), str(proof / "multisample.tif"), str(proof / "tiffcrop-output.tif")],
-                    "returncode": 97 if phase == "baseline" else 1, "stdout": "",
-                    "stderr": "" if phase == "baseline" else "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
-                    "memoryLogPath": str(proof / "null-output.log"),
-                    "debugOutputPath": str(proof / "tiffcrop-null-output-write-001.txt"),
-                    "debugOutputFiles": [] if phase == "baseline" else ["tiffcrop-null-output-write-001.txt"],
-                    "debugOutput": "" if phase == "baseline" else " Completed run for (not opened)\n",
-                    "timedOut": False, "cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log",
-                    "passed": True,
-                    "memoryLog": TIFF_NULL_OUTPUT_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n",
-                }
+                null_output_check = tiff_null_output_check(proof, phase)
                 checks = [cve_check, null_output_check]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "output.tif"], "returncode": 0,
@@ -449,8 +462,7 @@ Architecture: i386
             verification_feed_hash = hashlib.sha256(verification_feed.read_bytes()).hexdigest()
         self.assertEqual(baseline_result.returncode, 1, baseline_result.stderr)
         baseline_findings = set(json.loads(baseline_result.stdout)["findingsById"])
-        self.assertEqual(baseline_findings, {"CVE-2025-61144"})
-        self.assertNotIn("CVE-2025-61143", baseline_findings)
+        self.assertEqual(baseline_findings, {"CVE-2025-61143", "CVE-2025-61144"})
         self.assertEqual(mismatched_inventory.returncode, 2)
         self.assertIn("does not match the verified candidate image", mismatched_inventory.stderr)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -473,31 +485,18 @@ Architecture: i386
             self.make_tiff_recipe(recipe_directory)
             (Path(directory) / "images.json").write_text(json.dumps({"baselineImageId": "image-baseline", "patchedImageId": "image-patched"}))
             (Path(directory) / "policy.json").write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64"}))
-            (Path(directory) / "status").write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n")
+            (Path(directory) / "status").write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched2\nArchitecture: amd64\n")
             for phase, version, code, log in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14", 97,
                                                TIFF_BASELINE_LOG),
-                                              ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1", 0,
+                                              ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2", 0,
                                               TIFF_PATCHED_LOG)):
                 is_baseline = phase == "baseline"
-                null_log_path = str(Path(directory) / "null-output.log")
-                null_output_path = Path(directory) / "tiffcrop-output.tif"
-                null_debug_prefix = str(Path(directory) / "tiffcrop-null-output")
-                null_command = [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + null_log_path, "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
-                                "format:txt,level:2,output:" + null_debug_prefix,
-                                str(Path(directory) / "multisample.tif"), str(null_output_path)]
+                null_output_check = tiff_null_output_check(Path(directory), phase)
                 checks = [
                     {"cve": "CVE-2025-61144", "passed": True, "returncode": code, "timedOut": False,
                      "command": TIFF_BASELINE_COMMAND if is_baseline else ["valgrind", "--tool=memcheck", "tiffcrop", "-D", "format:txt,level:2,input:fixture", "multisample.tif", "output.tif"], "memoryLog": log,
                      "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"]},
-                    {"cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log", "passed": True,
-                     "returncode": 97 if is_baseline else 1, "timedOut": False,
-                     "command": null_command,
-                     "stderr": "" if is_baseline else "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
-                     "memoryLogPath": null_log_path,
-                     "debugOutputPath": null_debug_prefix + "-write-001.txt",
-                     "debugOutputFiles": [] if is_baseline else ["tiffcrop-null-output-write-001.txt"],
-                     "debugOutput": "" if is_baseline else " Completed run for (not opened)\n",
-                     "memoryLog": TIFF_NULL_OUTPUT_BASELINE_LOG if is_baseline else "ERROR SUMMARY: 0 errors\n"},
+                    null_output_check,
                 ]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "fixture.tif"], "returncode": 0,
@@ -547,7 +546,7 @@ raise SystemExit(3)
     def test_candidate_generic_passing_reports_without_target_cve_proof_are_rejected(self):
         with tempfile.TemporaryDirectory(prefix="getpatched-tiff-regression-proof-") as directory:
             proof = Path(directory)
-            for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
+            for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2")):
                 (proof / f"{phase}-regression.json").write_text(json.dumps({
                     "runner": "getpatched-platform-regression/1",
                     "runnerSha256": hashlib.sha256((ROOT / "verification/regression.py").read_bytes()).hexdigest(),
@@ -563,10 +562,10 @@ raise SystemExit(3)
             policy_file = proof / "package-policy.json"
             policy_file.write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64",
                                                "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
-                                               "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"}))
+                                               "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2"}))
             docker_stub = self.docker_stub(proof, proof)
             result = self.scan(
-                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n",
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched2\nArchitecture: amd64\n",
                 target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="image-patched",
                 regression_phase="after", scan_images=scan_images, recipe_directory=proof,
                 policy_file=policy_file, docker_stub_dir=docker_stub, docker_report_dir=proof,
@@ -579,24 +578,12 @@ raise SystemExit(3)
             proof = Path(directory)
             recipe_directory = proof / "recipe"
             self.make_tiff_recipe(recipe_directory)
-            for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
+            for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"), ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2")):
                 checks = [{"cve": "CVE-2025-61144", "passed": True, "returncode": 97 if phase == "baseline" else 0,
                            "timedOut": False, "command": TIFF_BASELINE_COMMAND,
                            "memoryLog": (TIFF_BASELINE_LOG if phase == "baseline" else TIFF_PATCHED_LOG),
                            "baselineStackFrames": ["0x114980", "0x116FB2", "0x10AC12"]},
-                          {"cve": "CVE-2025-61143", "testId": "tiffcrop-null-output-debug-log", "passed": True,
-                           "returncode": 97 if phase == "baseline" else 1, "timedOut": False,
-                    "command": [*TIFF_NULL_OUTPUT_COMMAND[:5], "--log-file=" + str(proof / "null-output.log"),
-                                "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
-                                "format:txt,level:2,output:" + str(proof / "tiffcrop-null-output"),
-                                str(proof / "multisample.tif"), str(proof / "tiffcrop-output.tif")],
-                           "stderr": "" if phase == "baseline" else "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
-                           "memoryLogPath": str(proof / "null-output.log"),
-                           "debugOutputPath": str(proof / "tiffcrop-null-output-write-001.txt"),
-                           "debugOutputFiles": [] if phase == "baseline" else ["tiffcrop-null-output-write-001.txt"],
-                           "debugOutput": "" if phase == "baseline" else " Completed run for (not opened)\n",
-                           "memoryLog": (TIFF_NULL_OUTPUT_BASELINE_LOG if phase == "baseline" else "ERROR SUMMARY: 0 errors\n")},
-                          ]
+                          tiff_null_output_check(proof, phase)]
                 if phase == "patched":
                     checks.append({"command": ["tiffinfo", "fixture.tif"], "returncode": 0,
                                    "stdout": "Image Width: 16\n", "timedOut": False, "passed": True})
@@ -613,8 +600,8 @@ raise SystemExit(3)
             (Path(directory) / "patched-regression.json").write_bytes((proof / "patched-regression.json").read_bytes())
             (proof / "scan-images.json").write_text(json.dumps({"baselineImageId": "image-baseline", "patchedImageId": "image-patched"}))
             (proof / "package-policy.json").write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64",
-                "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14", "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"}))
-            (proof / "patched-status.txt").write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n")
+                "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14", "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2"}))
+            (proof / "patched-status.txt").write_text("Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched2\nArchitecture: amd64\n")
             stub = proof / "bin"
             stub.mkdir()
             docker = stub / "docker"
@@ -650,7 +637,7 @@ raise SystemExit(3)
 ''')
             docker.chmod(0o755)
             result = self.scan(
-                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n",
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched2\nArchitecture: amd64\n",
                 target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="image-patched",
                 regression_phase="after", scan_images=proof / "scan-images.json", recipe_directory=recipe_directory,
                 policy_file=proof / "package-policy.json", docker_stub_dir=stub, docker_report_dir=proof,
@@ -663,7 +650,7 @@ raise SystemExit(3)
         with tempfile.TemporaryDirectory(prefix="getpatched-forged-regression-proof-") as directory:
             proof = Path(directory)
             for phase, version in (("baseline", "4.1.0+git191117-2ubuntu0.20.04.14"),
-                                   ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1")):
+                                   ("patched", "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2")):
                 (proof / f"{phase}-regression.json").write_text(json.dumps({
                     "runner": "getpatched-platform-regression/1",
                     "runnerSha256": hashlib.sha256((ROOT / "verification/regression.py").read_bytes()).hexdigest(),
@@ -682,14 +669,14 @@ raise SystemExit(3)
             policy_file = proof / "package-policy.json"
             policy_file.write_text(json.dumps({"source": "tiff", "targetId": "ubuntu-focal-amd64",
                                                "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
-                                               "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1"}))
+                                               "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2"}))
             stub = proof / "bin"
             stub.mkdir()
             docker = stub / "docker"
             docker.write_text("#!" + sys.executable + "\nraise SystemExit(1)\n")
             docker.chmod(0o755)
             result = self.scan(
-                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched1\nArchitecture: amd64\n",
+                "Package: libtiff-tools\nStatus: install ok installed\nVersion: 4.1.0+git191117-2ubuntu0.20.04.14+getpatched2\nArchitecture: amd64\n",
                 target_id="ubuntu-focal-amd64", regression_directory=proof, image_id="invented-patched",
                 regression_phase="after", scan_images=scan_images, recipe_directory=proof,
                 policy_file=policy_file, docker_stub_dir=stub,

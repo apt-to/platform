@@ -2,22 +2,24 @@
 import json
 from pathlib import Path
 import signal
+import struct
 import sys
+import tempfile
 import unittest
 
 from regression import (libpng_followup_read_is_clean, libpng_overwrite_reproduced, libpng_stride_read_reproduced,
                         libpng_patched_checks_succeeded, tiff_patched_regression_succeeded,
                         consumer_version_succeeded, poppler_uaf_reproduced, schematron_baseline_reproduced,
                         tiff_baseline_reproduced, tiff_null_output_baseline_reproduced,
-                        tiff_null_output_patched_succeeded, parse_callback_url,
+                        tiff_null_output_patched_succeeded, make_tiff_loadimage_failure_fixture, parse_callback_url,
                         libgit2_redirect_reproduced, tiff_cve_required, execute)
 
 
 class TiffPolicySelection(unittest.TestCase):
     def test_only_configured_target_cves_require_installed_checks(self):
-        policy = {"targetCves": ["CVE-2025-61144"]}
+        policy = {"targetCves": ["CVE-2025-61143", "CVE-2025-61144"]}
         self.assertTrue(tiff_cve_required(policy, "CVE-2025-61144"))
-        self.assertFalse(tiff_cve_required(policy, "CVE-2025-61143"))
+        self.assertTrue(tiff_cve_required(policy, "CVE-2025-61143"))
         self.assertFalse(tiff_cve_required({}, "CVE-2025-61143"))
         self.assertFalse(tiff_cve_required({"targetCves": "CVE-2025-61143"}, "CVE-2025-61143"))
 
@@ -214,15 +216,40 @@ class TiffBaselineClassification(unittest.TestCase):
 
 
 class Tiff61143Classification(unittest.TestCase):
+    COMMAND = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
+               "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-D",
+               "format:txt,level:2,output:/tmp/tiffcrop-null-output",
+               "/tmp/tiffcrop-loadimage-failure.tif", "/tmp/tiffcrop-output.tif"]
+    LOADIMAGE_FAILURE = (
+        "TIFFFillStrip: Read error on strip 0; got 18446744069414584593 bytes, expected 1.\n"
+        "loadImage: Unable to read separate strips into buffer.\n"
+        "main: Unable to load source image.\n"
+    )
+
+    def test_malformed_fixture_moves_strip_offset_outside_file(self):
+        minimal_tiff = (b"II*\x00\x08\x00\x00\x00\x01\x00"
+                        b"\x11\x01\x04\x00\x01\x00\x00\x00\x1a\x00\x00\x00"
+                        b"\x00\x00\x00\x00")
+        with tempfile.TemporaryDirectory(prefix="getpatched-tiff-fixture-test-") as directory:
+            source = Path(directory) / "source.tif"
+            destination = Path(directory) / "loadimage-failure.tif"
+            source.write_bytes(minimal_tiff)
+            make_tiff_loadimage_failure_fixture(source, destination)
+            generated = destination.read_bytes()
+            self.assertEqual(len(generated), len(minimal_tiff))
+            self.assertEqual(struct.unpack_from("<I", generated, 18)[0], 0xFFFFFFF0)
+            self.assertEqual(generated[:18], minimal_tiff[:18])
+            invalid = Path(directory) / "invalid.tif"
+            invalid.write_bytes(b"not a TIFF")
+            with self.assertRaises(ValueError):
+                make_tiff_loadimage_failure_fixture(invalid, destination)
+
     def test_null_output_failure_requires_the_exact_debug_probe_and_TIFFFileName_fault(self):
-        command = ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                   "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
-                   "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/tests/fixtures/multisample.tif",
-                   "/tmp/tiffcrop-output.tif"]
         check = {
-            "command": command, "returncode": 97, "timedOut": False,
+            "command": list(self.COMMAND), "returncode": 97, "timedOut": False,
             "memoryLogPath": "/tmp/probe.log",
-            "memoryLog": "==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n",
+            "memoryLog": "==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/x86_64-linux-gnu/libtiff.so.5.7.0)\n==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n",
+            "stderr": self.LOADIMAGE_FAILURE,
         }
         self.assertTrue(tiff_null_output_baseline_reproduced(check))
         unrelated = dict(check, memoryLog="==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/lib/libother.so)\n==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n==123== ERROR SUMMARY: 1 errors from 1 contexts\n")
@@ -238,30 +265,28 @@ class Tiff61143Classification(unittest.TestCase):
         split_contexts = dict(check, memoryLog=(
             "==123== Invalid read of size 8\n==123==    at 0x123: unrelated (in /usr/lib/libother.so)\n"
             "==123== Address 0x0 is not stack'd, malloc'd or (recently) free'd\n"
-            "==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/libtiff.so.5)\n"
+            "==123== Invalid read of size 8\n==123==    at 0x123: TIFFFileName (in /usr/lib/x86_64-linux-gnu/libtiff.so.5.7.0)\n"
             "==123== ERROR SUMMARY: 2 errors from 2 contexts\n"))
         self.assertFalse(tiff_null_output_baseline_reproduced(split_contexts))
-        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, command=[*command[:-1], "/tmp/output.tif"])))
+        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, stderr="main: Unable to load source image.\n")))
+        self.assertFalse(tiff_null_output_baseline_reproduced(dict(check, command=[*self.COMMAND[:-1], "/tmp/output.tif"])))
 
     def test_patched_null_output_failure_is_clean(self):
         check = {
-            "command": ["valgrind", "--tool=memcheck", "--error-exitcode=97", "--leak-check=no",
-                        "--read-var-info=yes", "--log-file=/tmp/probe.log", "tiffcrop", "-U", "px", "-m", "0,2,0,2", "-D",
-                        "format:txt,level:2,output:/tmp/tiffcrop-null-output", "/recipe/multisample.tif",
-                        "/tmp/tiffcrop-output.tif"],
+            "command": list(self.COMMAND),
             "returncode": 1, "timedOut": False,
             "memoryLogPath": "/tmp/probe.log",
-            "stderr": "computeInputPixelOffsets: Combined left and right margins exceed image width.\ngetCropOffsets: Unable to compute crop margins.\nmain: Unable to define crop regions.\n",
+            "stderr": self.LOADIMAGE_FAILURE,
             "debugOutputPath": "/tmp/tiffcrop-null-output-write-001.txt",
             "debugOutputFiles": ["tiffcrop-null-output-write-001.txt"],
-            "debugOutput": "Writing image 1 from /recipe/multisample.tif\n Completed run for (not opened)\n",
+            "debugOutput": "Reading image 1 of 1 total pages.\n Completed run for (not opened)\n",
             "memoryLog": "==1== ERROR SUMMARY: 0 errors from 0 contexts\n",
         }
         self.assertTrue(tiff_null_output_patched_succeeded(check))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, stderr="unexpected success\n")))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, returncode=0)))
         altered_probe = dict(check, command=[*check["command"]])
-        altered_probe["command"][12] = "format:txt,level:0,output:/tmp/tiffcrop-null-output"
+        altered_probe["command"][8] = "format:txt,level:0,output:/tmp/tiffcrop-null-output"
         self.assertFalse(tiff_null_output_patched_succeeded(altered_probe))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutput="")))
         altered_log = dict(check, command=[*check["command"]])
@@ -271,13 +296,13 @@ class Tiff61143Classification(unittest.TestCase):
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutputPath="/tmp/other-write-001.txt")))
         self.assertFalse(tiff_null_output_patched_succeeded(dict(check, debugOutputFiles=["other-write-001.txt"])))
         prefix_spoof = dict(check, command=[*check["command"]])
-        prefix_spoof["command"][12] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
+        prefix_spoof["command"][8] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
         self.assertFalse(tiff_null_output_patched_succeeded(prefix_spoof))
         appended_option = dict(check, command=[*check["command"]])
-        appended_option["command"][12] += ",input:/tmp/unexpected"
+        appended_option["command"][8] += ",input:/tmp/unexpected"
         self.assertFalse(tiff_null_output_patched_succeeded(appended_option))
         mismatched_directory = dict(check, command=[*check["command"]])
-        mismatched_directory["command"][12] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
+        mismatched_directory["command"][8] = "format:txt,level:2,output:/tmp/other/tiffcrop-null-output"
         mismatched_directory["debugOutputPath"] = "/tmp/other/tiffcrop-null-output-write-001.txt"
         self.assertFalse(tiff_null_output_patched_succeeded(mismatched_directory))
 

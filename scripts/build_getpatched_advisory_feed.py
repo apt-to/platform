@@ -21,9 +21,14 @@ SUMMARIES = {
     "CVE-2026-53584": "libgit2 submodule path traversal can write outside a repository worktree",
     "CVE-2026-53585": "libgit2 delta object size header can trigger excessive memory allocation",
     "CVE-2026-53586": "libgit2 HTTP redirect authentication can disclose credentials to another host",
-    "CVE-2025-61144": "tiffcrop out-of-bounds read while producing level-2 debug output",
-    "CVE-2025-61143": "tiffcrop null-pointer read when debug logging follows output-open failure",
+    "CVE-2025-61144": "tiffcrop can read beyond its sample buffer while producing level-2 debug output",
+    "CVE-2025-61143": "tiffcrop may dereference a null output handle after image loading fails with debug output enabled",
     "CVE-2025-52885": "Poppler structure-tree use-after-free on duplicate parent-tree keys",
+}
+SEVERITIES = {
+    # Ubuntu assigns Low priority to both TIFF CLI denial-of-service issues.
+    "CVE-2025-61143": "LOW",
+    "CVE-2025-61144": "LOW",
 }
 
 
@@ -52,7 +57,7 @@ def build_feed(config, verified_candidates=frozenset()):
                 "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
                 "affected": [], "references": [],
                 "database_specific": {
-                    "severity": "MEDIUM",
+                    "severity": SEVERITIES.get(cve, "MEDIUM"),
                     "verification_status": "development-verified-production-release-pending",
                 },
             })
