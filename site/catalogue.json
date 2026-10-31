@@ -8,6 +8,13 @@
       "architecture": "amd64",
       "displayName": "Ubuntu 20.04 LTS (focal) · amd64"
     },
+    "ubuntu-jammy-amd64": {
+      "distribution": "Ubuntu",
+      "releaseVersion": "22.04",
+      "codename": "jammy",
+      "architecture": "amd64",
+      "displayName": "Ubuntu 22.04 LTS (jammy) · amd64"
+    },
     "debian-bookworm-amd64": {
       "distribution": "Debian", "releaseVersion": "12", "codename": "bookworm", "architecture": "amd64",
       "displayName": "Debian 12 (bookworm) · amd64"

@@ -291,6 +291,8 @@ def main():
                 "--build-arg", "APT_SOURCES_B64=" + build_sources,
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"],
+                "--build-arg", "BINARY_PACKAGES=" + " ".join(policy["binaryPackages"]),
+                "--build-arg", "BUILDER_PACKAGES=" + " ".join(policy["builderPackages"]),
                 str(ROOT),
             ], timeout=2700)
             built = True
@@ -347,7 +349,6 @@ def main():
                 "--file", str(patched_context / "Dockerfile"),
                 "--build-arg", "BASE_IMAGE=" + profile["baseImage"],
                 *ca_secret_args,
-                "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "BASELINE_VERSION=" + policy["baseVersion"],
                 "--build-arg", "EXPECTED_VERSION=" + policy["version"],
                 "--build-arg", "APT_SOURCES_B64=" + binary_sources,
@@ -364,6 +365,7 @@ def main():
                 "--build-arg", "SOURCE_PACKAGE=" + package,
                 "--build-arg", "EXPECTED_VERSION=" + policy["baseVersion"],
                 "--build-arg", "APT_SOURCES_B64=" + binary_sources,
+                "--build-arg", "BINARY_PACKAGES=" + " ".join(expected["binaryPackages"]),
                 str(ROOT),
             ])
             scan_images.append(scan_base)

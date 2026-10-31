@@ -71,6 +71,7 @@ def main():
                 *ca_secret_args,
                 "--build-arg", "SOURCE_PACKAGE=" + args.package,
                 "--build-arg", "EXPECTED_VERSION=" + package["baselineVersion"],
+                "--build-arg", "BINARY_PACKAGES=" + " ".join(package["binaryPackages"]),
                 "--build-arg", "APT_SOURCES_B64=" + apt_source_list_b64(profile, include_sources=False),
                 str(ROOT),
             ])

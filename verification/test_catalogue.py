@@ -91,6 +91,39 @@ class PublicCatalogueContract(unittest.TestCase):
         with self.assertRaises(ValueError):
             target_profile(insecure_ubuntu, "ubuntu-focal-amd64")
 
+    def test_build_and_baseline_images_use_target_scoped_binary_package_names(self):
+        platform = json.loads((ROOT / "packages.json").read_text())
+        jammy = package_target_policy(platform, "libgit2", "ubuntu-jammy-amd64")
+        self.assertEqual(jammy["binaryPackages"][0], "libgit2-1.1")
+        self.assertEqual(package_target_policy(platform, "libxml2", "ubuntu-focal-amd64")["builderPackages"], ["libxml2-dev"])
+        self.assertEqual(package_target_policy(platform, "libarchive", "ubuntu-focal-amd64")["builderPackages"], ["libarchive-dev"])
+        for filename in ("packaging.Containerfile", "baseline.Containerfile", "patched-scan.Containerfile"):
+            containerfile = (ROOT / "build" / filename).read_text()
+            self.assertIn("ARG BINARY_PACKAGES", containerfile)
+            self.assertNotIn('case "$SOURCE_PACKAGE" in', containerfile)
+            if filename == "packaging.Containerfile":
+                self.assertIn("ARG BUILDER_PACKAGES", containerfile)
+                self.assertIn('install_packages="$BINARY_PACKAGES $BUILDER_PACKAGES"', containerfile)
+                self.assertIn("for binary in $install_packages; do", containerfile)
+            else:
+                self.assertIn("for binary in $BINARY_PACKAGES; do", containerfile)
+        build_script = (ROOT / "scripts/build-package.py").read_text()
+        baseline_script = (ROOT / "scripts/run-baseline.py").read_text()
+        self.assertIn('"BINARY_PACKAGES=" + " ".join(policy["binaryPackages"])', build_script)
+        self.assertIn('"BUILDER_PACKAGES=" + " ".join(policy["builderPackages"])', build_script)
+        self.assertEqual(
+            build_script.count('"BINARY_PACKAGES=" + " ".join(expected["binaryPackages"])'),
+            2,
+        )
+        self.assertIn('"BINARY_PACKAGES=" + " ".join(package["binaryPackages"])', baseline_script)
+        regression = (ROOT / "verification/regression.py").read_text()
+        self.assertIn('installed_name = binary_packages[0]', regression)
+        self.assertNotIn('"libgit2": "libgit2-28"', regression)
+        invalid = deepcopy(platform)
+        invalid["packages"]["libgit2"]["targets"]["ubuntu-jammy-amd64"]["builderPackages"] = ["bad package"]
+        with self.assertRaisesRegex(ValueError, "invalid builder package scope"):
+            package_target_policy(invalid, "libgit2", "ubuntu-jammy-amd64")
+
     def test_target_recipe_branch_rejects_untrusted_ref_syntax(self):
         platform = deepcopy(json.loads((ROOT / "packages.json").read_text()))
         platform["targets"]["ubuntu-focal-amd64"]["sourceBranch"] = "getpatched/../main"
@@ -135,13 +168,14 @@ class PublicCatalogueContract(unittest.TestCase):
         entries = {item["source"]: item for item in catalogue["packages"]}
         expected_catalogue = {
             source for source, record in platform["packages"].items()
-            if all(target.get("candidateStatus") != "unverified-development-candidate"
+            if any(target.get("candidateStatus") == "development-verified-production-release-pending"
                    for target in record["targets"].values())
         }
         self.assertEqual(set(entries), expected_catalogue)
         self.assertEqual(expected_catalogue, {"libxml2", "libarchive", "libgit2", "poppler"})
         self.assertIn("libpng1.6", set(platform["packages"]) - set(entries))
         self.assertNotIn("libgit2", set(platform["packages"]) - set(entries))
+        self.assertNotIn("ubuntu-jammy-amd64", entries["libgit2"]["targets"])
         self.assertNotIn("poppler", set(platform["packages"]) - set(entries))
         self.assertEqual(catalogue["schemaVersion"], 3)
         self.assertEqual(set(catalogue["targets"]), set(platform["targets"]))
@@ -151,9 +185,13 @@ class PublicCatalogueContract(unittest.TestCase):
             self.assertEqual(catalogue["targets"][target_id]["architecture"], profile["architecture"])
         for source, entry_package in entries.items():
             package = platform["packages"][source]
-            self.assertEqual(set(entry_package["targets"]), set(package["targets"]))
-            for target_id, policy in package["targets"].items():
-                entry = entries[source]["targets"][target_id]
+            expected_targets = {
+                target_id for target_id, policy in package["targets"].items()
+                if policy.get("candidateStatus") == "development-verified-production-release-pending"
+            }
+            self.assertEqual(set(entry_package["targets"]), expected_targets)
+            for target_id, entry in entry_package["targets"].items():
+                policy = package["targets"][target_id]
                 access = policy["releaseAccess"]
                 self.assertEqual(entry["version"], policy["packageVersion"])
                 old_version = policy["baselineVersion"]
