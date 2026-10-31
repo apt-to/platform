@@ -16,6 +16,9 @@ import threading
 import tempfile
 from urllib.parse import urlsplit
 
+LIBPNG_CVE_2025_65018_FIXTURE = "cve-2025-65018-advisory-adam7-rgb16.png"
+LIBPNG_CVE_2025_65018_FIXTURE_SHA256 = "9deb34ada9b550df50181e4cd8c947303fd7b2881f61f3f16efa249d845e9905"
+
 
 def execute(command, timeout=30, env=None):
     try:
@@ -261,7 +264,7 @@ def memcheck_has_no_errors(log):
 def libpng_output_buffer_result(check, expected_result):
     log = check.get("memoryLog", "")
     return (check.get("cve") == "CVE-2025-65018"
-            and libpng_probe_command_matches(check, "read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"])
+            and libpng_probe_command_matches(check, "read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE])
             and not check.get("timedOut", False) and check.get("returncode") == 0
             and check.get("stdout", "").strip() == expected_result
             and memcheck_has_no_errors(log))
@@ -287,7 +290,7 @@ def libpng_followup_read_is_clean(check):
 
 def libpng_patched_checks_succeeded(checks):
     expected = {
-        "CVE-2025-65018": ("read-interlaced-rgba.c", "read-interlaced-rgba", ["adam7.png"]),
+        "CVE-2025-65018": ("read-interlaced-rgba.c", "read-interlaced-rgba", [LIBPNG_CVE_2025_65018_FIXTURE]),
         "CVE-2026-22695": ("CVE-2026-22695-padded-stride-follow-up", "read-padded-stride", ["adam7.png"]),
         "CVE-2026-22801": ("write-negative-stride.c", "write-negative-stride", []),
     }
@@ -585,6 +588,15 @@ def main():
         elif package == "libpng1.6":
             cflags = []
             libs = ["-lpng16", "-lz"]
+            cve_fixture_source = fixtures / LIBPNG_CVE_2025_65018_FIXTURE
+            if not cve_fixture_source.is_file():
+                raise RuntimeError("the CVE-2025-65018 RGB16 Adam7 fixture is missing")
+            cve_fixture_data = cve_fixture_source.read_bytes()
+            if hashlib.sha256(cve_fixture_data).hexdigest() != LIBPNG_CVE_2025_65018_FIXTURE_SHA256:
+                raise RuntimeError("the CVE-2025-65018 RGB16 Adam7 fixture hash does not match metadata")
+            cve_fixture = temp / LIBPNG_CVE_2025_65018_FIXTURE
+            cve_fixture.write_bytes(cve_fixture_data)
+
             def compile_probe(name):
                 binary = temp / Path(name).stem
                 subprocess.run(["cc", "-std=c99", "-Wall", "-Wextra", "-Werror",
@@ -606,7 +618,7 @@ def main():
                     log = temp / (cve + ".valgrind")
                     check = execute(["valgrind", "--tool=memcheck", "--error-exitcode=97",
                                      "--leak-check=no", "--read-var-info=yes", "--log-file=" + str(log),
-                                     str(binary), *([str(adam7)] if cve == "CVE-2025-65018" else [])])
+                                     str(binary), *([str(cve_fixture)] if cve == "CVE-2025-65018" else [])])
                     check["memoryLog"] = log.read_text() if log.exists() else ""
                     check["cve"] = cve
                     check["testId"] = source
@@ -625,7 +637,7 @@ def main():
                 checks.append(check)
             else:
                 for cve, name, args_for_probe in (
-                    ("CVE-2025-65018", "read-interlaced-rgba.c", [str(adam7)]),
+                    ("CVE-2025-65018", "read-interlaced-rgba.c", [str(cve_fixture)]),
                     ("CVE-2026-22695", "read-padded-stride.c", [str(adam7)]),
                     ("CVE-2026-22801", "write-negative-stride.c", []),
                 ):
