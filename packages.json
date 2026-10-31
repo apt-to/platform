@@ -320,7 +320,7 @@
               "CVE-2026-53585": "https://ubuntu.com/security/CVE-2026-53585",
               "CVE-2026-53586": "https://ubuntu.com/security/CVE-2026-53586"
             },
-            "candidateStatus": "development-verified-production-release-pending",
+            "candidateStatus": "unverified-development-candidate",
             "releaseAccess": {
               "policy": "public-after-checks",
               "sponsorDelayHours": 0,
