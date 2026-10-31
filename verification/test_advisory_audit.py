@@ -183,16 +183,23 @@ class AdvisoryAuditContract(unittest.TestCase):
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
         config = json.loads((ROOT / "packages.json").read_text())
+        # Model the state before this candidate's verification workflow has
+        # passed, even when the checked-in policy later marks it verified.
+        config["packages"]["poppler"]["targets"]["ubuntu-focal-amd64"][
+            "candidateStatus"
+        ] = "unverified-development-candidate"
         data = {
             "source": "poppler",
             "targetId": "ubuntu-focal-amd64",
-            "aptToFeed": str(ROOT / "advisories/getpatched-osv.json"),
         }
-        public_ids = {item["id"] for item in json.loads(Path(data["aptToFeed"]).read_text())["vulns"]}
+        public_ids = {item["id"] for item in build_feed(config)["vulns"]}
         candidate = build_feed(config, {("poppler", "ubuntu-focal-amd64")})
         with tempfile.TemporaryDirectory(prefix="getpatched-verification-feed-test-") as directory:
+            canonical_path = Path(directory) / "canonical-advisory.json"
+            canonical_path.write_text(json.dumps(build_feed(config), indent=2, sort_keys=True) + "\n")
             path = Path(directory) / "candidate-advisory.json"
             path.write_text(json.dumps(candidate, indent=2, sort_keys=True) + "\n")
+            data["aptToFeed"] = str(canonical_path)
             data["aptToVerificationFeed"] = str(path)
             audited = module.verification_advisory_feed(data, config)
             self.assertIn("CVE-2025-52885", {item["id"] for item in audited["vulns"]})
