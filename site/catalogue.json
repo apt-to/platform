@@ -333,7 +333,7 @@
           "earlyUse": ["private", "commercial"],
           "earlyRedistributionAllowed": false,
           "status": "development-verified-production-release-pending",
-          "verification": "https://github.com/getpatched/platform/actions/runs/41142564467",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41144391227",
           "ubuntuProEsmCompatibility": "not-applicable",
           "sourceUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/focal",
           "patchUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/focal/patches/CVE-2026-53584-focal.patch",

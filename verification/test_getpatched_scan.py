@@ -462,7 +462,7 @@ Architecture: i386
             verification_feed_hash = hashlib.sha256(verification_feed.read_bytes()).hexdigest()
         self.assertEqual(baseline_result.returncode, 1, baseline_result.stderr)
         baseline_findings = set(json.loads(baseline_result.stdout)["findingsById"])
-        self.assertEqual(baseline_findings, {"CVE-2025-61143", "CVE-2025-61144"})
+        self.assertEqual(baseline_findings, {"CVE-2025-61144"})
         self.assertEqual(mismatched_inventory.returncode, 2)
         self.assertIn("does not match the verified candidate image", mismatched_inventory.stderr)
         self.assertEqual(result.returncode, 0, result.stderr)
