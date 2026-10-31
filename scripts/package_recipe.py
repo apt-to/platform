@@ -389,6 +389,7 @@ def load_recipe(root, platform_config, target_id=None):
         "earlyBinaryLicenseId": early_license["licenseId"] if delay else None,
         "binaryPackages": target["binaryPackages"],
         "advisoryPackages": advisory_packages,
+        "builderPackages": central["builderPackages"],
         "ubuntuProEsmCompatibility": central.get("ubuntuProEsmCompatibility", "not-applicable"),
         "patches": patch_ids,
         "buildPatches": build_patch_ids,

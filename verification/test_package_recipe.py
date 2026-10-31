@@ -176,6 +176,7 @@ class PackageRecipeContract(unittest.TestCase):
         recipe = RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
         self.assertEqual(recipe["policy"]["source"], "libarchive")
         self.assertEqual(recipe["policy"]["version"], "3.4.0-2ubuntu1.5+getpatched1")
+        self.assertEqual(recipe["policy"]["builderPackages"], ["libarchive-dev"])
         self.assertEqual(recipe["policy"]["candidateStatus"], recipe["central"]["candidateStatus"])
         self.assertEqual(recipe["policy"]["patches"], ["cve-2026-4111"])
         self.assertEqual(recipe["policy"]["buildPatches"], ["test-zstd-size-tolerance"])
