@@ -139,7 +139,7 @@ class PublicCatalogueContract(unittest.TestCase):
                    for target in record["targets"].values())
         }
         self.assertEqual(set(entries), expected_catalogue)
-        self.assertEqual(expected_catalogue, {"libxml2", "libarchive", "libgit2", "poppler"})
+        self.assertEqual(expected_catalogue, {"libxml2", "libarchive", "libgit2", "poppler", "tiff"})
         self.assertIn("libpng1.6", set(platform["packages"]) - set(entries))
         self.assertNotIn("libgit2", set(platform["packages"]) - set(entries))
         self.assertNotIn("poppler", set(platform["packages"]) - set(entries))
@@ -175,11 +175,16 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertEqual(entry["earlyRedistributionAllowed"], False)
                 self.assertEqual(entry["status"], "development-verified-production-release-pending")
                 expected_run = {
-                    "libxml2": "40899705050",
-                    "libarchive": "40899709850",
-                    "libgit2": "41144391227",
-                    "poppler": "41149614570",
-                }[source]
+                    "libxml2": {"ubuntu-focal-amd64": "40899705050"},
+                    "libarchive": {"ubuntu-focal-amd64": "40899709850"},
+                    "libgit2": {"ubuntu-focal-amd64": "41144391227"},
+                    "poppler": {"ubuntu-focal-amd64": "41149614570"},
+                    "tiff": {
+                        "ubuntu-focal-amd64": "41154300127",
+                        "debian-bookworm-amd64": "41154301399",
+                        "debian-trixie-amd64": "41154300175",
+                    },
+                }[source][target_id]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
                 self.assertEqual(
                     entry["ubuntuProEsmCompatibility"],
@@ -188,17 +193,28 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertNotIn("verificationUrl", entry)
                 self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/tree/"))
                 self.assertTrue(entry["patchUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/blob/"))
-                self.assertEqual(entry["testsUrl"], f"https://github.com/getpatched/packaging-{source}/tree/getpatched/focal/tests")
+                expected_branch = {
+                    "libxml2": {"ubuntu-focal-amd64": "getpatched/focal"},
+                    "libarchive": {"ubuntu-focal-amd64": "getpatched/focal"},
+                    "libgit2": {"ubuntu-focal-amd64": "getpatched/focal"},
+                    "poppler": {"ubuntu-focal-amd64": "getpatched/focal"},
+                    "tiff": {
+                        "ubuntu-focal-amd64": "getpatched/focal",
+                        "debian-bookworm-amd64": "getpatched/debian-bookworm",
+                        "debian-trixie-amd64": "getpatched/debian-trixie",
+                    },
+                }[source][target_id]
+                self.assertEqual(entry["testsUrl"], f"https://github.com/getpatched/packaging-{source}/tree/{expected_branch}/tests")
                 self.assertEqual(entry["releasesUrl"], f"https://github.com/getpatched/packaging-{source}/releases")
                 self.assertEqual(entry["releaseStatus"], "No production release")
 
         page = (ROOT / "site/index.html").read_text()
         self.assertIn("Hosted verification passed.", page)
-        self.assertIn("Four Focal package candidates have hosted builds", page)
+        self.assertIn("Five package projects have hosted builds across Ubuntu Focal, Debian Bookworm and Debian Trixie", page)
         self.assertIn("Production repository access setup remains incomplete", page)
         self.assertIn("no production package release has been published", page)
         self.assertIn("Live package publication and downloads remain disabled until GitHub sponsor sign-in and production access setup are complete", page)
-        self.assertIn("Hosted verification has passed for all four Focal candidates", page)
+        self.assertIn("Hosted verification is complete for all five package projects' configured targets", page)
         self.assertIn("Ubuntu Pro/ESM compatibility is not tested or supported", page)
         self.assertIn("Each row links to its source, patch, regression tests and release history", page)
         self.assertIn("Any sponsor delay starts only after sponsor publication", page)

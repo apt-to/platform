@@ -723,7 +723,7 @@ raise SystemExit(3)
         self.assertEqual({item["id"] for item in committed["vulns"]}, {
             "CVE-2025-49794", "CVE-2025-49796", "CVE-2026-4111",
             "CVE-2026-53584", "CVE-2026-53585", "CVE-2026-53586",
-            "CVE-2025-52885",
+            "CVE-2025-52885", "CVE-2025-61144",
         })
         for advisory in committed["vulns"]:
             self.assertEqual(
@@ -742,7 +742,7 @@ raise SystemExit(3)
         self.assertEqual(ecosystems[("libxml2", "ubuntu-focal-amd64")], "Ubuntu:Pro:20.04:LTS")
         self.assertEqual(ecosystems[("libarchive", "ubuntu-focal-amd64")], "Ubuntu:Pro:20.04:LTS")
         self.assertEqual(ecosystems[("libgit2", "ubuntu-focal-amd64")], "Ubuntu:20.04:LTS")
-        self.assertFalse(any(affected["ecosystem_specific"]["source_package"] in {"libpng1.6", "tiff"}
+        self.assertFalse(any(affected["ecosystem_specific"]["source_package"] == "libpng1.6"
                              for item in committed["vulns"] for affected in item["affected"]))
         self.assertTrue(all("ranges" not in affected for item in committed["vulns"] for affected in item["affected"]))
 
