@@ -177,6 +177,60 @@
       }
     },
     {
+      "source": "poppler",
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baseVersion": "0.86.1-0ubuntu1.7",
+          "version": "0.86.1-0ubuntu1.7+getpatched1",
+          "cves": ["CVE-2025-52885"],
+          "vulnerabilities": [{
+            "id": "CVE-2025-52885",
+            "slug": "cve-2025-52885",
+            "summary": "A use-after-free in Poppler's StructTreeRoot parent-tree parser can be triggered by a crafted PDF.",
+            "advisoryUrl": "https://ubuntu.com/security/CVE-2025-52885",
+            "patchSlugs": ["cve-2025-52885-focal"],
+            "patched": true
+          }],
+          "patches": [{
+            "id": "cve-2025-52885-focal",
+            "slug": "cve-2025-52885-focal",
+            "kind": "security",
+            "title": "Reject duplicate parent-tree keys before vector resizing",
+            "description": "Backports the upstream guard that prevents stale Parent pointers after repeated keys trigger vector reallocation.",
+            "sha256": "2488d5d4b331a37d07ca60e2c0ccc7a6e4f3272cd7052ff00d4ba4462d9e1b72",
+            "fileUrl": "https://github.com/getpatched/packaging-poppler/blob/getpatched/focal/patches/CVE-2025-52885-focal.patch",
+            "cves": ["CVE-2025-52885"],
+            "upstream": {
+              "repository": "https://gitlab.freedesktop.org/poppler/poppler",
+              "commit": "4ce27cc826bf90cc8dbbd8a8c87bd913cccd7ec0",
+              "url": "https://gitlab.freedesktop.org/poppler/poppler/-/commit/4ce27cc826bf90cc8dbbd8a8c87bd913cccd7ec0"
+            },
+            "tests": [{
+              "id": "CVE-2025-52885-structtree-uaf",
+              "baselineExpectation": "The exact installed baseline exits with Valgrind error code 97 and reports an invalid memory access in StructTreeRoot::parentTreeAdd.",
+              "patchedExpectation": "The exact installed patched package completes pdfinfo -struct with exit status 0 and Valgrind reports no errors."
+            }]
+          }],
+          "access": "public",
+          "delayHours": 0,
+          "sponsorEligibility": null,
+          "earlyBinaryLicenseId": null,
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "development-verified-production-release-pending",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41146751480",
+          "ubuntuProEsmCompatibility": "not-applicable",
+          "sourceUrl": "https://github.com/getpatched/packaging-poppler/tree/getpatched/focal",
+          "patchUrl": "https://github.com/getpatched/packaging-poppler/blob/getpatched/focal/patches/CVE-2025-52885-focal.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-poppler/tree/getpatched/focal/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-poppler/releases",
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
+        }
+      }
+    },
+    {
       "source": "libgit2",
       "targets": {
         "ubuntu-focal-amd64": {

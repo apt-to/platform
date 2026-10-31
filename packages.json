@@ -274,7 +274,7 @@
           "targetCves": ["CVE-2025-52885"],
           "advisory": "https://ubuntu.com/security/CVE-2025-52885",
           "advisories": {"CVE-2025-52885": "https://ubuntu.com/security/CVE-2025-52885"},
-          "candidateStatus": "unverified-development-candidate",
+          "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
         }
       }
