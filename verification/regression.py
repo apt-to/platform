@@ -16,8 +16,8 @@ import threading
 import tempfile
 from urllib.parse import urlsplit
 
-LIBPNG_CVE_2025_65018_FIXTURE = "cve-2025-65018-imagemagick.png"
-LIBPNG_CVE_2025_65018_FIXTURE_SHA256 = "0dfd124ccc5ce9fd19883a8314cdd8ffb767ff60cf0f10866a5fe5d0a0f69d80"
+LIBPNG_CVE_2025_65018_FIXTURE = "cve-2025-65018-advisory-adam7-rgb16.png"
+LIBPNG_CVE_2025_65018_FIXTURE_SHA256 = "9deb34ada9b550df50181e4cd8c947303fd7b2881f61f3f16efa249d845e9905"
 
 
 def execute(command, timeout=30, env=None):
