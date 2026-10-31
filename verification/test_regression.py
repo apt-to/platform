@@ -333,6 +333,28 @@ class LibpngBaselineClassification(unittest.TestCase):
                                 "Invalid read of size 4\nat png_image_write_to_file\nlibpng16.so.16")
         self.assertTrue(libpng_stride_read_reproduced(check))
 
+    def test_cve_named_valgrind_log_matches_its_probe(self):
+        overwrite = libpng_memcheck("read-interlaced-rgba.c", "read-interlaced-rgba",
+                                    [LIBPNG_CVE_2025_65018_FIXTURE], "CVE-2025-65018", 0,
+                                    "ERROR SUMMARY: 0 errors")
+        overwrite["command"][5] = "--log-file=/tmp/getpatched-regression-fixture/CVE-2025-65018.valgrind"
+        overwrite["stdout"] = "result=overrun:output-buffer\n"
+        self.assertTrue(libpng_overwrite_reproduced(overwrite))
+
+        stride = libpng_memcheck("write-negative-stride.c", "write-negative-stride", [],
+                                 "CVE-2026-22801", 97,
+                                 "Invalid read of size 2\npng_image_write_to_file\nlibpng16.so.16")
+        stride["command"][5] = "--log-file=/tmp/getpatched-regression-fixture/CVE-2026-22801.valgrind"
+        self.assertTrue(libpng_stride_read_reproduced(stride))
+        stride["command"][5] = "--log-file=/tmp/getpatched-regression-fixture/CVE-2025-65018.valgrind"
+        self.assertFalse(libpng_stride_read_reproduced(stride))
+
+        wrong_cve = libpng_memcheck("write-negative-stride.c", "write-negative-stride", [],
+                                    "CVE-2025-65018", 97,
+                                    "Invalid read of size 2\npng_image_write_to_file\nlibpng16.so.16")
+        wrong_cve["command"][5] = "--log-file=/tmp/getpatched-regression-fixture/CVE-2025-65018.valgrind"
+        self.assertFalse(libpng_stride_read_reproduced(wrong_cve))
+
     def test_passing_exit_cannot_be_counted_as_baseline_reproduction(self):
         check = libpng_memcheck("write-negative-stride.c", "write-negative-stride", [],
                                 "CVE-2026-22801", 0,
