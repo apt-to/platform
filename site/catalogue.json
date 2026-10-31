@@ -340,11 +340,124 @@
           "earlyUse": ["private", "commercial"],
           "earlyRedistributionAllowed": false,
           "status": "development-verified-production-release-pending",
-          "verification": "https://github.com/getpatched/platform/actions/runs/41142564467",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41162605227",
           "ubuntuProEsmCompatibility": "not-applicable",
           "sourceUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/focal",
           "patchUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/focal/patches/CVE-2026-53584-focal.patch",
           "testsUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/focal/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-libgit2/releases",
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
+        },
+        "ubuntu-jammy-amd64": {
+          "baseVersion": "1.1.0+dfsg.1-4.1ubuntu0.1",
+          "version": "1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1",
+          "cves": ["CVE-2026-53584", "CVE-2026-53585", "CVE-2026-53586"],
+          "vulnerabilities": [
+            {
+              "id": "CVE-2026-53584",
+              "slug": "cve-2026-53584",
+              "summary": "Malicious submodule paths can escape the repository worktree.",
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2026-53584",
+              "patchSlugs": ["cve-2026-53584-jammy"],
+              "patched": true
+            },
+            {
+              "id": "CVE-2026-53585",
+              "slug": "cve-2026-53585",
+              "summary": "A malicious pack delta can declare an excessive object size and cause memory exhaustion.",
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2026-53585",
+              "patchSlugs": ["cve-2026-53585-jammy"],
+              "patched": true
+            },
+            {
+              "id": "CVE-2026-53586",
+              "slug": "cve-2026-53586",
+              "summary": "An HTTP redirect can cause credentials for the original host to be exposed to another host.",
+              "advisoryUrl": "https://ubuntu.com/security/CVE-2026-53586",
+              "patchSlugs": ["cve-2026-53586-jammy"],
+              "patched": true
+            }
+          ],
+          "patches": [
+            {
+              "id": "cve-2026-53584-jammy",
+              "slug": "cve-2026-53584-jammy",
+              "kind": "security",
+              "title": "Reject submodule filesystem paths outside the repository",
+              "description": "Rejects traversal paths read from .gitmodules before submodule operations can escape the worktree.",
+              "sha256": "c1b7d2ba4829ed3d4e611057f1bc3a738dfab38ef9bfab63f6d42de948ceb78f",
+              "fileUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/jammy/patches/CVE-2026-53584-jammy.patch",
+              "cves": ["CVE-2026-53584"],
+              "upstream": {
+                "repository": "https://github.com/libgit2/libgit2",
+                "commit": "419637d3587396f5d139d6d88480eab3cd81e7a1",
+                "url": "https://github.com/libgit2/libgit2/commit/419637d3587396f5d139d6d88480eab3cd81e7a1"
+              },
+              "tests": [{
+                "id": "CVE-2026-53584-submodule-path-escape-jammy",
+                "baselineExpectation": "The exact installed Jammy baseline resolves the malicious submodule path and creates the configured subrepository outside its worktree, inside an isolated temporary parent.",
+                "patchedExpectation": "The exact installed patched Jammy package rejects the path with GIT_EINVALID and creates no directory outside its worktree."
+              }]
+            },
+            {
+              "id": "cve-2026-53585-jammy",
+              "slug": "cve-2026-53585-jammy",
+              "kind": "security",
+              "title": "Bound declared object size while unpacking pack data",
+              "description": "Rejects an oversized declared delta result before allocating its memory.",
+              "sha256": "9eeb848206ad722884f4ec71389a7fc95eae77a9b2c1ffe4f74e90ab91507414",
+              "fileUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/jammy/patches/CVE-2026-53585-jammy.patch",
+              "cves": ["CVE-2026-53585"],
+              "upstream": {
+                "repository": "https://github.com/libgit2/libgit2",
+                "commit": "c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae",
+                "url": "https://github.com/libgit2/libgit2/commit/c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae"
+              },
+              "tests": [{
+                "id": "CVE-2026-53585-pack-object-size-jammy",
+                "baselineExpectation": "The exact installed Jammy baseline accepts the 150-byte pack carrying a declared 100 MiB delta result.",
+                "patchedExpectation": "The exact installed patched Jammy package rejects the object at a 42 MiB configured cap before allocating the declared result."
+              }, {
+                "id": "pack-limit-binary-patch-compatibility-jammy",
+                "baselineExpectation": "Binary patch application succeeds with the default settings.",
+                "patchedExpectation": "A 16-byte binary patch succeeds while the pack object size cap is set to one byte."
+              }]
+            },
+            {
+              "id": "cve-2026-53586-jammy",
+              "slug": "cve-2026-53586-jammy",
+              "kind": "security",
+              "title": "Pass redirected server URL to the credential callback",
+              "description": "Passes the actual redirected origin to the credential callback so credentials are not sent to an untrusted host.",
+              "sha256": "94e8fb4eea04e5a22cf544f94679d3628168780094100b7c08373a56619c25a1",
+              "fileUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/jammy/patches/CVE-2026-53586-jammy.patch",
+              "cves": ["CVE-2026-53586"],
+              "upstream": {
+                "repository": "https://github.com/libgit2/libgit2",
+                "commit": "c1507abc44647b3acd832a33a5b1c8c9f5ba8821",
+                "url": "https://github.com/libgit2/libgit2/commit/c1507abc44647b3acd832a33a5b1c8c9f5ba8821"
+              },
+              "tests": [{
+                "id": "CVE-2026-53586-redirect-credential-origin-jammy",
+                "baselineExpectation": "After redirecting to a second localhost origin, the vulnerable credential callback still receives the trusted original origin and returns a fixture-only Basic credential; the redirected server records that exact dummy credential.",
+                "patchedExpectation": "After redirecting to a second localhost origin, the patched callback receives the redirected origin, rejects it as untrusted, and the redirected server observes no Authorization header."
+              }]
+            }
+          ],
+          "access": "public",
+          "delayHours": 0,
+          "sponsorEligibility": null,
+          "earlyBinaryLicenseId": null,
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "development-verified-production-release-pending",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41165518728",
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "sourceUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/jammy",
+          "patchUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/jammy/patches/CVE-2026-53584-jammy.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/jammy/tests",
           "releasesUrl": "https://github.com/getpatched/packaging-libgit2/releases",
           "releaseStatus": "No production release",
           "publicLicenseScope": "getpatched-authored-contributions-only"

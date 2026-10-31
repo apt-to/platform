@@ -1,0 +1,76 @@
+{
+  "runner": "getpatched-platform-regression/1",
+  "runnerSha256": "1e6ddd1f30bda95dbc8ce19008db9a14bf5b84c9c6ad5ab48d31c8f99a63f0f9",
+  "imageId": "sha256:c003a7af1e03611100d49c563b9c829d23b97c0cf12143ad78d3a94a9a5ed395",
+  "verificationId": "425668486da44bf29cd57e47ae4a9a3c",
+  "source": "libgit2",
+  "targetId": "ubuntu-focal-amd64",
+  "distribution": "Ubuntu",
+  "release": "focal",
+  "architecture": "amd64",
+  "phase": "baseline",
+  "installedVersion": "0.28.4+dfsg.1-2ubuntu0.1",
+  "expectedVersion": "0.28.4+dfsg.1-2ubuntu0.1",
+  "checks": [
+    {
+      "command": [
+        "/tmp/getpatched-regression-cou5kyzz/pack-size-limit",
+        "/recipe/tests/fixtures/delta_100mb.pack",
+        "/tmp/getpatched-regression-cou5kyzz/pack-indexer"
+      ],
+      "returncode": 0,
+      "stdout": "result=accepted:large-object\n",
+      "stderr": "",
+      "timedOut": false,
+      "cve": "CVE-2026-53585",
+      "declaredObjectSize": 104857600,
+      "configuredObjectLimit": null,
+      "result": "result=accepted:large-object",
+      "rejectedLargeObject": false,
+      "baselineAcceptedLargeObject": true,
+      "passed": true
+    },
+    {
+      "command": [
+        "/tmp/getpatched-regression-cou5kyzz/submodule-path",
+        "/tmp/getpatched-regression-cou5kyzz/submodule-workspace/repo"
+      ],
+      "returncode": 0,
+      "stdout": "result=created:escaped-submodule-directory\n",
+      "stderr": "",
+      "timedOut": false,
+      "cve": "CVE-2026-53584",
+      "outsideDirectoryCreated": true,
+      "result": "result=created:escaped-submodule-directory",
+      "baselinePathEscapeReproduced": true,
+      "patchedPathRejected": false,
+      "passed": true
+    },
+    {
+      "command": [
+        "/tmp/getpatched-regression-cou5kyzz/redirect-auth",
+        "http://127.0.0.1:43141/repository",
+        "/tmp/getpatched-regression-cou5kyzz/redirect-clone"
+      ],
+      "returncode": 0,
+      "stdout": "callback_url=http://127.0.0.1:43141/repository\ncallback_policy=trusted-origin\n",
+      "stderr": "",
+      "timedOut": false,
+      "callbackUrls": [
+        "http://127.0.0.1:43141/repository"
+      ],
+      "redirectedHostAuthorizationHeaderPresent": true,
+      "redirectedHostReceivedFixtureCredential": true,
+      "cve": "CVE-2026-53586",
+      "initialOrigin": "http://127.0.0.1:43141",
+      "redirectedOrigin": "http://127.0.0.1:33991",
+      "callbackOrigin": [
+        "http://127.0.0.1:43141"
+      ],
+      "baselineCredentialLeakReproduced": true,
+      "patchedCredentialLeakPrevented": false,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

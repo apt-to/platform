@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "source": "libpng1.6",
+  "targetId": "ubuntu-focal-amd64",
+  "baseVersion": "1.6.37-2",
+  "packageVersion": "1.6.37-2+getpatched1",
+  "releaseSerial": 1,
+  "recipeCommit": "59bc42705b209884df5c335580c36c60c26f313b",
+  "recipeManifestSha256": "dc672c2f78f45c85d7168db4f3ee786130c5f6d5686723e1c8210b9bf02d80e1",
+  "patchMetadataSha256": "221b67beef4d239dcb203fcd25e32bea766ff3952b234d3134f0a1c0a08f7b2c",
+  "platformPolicySha256": "472cfe5f9ec4f573ff6c09165c680f515a03687296c7ce881397466180140440",
+  "sourcePublication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/10994332",
+  "sourcePublishedAt": "2020-02-13T09:28:13.178414+00:00",
+  "sourceDescriptor": {
+    "name": "libpng1.6_1.6.37-2.dsc",
+    "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libpng1.6/1.6.37-2/libpng1.6_1.6.37-2.dsc",
+    "sha256": "4567a54b5804e068e61477e9cd78346557b85b72add10ef10f130a5be169662e",
+    "bytes": 2225
+  },
+  "sourceFiles": [
+    {
+      "name": "libpng1.6_1.6.37.orig.tar.gz",
+      "role": "upstream-source",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libpng1.6/1.6.37-2/libpng1.6_1.6.37.orig.tar.gz",
+      "sha256": "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
+      "bytes": 1508805
+    },
+    {
+      "name": "libpng1.6_1.6.37-2.debian.tar.xz",
+      "role": "ubuntu-packaging",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libpng1.6/1.6.37-2/libpng1.6_1.6.37-2.debian.tar.xz",
+      "sha256": "097cee0f0da4013d0231d37e090204ab3fa592b4fecdaaed3fca8d13affcaae8",
+      "bytes": 31844
+    }
+  ],
+  "downloadedSources": [
+    {
+      "name": "libpng1.6_1.6.37-2.dsc",
+      "bytes": 2225,
+      "sha256": "4567a54b5804e068e61477e9cd78346557b85b72add10ef10f130a5be169662e"
+    },
+    {
+      "name": "libpng1.6_1.6.37.orig.tar.gz",
+      "bytes": 1508805,
+      "sha256": "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307"
+    },
+    {
+      "name": "libpng1.6_1.6.37-2.debian.tar.xz",
+      "bytes": 31844,
+      "sha256": "097cee0f0da4013d0231d37e090204ab3fa592b4fecdaaed3fca8d13affcaae8"
+    }
+  ],
+  "signatureVerification": {
+    "verified": false,
+    "note": "The signed Ubuntu source index authenticates these descriptor and archive hashes; individual .dsc and upstream archive signatures have not yet been verified."
+  },
+  "patches": [
+    {
+      "id": "cve-2025-65018-final-with-cve-2026-22695-fix",
+      "kind": "security",
+      "file": "CVE-2025-65018.patch",
+      "sha256": "6d530e960b4f4ed73034f12a20d505be9b545b4e917d83a09c6c50b74ac91ea4",
+      "cves": [
+        "CVE-2025-65018"
+      ],
+      "upstream": {
+        "repository": "https://github.com/pnggroup/libpng",
+        "commit": "218612ddd6b17944e21eda56caf8b4bf7779d1ea",
+        "url": "https://github.com/pnggroup/libpng/commit/218612ddd6b17944e21eda56caf8b4bf7779d1ea",
+        "followUpCommits": [
+          "e4f7ad4ea2a471776c81dda4846b7691925d9786"
+        ]
+      },
+      "sourceVersion": "1.6.37-2"
+    },
+    {
+      "id": "cve-2026-22801",
+      "kind": "security",
+      "file": "CVE-2026-22801.patch",
+      "sha256": "6ced9ef3fdbefaeb45c8cd272ab75152c22fa2345e040e65d229de75de0413a5",
+      "cves": [
+        "CVE-2026-22801"
+      ],
+      "upstream": {
+        "repository": "https://github.com/pnggroup/libpng",
+        "commit": "cf155de014fc6c5cb199dd681dd5c8fb70429072",
+        "url": "https://github.com/pnggroup/libpng/commit/cf155de014fc6c5cb199dd681dd5c8fb70429072"
+      },
+      "sourceVersion": "1.6.37-2"
+    }
+  ]
+}
