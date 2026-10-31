@@ -139,10 +139,10 @@ class PublicCatalogueContract(unittest.TestCase):
                    for target in record["targets"].values())
         }
         self.assertEqual(set(entries), expected_catalogue)
-        self.assertEqual(expected_catalogue, {"libxml2", "libarchive", "libgit2"})
+        self.assertEqual(expected_catalogue, {"libxml2", "libarchive", "libgit2", "poppler"})
         self.assertIn("libpng1.6", set(platform["packages"]) - set(entries))
         self.assertNotIn("libgit2", set(platform["packages"]) - set(entries))
-        self.assertIn("poppler", set(platform["packages"]) - set(entries))
+        self.assertNotIn("poppler", set(platform["packages"]) - set(entries))
         self.assertEqual(catalogue["schemaVersion"], 3)
         self.assertEqual(set(catalogue["targets"]), set(platform["targets"]))
         for target_id, target in platform["targets"].items():
@@ -178,6 +178,7 @@ class PublicCatalogueContract(unittest.TestCase):
                     "libxml2": "40899705050",
                     "libarchive": "40899709850",
                     "libgit2": "41142564467",
+                    "poppler": "41146751480",
                 }[source]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
                 self.assertEqual(
@@ -193,11 +194,11 @@ class PublicCatalogueContract(unittest.TestCase):
 
         page = (ROOT / "site/index.html").read_text()
         self.assertIn("Hosted verification passed.", page)
-        self.assertIn("Three Focal package candidates have hosted builds", page)
+        self.assertIn("Four Focal package candidates have hosted builds", page)
         self.assertIn("Production repository access setup remains incomplete", page)
         self.assertIn("no production package release has been published", page)
         self.assertIn("Live package publication and downloads remain disabled until GitHub sponsor sign-in and production access setup are complete", page)
-        self.assertIn("Hosted verification has passed for both pilot builds", page)
+        self.assertIn("Hosted verification has passed for all four Focal candidates", page)
         self.assertIn("Ubuntu Pro/ESM compatibility is not tested or supported", page)
         self.assertIn("Each row links to its source, patch, regression tests and release history", page)
         self.assertIn("Any sponsor delay starts only after sponsor publication", page)

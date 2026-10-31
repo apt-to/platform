@@ -220,7 +220,7 @@
           "earlyRedistributionAllowed": false,
           "status": "development-verified-production-release-pending",
           "verification": "https://github.com/getpatched/platform/actions/runs/41146751480",
-          "ubuntuProEsmCompatibility": "not-applicable",
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
           "sourceUrl": "https://github.com/getpatched/packaging-poppler/tree/getpatched/focal",
           "patchUrl": "https://github.com/getpatched/packaging-poppler/blob/getpatched/focal/patches/CVE-2025-52885-focal.patch",
           "testsUrl": "https://github.com/getpatched/packaging-poppler/tree/getpatched/focal/tests",
