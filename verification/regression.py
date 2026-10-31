@@ -461,16 +461,12 @@ def main():
         tiff_baseline_stack_frames = (regression or {}).get("baselineStackSignatures", {}).get(policy["targetId"])
     fixtures = args.recipe / manifest["regressionTests"]["fixturesDirectory"]
     expected = policy["baseVersion"] if args.phase == "baseline" else policy["version"]
-    installed_name = {
-        "libxml2": "libxml2",
-        "libarchive": "libarchive13",
-        "tiff": "libtiff-tools",
-        "libpng1.6": "libpng16-16",
-        "libgit2": "libgit2-28",
-        "poppler": "libpoppler97",
-    }.get(package)
-    if installed_name is None:
-        raise RuntimeError("Unsupported source package")
+    binary_packages = policy.get("binaryPackages")
+    if not isinstance(binary_packages, list) or not binary_packages or not all(
+        isinstance(name, str) and name for name in binary_packages
+    ):
+        raise RuntimeError("Package policy has no installed binary package for version verification")
+    installed_name = binary_packages[0]
     installed = subprocess.check_output(["dpkg-query", "-W", "-f=${Version}", installed_name], text=True)
     if installed != expected:
         raise RuntimeError("Installed version mismatch: " + installed + " != " + expected)

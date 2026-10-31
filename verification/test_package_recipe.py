@@ -40,6 +40,22 @@ class PackageRecipeContract(unittest.TestCase):
         self.assertFalse(RECIPE.patch_applies_to_version(ranged, "debian-bookworm-arm64", "1.0-3"))
         self.assertFalse(RECIPE.patch_applies_to_version(ranged, "ubuntu-focal-amd64", "1.0-2"))
 
+    def test_ubuntu_snapshot_source_host_is_approved_but_suffix_hosts_are_rejected(self):
+        version = "1.1.0+dfsg.1-4.1ubuntu0.1"
+        asset = {
+            "name": f"libgit2_{version}.dsc",
+            "url": f"https://snapshot.ubuntu.com/ubuntu/20261030T000000Z/pool/universe/libg/libgit2/libgit2_{version}.dsc",
+            "sha256": "a" * 64,
+            "bytes": 1,
+        }
+        self.assertEqual(
+            RECIPE.validate_source_asset(asset, "libgit2", version, distribution="Ubuntu", descriptor=True),
+            asset,
+        )
+        asset["url"] = asset["url"].replace("snapshot.ubuntu.com", "snapshot.ubuntu.com.example")
+        with self.assertRaisesRegex(RuntimeError, "approved HTTPS Ubuntu source host"):
+            RECIPE.validate_source_asset(asset, "libgit2", version, distribution="Ubuntu", descriptor=True)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="getpatched-recipe-test-")
         self.addCleanup(self.temp.cleanup)
@@ -160,6 +176,7 @@ class PackageRecipeContract(unittest.TestCase):
         recipe = RECIPE.load_recipe(self.root, PLATFORM_CONFIG)
         self.assertEqual(recipe["policy"]["source"], "libarchive")
         self.assertEqual(recipe["policy"]["version"], "3.4.0-2ubuntu1.5+getpatched1")
+        self.assertEqual(recipe["policy"]["builderPackages"], ["libarchive-dev"])
         self.assertEqual(recipe["policy"]["candidateStatus"], recipe["central"]["candidateStatus"])
         self.assertEqual(recipe["policy"]["patches"], ["cve-2026-4111"])
         self.assertEqual(recipe["policy"]["buildPatches"], ["test-zstd-size-tolerance"])

@@ -84,7 +84,7 @@ def validate_source_asset(asset, package, version, *, distribution, descriptor=F
     approved_hosts = {
         "Ubuntu": {
             "launchpad.net", "www.launchpad.net", "archive.ubuntu.com",
-            "security.ubuntu.com",
+            "security.ubuntu.com", "snapshot.ubuntu.com",
         },
         "Debian": {"snapshot.debian.org"},
     }.get(distribution, set())
@@ -389,6 +389,7 @@ def load_recipe(root, platform_config, target_id=None):
         "earlyBinaryLicenseId": early_license["licenseId"] if delay else None,
         "binaryPackages": target["binaryPackages"],
         "advisoryPackages": advisory_packages,
+        "builderPackages": central["builderPackages"],
         "ubuntuProEsmCompatibility": central.get("ubuntuProEsmCompatibility", "not-applicable"),
         "patches": patch_ids,
         "buildPatches": build_patch_ids,

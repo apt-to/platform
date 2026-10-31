@@ -108,6 +108,7 @@ def package_target_policy(config, package, target_id):
         raise ValueError(f"package {package}/{target_id} has an invalid candidate status")
     binary_packages = policy.get("binaryPackages")
     advisory_packages = policy.get("advisoryPackages", binary_packages)
+    builder_packages = policy.get("builderPackages", [])
     if (not isinstance(binary_packages, list) or not binary_packages
             or any(not isinstance(name, str) or not name for name in binary_packages)
             or len(set(binary_packages)) != len(binary_packages)
@@ -116,8 +117,14 @@ def package_target_policy(config, package, target_id):
             or len(set(advisory_packages)) != len(advisory_packages)
             or not set(advisory_packages).issubset(binary_packages)):
         raise ValueError(f"package {package}/{target_id} has an invalid advisory package scope")
+    if (not isinstance(builder_packages, list)
+            or any(not isinstance(name, str) or not re.fullmatch(r"[a-z0-9][a-z0-9+.-]*", name)
+                   for name in builder_packages)
+            or len(set(builder_packages)) != len(builder_packages)):
+        raise ValueError(f"package {package}/{target_id} has an invalid builder package scope")
     policy = dict(policy)
     policy["advisoryPackages"] = advisory_packages
+    policy["builderPackages"] = builder_packages
     access = policy.get("releaseAccess")
     if (not isinstance(access, dict)
             or access.get("policy") not in ("sponsor-first", "public-after-checks")

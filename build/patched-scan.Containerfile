@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1.7
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
-ARG SOURCE_PACKAGE
 ARG BASELINE_VERSION
 ARG EXPECTED_VERSION
 ARG APT_SOURCES_B64
@@ -14,24 +13,16 @@ RUN --mount=type=secret,id=runner-ca,target=/tmp/getpatched-runner-ca.crt,requir
     chmod 0644 /etc/ssl/certs/ca-certificates.crt; \
     printf 'Acquire::https::CAInfo "/etc/ssl/certs/ca-certificates.crt";\n' > /etc/apt/apt.conf.d/99getpatched-ca; \
     test -n "$APT_SOURCES_B64"; \
+    test -n "$BINARY_PACKAGES"; \
     printf '%s' "$APT_SOURCES_B64" | base64 -d > /etc/apt/sources.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends build-essential python3 valgrind pkg-config; \
     apt-get -y dist-upgrade; \
-    case "$SOURCE_PACKAGE" in \
-      libxml2) binaries="libxml2 libxml2-utils" ;; \
-      libarchive) binaries="libarchive13 libarchive-tools" ;; \
-      libpng1.6) binaries="libpng16-16 libpng-dev libpng-tools" ;; \
-      libgit2) binaries="libgit2-28 libgit2-dev" ;; \
-      poppler) binaries="libpoppler97 libpoppler-dev libpoppler-private-dev libpoppler-glib8 libpoppler-glib-dev libpoppler-glib-doc gir1.2-poppler-0.18 libpoppler-qt5-1 libpoppler-qt5-dev libpoppler-cpp0v5 libpoppler-cpp-dev poppler-utils" ;; \
-      tiff) binaries="libtiff-tools" ;; \
-      *) echo "Unsupported source package" >&2; exit 1 ;; \
-    esac; \
-    for binary in $binaries; do \
+    for binary in $BINARY_PACKAGES; do \
       candidate="$(apt-cache policy "$binary" | awk '/Candidate:/ {print $2}')"; \
       test "$candidate" = "$BASELINE_VERSION" || { echo "Baseline candidate changed for $binary: $candidate" >&2; exit 1; }; \
     done; \
-    for binary in $binaries; do apt-get install -y --no-install-recommends "$binary=$BASELINE_VERSION"; done
+    for binary in $BINARY_PACKAGES; do apt-get install -y --no-install-recommends "$binary=$BASELINE_VERSION"; done
 COPY getpatched/ /tmp/getpatched/
 RUN set -eu; \
     test -n "$BINARY_PACKAGES"; \
