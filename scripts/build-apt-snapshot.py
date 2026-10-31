@@ -15,7 +15,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_ASSET_BYTES = 64 * 1024 * 1024
-SUPPORTED_SNAPSHOT_TARGETS = {"focal": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
+SUPPORTED_SNAPSHOT_TARGETS = {"focal": {"amd64"}, "jammy": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
 
 
 def snapshot_id_prefix(suite, architecture):

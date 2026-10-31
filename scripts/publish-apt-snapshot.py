@@ -15,7 +15,7 @@ import urllib.request
 MAX_FILES = 256
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 128 * 1024 * 1024
-SUPPORTED_TARGETS = {"focal": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
+SUPPORTED_TARGETS = {"focal": {"amd64"}, "jammy": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
 
 
 def required_files(suite, architecture):

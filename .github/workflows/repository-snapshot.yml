@@ -27,7 +27,7 @@ on:
         type: choice
         required: true
         default: ubuntu-focal-amd64
-        options: [ubuntu-focal-amd64, debian-bookworm-amd64, debian-trixie-amd64]
+        options: [ubuntu-focal-amd64, ubuntu-jammy-amd64, debian-bookworm-amd64, debian-trixie-amd64]
       rollback_snapshot_id:
         description: Exact retained target snapshot ID for the selected channel
         type: string
@@ -86,14 +86,14 @@ jobs:
           build_args=()
           if [[ "$GETPATCHED_FORCE_SNAPSHOT_REFRESH" == "true" ]]; then build_args+=(--force-refresh); fi
           : > snapshot-builds.jsonl
-          for suite in focal bookworm trixie; do
+          for suite in focal jammy bookworm trixie; do
             python3 scripts/build-apt-snapshot.py --suite "$suite" --channel both "${build_args[@]}" | tee -a snapshot-builds.jsonl
           done
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           from pathlib import Path
           rows = [json.loads(line) for line in Path("snapshot-builds.jsonl").read_text().splitlines()]
-          expected = {(suite, channel) for suite in ("focal", "bookworm", "trixie") for channel in ("public", "early")}
+          expected = {(suite, channel) for suite in ("focal", "jammy", "bookworm", "trixie") for channel in ("public", "early")}
           if ({(row.get("suite"), row.get("channel")) for row in rows} != expected or
               any(row.get("architecture") != "amd64" for row in rows) or
               any(not isinstance(row.get("unchanged"), bool) for row in rows) or

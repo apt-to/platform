@@ -85,7 +85,7 @@ def sign_and_publish_channel(endpoint, channel, snapshot_id, suite, architecture
 def validate_snapshot_ids(value):
     if not isinstance(value, list) or not value:
         raise ValueError("snapshot IDs must be a non-empty list of target-specific builds")
-    targets = {"focal": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
+    targets = {"focal": {"amd64"}, "jammy": {"amd64"}, "bookworm": {"amd64"}, "trixie": {"amd64"}}
     seen = set()
     for item in value:
         if not isinstance(item, dict):

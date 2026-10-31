@@ -51,6 +51,7 @@ class AptSnapshotPublisher(unittest.TestCase):
         ids = [
             {"suite": "focal", "architecture": "amd64", "channel": "public", "snapshot_build": "focal-20261025T120000-r123-public"},
             {"suite": "focal", "architecture": "amd64", "channel": "early", "snapshot_build": "focal-20261025T120000-r123-early"},
+            {"suite": "jammy", "architecture": "amd64", "channel": "public", "snapshot_build": "jammy-amd64-20261025T120000-r125-public"},
             {"suite": "bookworm", "architecture": "amd64", "channel": "public", "snapshot_build": "bookworm-amd64-20261025T120000-r124-public"},
         ]
         self.assertEqual(SIGNER.validate_snapshot_ids(ids), ids)
@@ -87,6 +88,22 @@ class AptSnapshotPublisher(unittest.TestCase):
         self.assertTrue(all(item["path"].startswith("dists/bookworm/") or item["path"] == "getpatched-archive-keyring.gpg"
                             for item in registration.kwargs["body"]["files"]))
 
+    def test_jammy_publication_registers_target_identity_and_signed_file_manifest(self):
+        root = Path(self.temp.name) / "jammy-publish"
+        for relative in PUBLISH.required_files("jammy", "amd64"):
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(("fixture:" + relative).encode())
+        snapshot_id = "jammy-amd64-20261025T120000-r125-public"
+        with patch.object(PUBLISH, "verify_release"), patch.object(PUBLISH, "call", return_value=(201, {})) as call:
+            PUBLISH.publish("https://repo.getpatched.dev", "public", snapshot_id, ["libgit2-jammy"], root, "0" * 40,
+                            "jammy", "amd64")
+        registration = call.call_args_list[0]
+        self.assertEqual(registration.kwargs["body"]["suite"], "jammy")
+        self.assertEqual(registration.kwargs["body"]["architecture"], "amd64")
+        self.assertTrue(all(item["path"].startswith("dists/jammy/") or item["path"] == "getpatched-archive-keyring.gpg"
+                            for item in registration.kwargs["body"]["files"]))
+
     def test_rollback_only_activates_a_matching_retained_snapshot_without_uploading_bytes(self):
         snapshot_id = "focal-20261025T120000-r123-public"
         with patch.object(ROLLBACK.PUBLISH, "call", return_value=(201, {"id": snapshot_id, "channel": "public", "active": True, "cleanup_pending": False})) as call:
@@ -95,6 +112,13 @@ class AptSnapshotPublisher(unittest.TestCase):
         call.assert_called_once_with(
             f"https://repo.getpatched.dev/internal/repository-snapshots/public/{snapshot_id}/activate", "POST", body={}
         )
+
+    def test_rollback_accepts_jammy_snapshot_for_jammy_target(self):
+        snapshot_id = "jammy-amd64-20261025T120000-r125-public"
+        result_body = {"id": snapshot_id, "channel": "public", "active": True, "cleanup_pending": False}
+        with patch.object(ROLLBACK.PUBLISH, "call", return_value=(201, result_body)):
+            result = ROLLBACK.rollback("https://repo.getpatched.dev", "public", snapshot_id, "ubuntu-jammy-amd64")
+        self.assertEqual(result["id"], snapshot_id)
 
     def test_rollback_accepts_target_specific_debian_snapshot(self):
         snapshot_id = "bookworm-amd64-20261025T120000-r123-public"

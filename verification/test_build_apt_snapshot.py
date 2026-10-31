@@ -26,12 +26,13 @@ def release_record(state="public"):
 
 class SnapshotAssemblyContract(unittest.TestCase):
     def test_snapshot_targets_are_suite_scoped_and_arm64_stays_disabled(self):
-        for suite in ("focal", "bookworm", "trixie"):
+        for suite in ("focal", "jammy", "bookworm", "trixie"):
             BUILD.validate_snapshot_target(suite, "amd64")
-        for suite, architecture in (("bookworm", "arm64"), ("trixie", "arm64"), ("sid", "amd64")):
+        for suite, architecture in (("jammy", "arm64"), ("bookworm", "arm64"), ("trixie", "arm64"), ("sid", "amd64")):
             with self.subTest(suite=suite, architecture=architecture), self.assertRaisesRegex(ValueError, "not enabled"):
                 BUILD.validate_snapshot_target(suite, architecture)
         self.assertEqual(BUILD.snapshot_id_prefix("focal", "amd64"), "focal-")
+        self.assertEqual(BUILD.snapshot_id_prefix("jammy", "amd64"), "jammy-amd64-")
         self.assertEqual(BUILD.snapshot_id_prefix("bookworm", "amd64"), "bookworm-amd64-")
 
     def test_cli_exposes_debian_suites_as_supported_targets(self):
@@ -40,7 +41,7 @@ class SnapshotAssemblyContract(unittest.TestCase):
             capture_output=True, text=True, check=False,
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("{focal,bookworm,trixie}", result.stdout)
+        self.assertIn("{focal,jammy,bookworm,trixie}", result.stdout)
 
     def test_active_snapshot_identity_is_bound_to_suite_and_architecture(self):
         releases = [release_record()]
