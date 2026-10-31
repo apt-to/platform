@@ -480,6 +480,110 @@
         {
           "database_specific": {
             "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "4.5.0-6+deb12u4+getpatched2",
+            "fixed_versions": [
+              "4.5.0-6+deb12u4+getpatched2"
+            ],
+            "getpatched_fixed_version": "4.5.0-6+deb12u4+getpatched2",
+            "source_package": "tiff",
+            "target_id": "debian-bookworm-amd64",
+            "vendor_fixed_versions": []
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Debian",
+            "release": "bookworm",
+            "source_package": "tiff",
+            "target_id": "debian-bookworm-amd64"
+          },
+          "package": {
+            "ecosystem": "Debian:12",
+            "name": "libtiff-tools"
+          },
+          "versions": [
+            "4.5.0-6+deb12u4"
+          ]
+        },
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "4.7.0-3+deb13u3+getpatched2",
+            "fixed_versions": [
+              "4.7.0-3+deb13u3+getpatched2"
+            ],
+            "getpatched_fixed_version": "4.7.0-3+deb13u3+getpatched2",
+            "source_package": "tiff",
+            "target_id": "debian-trixie-amd64",
+            "vendor_fixed_versions": []
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Debian",
+            "release": "trixie",
+            "source_package": "tiff",
+            "target_id": "debian-trixie-amd64"
+          },
+          "package": {
+            "ecosystem": "Debian:13",
+            "name": "libtiff-tools"
+          },
+          "versions": [
+            "4.7.0-3+deb13u3"
+          ]
+        },
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
+            "candidate_version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+            "fixed_versions": [
+              "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2"
+            ],
+            "getpatched_fixed_version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+            "source_package": "tiff",
+            "target_id": "ubuntu-focal-amd64",
+            "vendor_fixed_versions": []
+          },
+          "ecosystem_specific": {
+            "architecture": "amd64",
+            "distribution": "Ubuntu",
+            "release": "focal",
+            "source_package": "tiff",
+            "target_id": "ubuntu-focal-amd64"
+          },
+          "package": {
+            "ecosystem": "Ubuntu:20.04:LTS",
+            "name": "libtiff-tools"
+          },
+          "versions": [
+            "4.1.0+git191117-2ubuntu0.20.04.14"
+          ]
+        }
+      ],
+      "database_specific": {
+        "severity": "LOW",
+        "verification_status": "development-verified-production-release-pending"
+      },
+      "details": "GetPatched records exact affected package versions and exact reviewed fixes per distribution, release, and architecture. A new target or fixed package version is accepted only after its own build and regression evidence.",
+      "id": "CVE-2025-61144",
+      "modified": "2026-10-30T05:38:23Z",
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://security-tracker.debian.org/tracker/CVE-2025-61144"
+        },
+        {
+          "type": "ADVISORY",
+          "url": "https://ubuntu.com/security/CVE-2025-61144"
+        }
+      ],
+      "schema_version": "1.6.0",
+      "summary": "tiffcrop can read beyond its sample buffer while producing level-2 debug output"
+    },
+    {
+      "affected": [
+        {
+          "database_specific": {
+            "candidate_status": "development-verified-production-release-pending",
             "candidate_version": "3.4.0-2ubuntu1.5+getpatched1",
             "fixed_versions": [
               "3.4.0-2ubuntu1.5+getpatched1",

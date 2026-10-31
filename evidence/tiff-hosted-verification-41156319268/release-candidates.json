@@ -1,0 +1,44 @@
+{
+  "source": "tiff",
+  "sourceVersion": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+  "sourceCommit": "be64539b5883cb6cc7631a941f9ff41050f46910",
+  "targetId": "ubuntu-focal-amd64",
+  "distribution": "focal",
+  "architecture": "amd64",
+  "publication": "not published; runner-local candidates for a protected staging job",
+  "packages": [
+    {
+      "name": "libtiff-tools_4.1.0+git191117-2ubuntu0.20.04.14+getpatched2_amd64.deb",
+      "package": "libtiff-tools",
+      "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+      "architecture": "amd64",
+      "bytes": 212488,
+      "sha256": "39720cbb61167ac421c9166cb0360f263d3f61714e10d65f96b08d73d6679553"
+    },
+    {
+      "name": "libtiff5_4.1.0+git191117-2ubuntu0.20.04.14+getpatched2_amd64.deb",
+      "package": "libtiff5",
+      "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+      "architecture": "amd64",
+      "bytes": 179648,
+      "sha256": "03bf0f146cccf3875c726e2d660a998f8a94a7950d865b2f43b48b259df53152"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14+getpatched2.debian.tar.xz",
+      "bytes": 58468,
+      "sha256": "8e023a84549dc956b18d193922291ee4f8a6d02345fc0f540eb399f304c9357b"
+    },
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14+getpatched2.dsc",
+      "bytes": 1550,
+      "sha256": "ef4d574857569766658c759dea506685278694a5a9c9914756904346187e5a2e"
+    },
+    {
+      "name": "tiff_4.1.0+git191117.orig.tar.xz",
+      "bytes": 1533524,
+      "sha256": "67e1d045e994adb7144b0cca228d70dd6d520aaf8c75c342064bc0fd601e6e42"
+    }
+  ]
+}

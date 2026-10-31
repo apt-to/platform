@@ -1,0 +1,58 @@
+{
+  "advisoryFeed": "/home/runner/work/platform/platform/build/output/tiff-verification-advisory-osv.json",
+  "advisoryFeedMode": "candidate-verification-only",
+  "advisoryFeedSha256": "b827af1c3a54a9313e18a08bb15c178d09bf7242f5bd71d3b77b3f7925dcbdc2",
+  "architecture": "amd64",
+  "assessedFollowUpCves": [],
+  "findings": [
+    {
+      "affected_versions": [
+        "4.1.0+git191117-2ubuntu0.20.04.14"
+      ],
+      "fixed_versions": [
+        "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2"
+      ],
+      "id": "CVE-2025-61144",
+      "package": "libtiff-tools",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-61144",
+        "https://ubuntu.com/security/CVE-2025-61144"
+      ],
+      "severity": "LOW",
+      "summary": "tiffcrop can read beyond its sample buffer while producing level-2 debug output",
+      "version": "4.1.0+git191117-2ubuntu0.20.04.14"
+    }
+  ],
+  "findingsById": [
+    "CVE-2025-61144"
+  ],
+  "imageId": "sha256:d88711c07c1057b56b147cfaa3f76f54dcc8f89a1c65d1eae4f16e25d1b0ba91",
+  "packagePolicySha256": "73f64acac4dabee0ac7c2987a5baef3f3641a438a0ef752654fbc24baa6af5e0",
+  "regressionImageIds": {
+    "baseline": "sha256:d88711c07c1057b56b147cfaa3f76f54dcc8f89a1c65d1eae4f16e25d1b0ba91",
+    "patched": "sha256:bd7b66fc3dc8f401b0d4529bdae6c6c21637832bfafbee277965b0e77c9a47f3"
+  },
+  "regressionReportSha256": {
+    "baseline": "1652d08f959d7776256e734b34fc6fc1fad324b493127792c5e23c17170e2ff3",
+    "patched": "37b8c80d9c60d6ab88957e9aaafd7deb1bf54d76d7ab7ce45b3cad019f60cfa2"
+  },
+  "regressionVerifiedCandidate": [
+    {
+      "source": "tiff",
+      "targetId": "ubuntu-focal-amd64"
+    }
+  ],
+  "release": "focal",
+  "scannedPackageVersions": {
+    "libtiff-tools": "4.1.0+git191117-2ubuntu0.20.04.14"
+  },
+  "scanner": "getpatched-dpkg-osv/1",
+  "schemaVersion": 1,
+  "statusFileSha256": "1fce7263dd4789030a0c52ab9da6308f637e1f83ffe2516f1a0335a631e3d5ca",
+  "summary": {
+    "findingCount": 1,
+    "scannedPackages": 1,
+    "vulnerablePackages": 1
+  },
+  "targetId": "ubuntu-focal-amd64"
+}

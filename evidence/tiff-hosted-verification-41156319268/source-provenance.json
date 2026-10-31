@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "source": "tiff",
+  "targetId": "ubuntu-focal-amd64",
+  "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+  "packageVersion": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+  "releaseSerial": 2,
+  "recipeCommit": "be64539b5883cb6cc7631a941f9ff41050f46910",
+  "recipeManifestSha256": "d03a0d91b57c46fc6309d9ede9fc71196fffb814728408be2259862ec93f7a85",
+  "patchMetadataSha256": "498461f5f0aa702bd046d95cd8da75277111553c6faadbf5408409293f79ec2d",
+  "platformPolicySha256": "73f64acac4dabee0ac7c2987a5baef3f3641a438a0ef752654fbc24baa6af5e0",
+  "sourcePublication": "https://api.launchpad.net/1.0/ubuntu/+archive/primary/+sourcepub/16434208",
+  "sourcePublishedAt": "2024-09-09T12:33:58Z",
+  "sourceDescriptor": {
+    "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+    "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/tiff/4.1.0+git191117-2ubuntu0.20.04.14/tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+    "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c",
+    "bytes": 2251
+  },
+  "sourceFiles": [
+    {
+      "name": "tiff_4.1.0+git191117.orig.tar.xz",
+      "role": "upstream-source",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/tiff/4.1.0+git191117-2ubuntu0.20.04.14/tiff_4.1.0+git191117.orig.tar.xz",
+      "sha256": "67e1d045e994adb7144b0cca228d70dd6d520aaf8c75c342064bc0fd601e6e42",
+      "bytes": 1533524
+    },
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.debian.tar.xz",
+      "role": "ubuntu-packaging",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/tiff/4.1.0+git191117-2ubuntu0.20.04.14/tiff_4.1.0+git191117-2ubuntu0.20.04.14.debian.tar.xz",
+      "sha256": "3c89b7298f5ac1521f5524ce0b6948514a11065a20bd9d6c92ff71b3d56bec13",
+      "bytes": 53440
+    },
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+      "role": "ubuntu-packaging",
+      "url": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/tiff/4.1.0+git191117-2ubuntu0.20.04.14/tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+      "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c",
+      "bytes": 2251
+    }
+  ],
+  "downloadedSources": [
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+      "bytes": 2251,
+      "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c"
+    },
+    {
+      "name": "tiff_4.1.0+git191117.orig.tar.xz",
+      "bytes": 1533524,
+      "sha256": "67e1d045e994adb7144b0cca228d70dd6d520aaf8c75c342064bc0fd601e6e42"
+    },
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.debian.tar.xz",
+      "bytes": 53440,
+      "sha256": "3c89b7298f5ac1521f5524ce0b6948514a11065a20bd9d6c92ff71b3d56bec13"
+    },
+    {
+      "name": "tiff_4.1.0+git191117-2ubuntu0.20.04.14.dsc",
+      "bytes": 2251,
+      "sha256": "a081f31502fa969015561f024659cfe7f9e9d51ca0fb8887ab2db1f5ec26792c"
+    }
+  ],
+  "signatureVerification": {
+    "verified": false,
+    "note": "Signed archive source-index hashes were verified; the .dsc uploader signature was not separately verified."
+  },
+  "patches": [
+    {
+      "id": "cve-2025-61144-focal",
+      "kind": "security",
+      "file": "CVE-2025-61144-focal.patch",
+      "sha256": "f669281532d1da467e40e9a31581b26450cdeedf63dc245b54f923a57ab2bfc2",
+      "cves": [
+        "CVE-2025-61144"
+      ],
+      "upstream": {
+        "repository": "https://gitlab.com/libtiff/libtiff",
+        "commit": "88cf9dbb48f6e172629795ecffae35d5052f68aa",
+        "url": "https://gitlab.com/libtiff/libtiff/-/commit/88cf9dbb48f6e172629795ecffae35d5052f68aa"
+      },
+      "sourceVersion": "4.1.0+git191117-2ubuntu0.20.04.14"
+    }
+  ]
+}

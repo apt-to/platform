@@ -1,0 +1,3223 @@
+{
+  "request": {
+    "package": {
+      "name": "tiff",
+      "ecosystem": "Debian:12"
+    },
+    "version": "4.5.0-6+deb12u4"
+  },
+  "endpoint": "https://api.osv.dev/v1/query",
+  "response": {
+    "vulns": [
+      {
+        "id": "DEBIAN-CVE-2017-16232",
+        "details": "LibTIFF 4.0.8 has multiple memory leak vulnerabilities, which allow attackers to cause a denial of service (memory consumption), as demonstrated by tif_open.c, tif_lzw.c, and tif_aux.c. NOTE: Third parties were unable to reproduce the issue",
+        "modified": "2026-09-01T20:03:44.981381233Z",
+        "published": "2019-03-21T15:59:56.530Z",
+        "upstream": [
+          "CVE-2017-16232"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2017-16232"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2017-16232.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2017-16232.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2017-16232.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2018-10126",
+        "details": "ijg-libjpeg before 9d, as used in tiff2pdf (from LibTIFF) and other products, does not check for a NULL pointer at a certain place in jpeg_fdct_16x16 in jfdctint.c.",
+        "modified": "2026-10-23T18:02:56.174919526Z",
+        "published": "2018-04-21T21:29:00.290Z",
+        "upstream": [
+          "CVE-2018-10126"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2018-10126"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2018-10126.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2018-10126.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2018-10126.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2022-1210",
+        "details": "A vulnerability classified as problematic was found in LibTIFF 4.3.0. Affected by this vulnerability is the TIFF File Handler of tiff2ps. Opening a malicious file leads to a denial of service. The attack can be launched remotely but requires user interaction. The exploit has been disclosed to the public and may be used.",
+        "modified": "2026-10-15T08:00:39.612693109Z",
+        "published": "2022-04-03T09:15:09.033Z",
+        "upstream": [
+          "CVE-2022-1210"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2022-1210"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2022-1210.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2022-1210.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2022-1210.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2023-1916",
+        "details": "A flaw was found in tiffcrop, a program distributed by the libtiff package. A specially crafted tiff file can lead to an out-of-bounds read in the extractImageSection function in tools/tiffcrop.c, resulting in a denial of service and limited information disclosure. This issue affects libtiff versions 4.x.",
+        "modified": "2026-10-26T18:01:34.339164229Z",
+        "published": "2023-04-10T22:15:09.223Z",
+        "upstream": [
+          "CVE-2023-1916"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2023-1916"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-1916.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-1916.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-1916.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2023-3164",
+        "details": "A heap-buffer-overflow vulnerability was found in LibTIFF, in extractImageSection() at tools/tiffcrop.c:7916 and tools/tiffcrop.c:7801. This flaw allows attackers to cause a denial of service via a crafted tiff file.",
+        "modified": "2026-10-26T18:00:57.286143197Z",
+        "published": "2023-11-02T12:15:09.543Z",
+        "upstream": [
+          "CVE-2023-3164"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2023-3164"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-3164.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-3164.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-3164.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2023-52355",
+        "details": "An out-of-memory flaw was found in libtiff that could be triggered by passing a crafted tiff file to the TIFFRasterScanlineSize64() API. This flaw allows a remote attacker to cause a denial of service via a crafted input with a size smaller than 379 KB.",
+        "modified": "2026-10-26T18:02:42.596336815Z",
+        "published": "2024-01-25T20:15:38.353Z",
+        "upstream": [
+          "CVE-2023-52355"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2023-52355"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-52355.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.5.1+git230720-4"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-52355.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.5.1+git230720-4"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-52355.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2023-6228",
+        "details": "An issue was found in the tiffcp utility distributed by the libtiff package where a crafted TIFF file on processing may cause a heap-based buffer overflow leads to an application crash.",
+        "modified": "2026-10-26T18:01:33.694208913Z",
+        "published": "2023-12-18T14:15:11.840Z",
+        "upstream": [
+          "CVE-2023-6228"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2023-6228"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-6228.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-6228.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-6228.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2023-6277",
+        "details": "An out-of-memory flaw was found in libtiff. Passing a crafted tiff file to TIFFOpen() API may allow a remote attacker to cause a denial of service via a craft input with size smaller than 379 KB.",
+        "modified": "2026-10-26T18:03:02.365662595Z",
+        "published": "2023-11-24T19:15:07.643Z",
+        "upstream": [
+          "CVE-2023-6277"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2023-6277"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-6277.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.5.1+git230720-2"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-6277.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.5.1+git230720-2"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2023-6277.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2024-13978",
+        "details": "A vulnerability was found in LibTIFF up to 4.7.0. It has been declared as problematic. Affected by this vulnerability is the function t2p_read_tiff_init of the file tools/tiff2pdf.c of the component fax2ps. The manipulation leads to null pointer dereference. The attack needs to be approached locally. The complexity of an attack is rather high. The exploitation appears to be difficult. The patch is named 2ebfffb0e8836bfb1cd7d85c059cd285c59761a4. It is recommended to apply a patch to fix this issue.",
+        "modified": "2026-09-15T09:02:58.815045843Z",
+        "published": "2025-08-01T22:15:25.320Z",
+        "upstream": [
+          "CVE-2024-13978"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2024-13978"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2024-13978.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-3+deb13u1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2024-13978.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-4"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2024-13978.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V4",
+            "score": "CVSS:4.0/AV:L/AC:H/AT:N/PR:L/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-61143",
+        "details": "libtiff up to v4.7.1 was discovered to contain a NULL pointer dereference via the component libtiff/tif_open.c.",
+        "modified": "2026-09-01T20:05:55.364527028Z",
+        "published": "2026-02-23T19:22:56.517Z",
+        "upstream": [
+          "CVE-2025-61143"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-61143"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61143.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61143.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61143.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-61144",
+        "details": "libtiff up to v4.7.1 was discovered to contain a stack overflow via the readSeparateStripsIntoBuffer function.",
+        "modified": "2026-09-01T20:05:55.398141528Z",
+        "published": "2026-02-23T19:22:56.643Z",
+        "upstream": [
+          "CVE-2025-61144"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-61144"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61144.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61144.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61144.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-61145",
+        "details": "libtiff up to v4.7.1 was discovered to contain a double free via the component tools/tiffcrop.c.",
+        "modified": "2026-09-01T20:05:55.333818607Z",
+        "published": "2026-02-23T19:22:56.757Z",
+        "upstream": [
+          "CVE-2025-61145"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-61145"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61145.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61145.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-61145.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:N/I:N/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-8176",
+        "details": "A vulnerability was found in LibTIFF up to 4.7.0. It has been declared as critical. This vulnerability affects the function get_histogram of the file tools/tiffmedian.c. The manipulation leads to use after free. The attack needs to be approached locally. The exploit has been disclosed to the public and may be used. The patch is identified as fe10872e53efba9cc36c66ac4ab3b41a839d5172. It is recommended to apply a patch to fix this issue.",
+        "modified": "2026-09-01T20:05:58.955656210Z",
+        "published": "2025-07-26T04:16:10.527Z",
+        "upstream": [
+          "CVE-2025-8176"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-8176"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8176.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8176.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8176.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-8177",
+        "details": "A vulnerability was found in LibTIFF up to 4.7.0. It has been rated as critical. This issue affects the function setrow of the file tools/thumbnail.c. The manipulation leads to buffer overflow. An attack has to be approached locally. The patch is named e8c9d6c616b19438695fd829e58ae4fde5bfbc22. It is recommended to apply a patch to fix this issue. This vulnerability only affects products that are no longer supported by the maintainer.",
+        "modified": "2026-09-01T20:05:58.945969141Z",
+        "published": "2025-07-26T04:16:10.983Z",
+        "upstream": [
+          "CVE-2025-8177"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-8177"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8177.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8177.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8177.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-8534",
+        "details": "A vulnerability classified as problematic was found in libtiff 4.6.0. This vulnerability affects the function PS_Lvl2page of the file tools/tiff2ps.c of the component tiff2ps. The manipulation leads to null pointer dereference. It is possible to launch the attack on the local host. The complexity of an attack is rather high. The exploitation appears to be difficult. The exploit has been disclosed to the public and may be used. The name of the patch is 6ba36f159fd396ad11bf6b7874554197736ecc8b. It is recommended to apply a patch to fix this issue. One of the maintainers explains, that \"[t]his error only occurs if DEFER_STRILE_LOAD (defer-strile-load:BOOL=ON) or TIFFOpen( .. \"rD\") option is used.\"",
+        "modified": "2026-09-01T20:05:59.042916609Z",
+        "published": "2025-08-05T00:15:56.880Z",
+        "upstream": [
+          "CVE-2025-8534"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-8534"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8534.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8534.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8534.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V4",
+            "score": "CVSS:4.0/AV:L/AC:H/AT:N/PR:L/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N/E:P/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-8851",
+        "details": "A vulnerability was determined in LibTIFF up to 4.5.1. Affected by this issue is the function readSeparateStripsetoBuffer of the file tools/tiffcrop.c of the component tiffcrop. The manipulation leads to stack-based buffer overflow. Local access is required to approach this attack. The patch is identified as 8a7a48d7a645992ca83062b3a1873c951661e2b3. It is recommended to apply a patch to fix this issue.",
+        "modified": "2026-09-01T20:05:59.099420475Z",
+        "published": "2025-08-11T14:15:27.597Z",
+        "upstream": [
+          "CVE-2025-8851"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-8851"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8851.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8851.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-1"
+                  }
+                ]
+              }
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8851.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V4",
+            "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:L/UI:N/VC:L/VI:L/VA:L/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-8961",
+        "details": "A weakness has been identified in LibTIFF 4.7.0. This affects the function main of the file tiffcrop.c of the component tiffcrop. Executing manipulation can lead to memory corruption. The attack can only be executed locally. The exploit has been made available to the public and could be exploited.",
+        "modified": "2026-09-01T20:05:59.148642726Z",
+        "published": "2025-08-14T13:15:38.037Z",
+        "upstream": [
+          "CVE-2025-8961"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-8961"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8961.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-3+deb13u1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8961.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-5"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-8961.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V4",
+            "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:L/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N/E:P/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2025-9165",
+        "details": "A flaw has been found in LibTIFF 4.7.0. This affects the function _TIFFmallocExt/_TIFFCheckRealloc/TIFFHashSetNew/InitCCITTFax3 of the file tools/tiffcmp.c of the component tiffcmp. Executing manipulation can lead to memory leak. The attack is restricted to local execution. This attack is characterized by high complexity. It is indicated that the exploitability is difficult. The exploit has been published and may be used. There is ongoing doubt regarding the real existence of this vulnerability. This patch is called ed141286a37f6e5ddafb5069347ff5d587e7a4e0. It is best practice to apply a patch to resolve this issue. A researcher disputes the security impact of this issue, because \"this is a memory leak on a command line tool that is about to exit anyway\". In the reply the project maintainer declares this issue as \"a simple 'bug' when leaving the command line tool and (...) not a security issue at all\".",
+        "modified": "2026-09-01T20:05:59.130593436Z",
+        "published": "2025-08-19T20:15:37.557Z",
+        "upstream": [
+          "CVE-2025-9165"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2025-9165"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-9165.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-3+deb13u1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-9165.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-4"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2025-9165.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V4",
+            "score": "CVSS:4.0/AV:L/AC:H/AT:N/PR:L/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N/E:P/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2026-12912",
+        "details": "A flaw was found in libtiff. A remote attacker could exploit this vulnerability by providing a specially crafted PixarLog-compressed TIFF image. This issue occurs when decoding Pixarlog codec images with the PIXARLOGDATAFMT_8BITABGR output format and a specific stride value, leading to a heap-based buffer overflow. This could potentially result in arbitrary code execution or a denial of service (DoS).",
+        "modified": "2026-10-16T09:47:33.792811672Z",
+        "published": "2026-06-29T17:16:28.230Z",
+        "upstream": [
+          "CVE-2026-12912"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2026-12912"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-12912.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.0-3+deb13u3"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-12912.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.2-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-12912.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2026-18495",
+        "details": "A flaw was found in libtiff. A heap-buffer overflow vulnerability exists in the `tiff2pdf` utility due to an integer truncation error when processing crafted BigTIFF files. An attacker can provide a specially crafted BigTIFF file, causing a 64-bit `StripByteCounts` value to be truncated to a 32-bit integer. This leads to an undersized memory allocation and a subsequent out-of-bounds memory copy, resulting in a crash and severe memory corruption.",
+        "modified": "2026-10-08T09:47:25.442211275Z",
+        "published": "2026-09-11T18:16:56.690Z",
+        "upstream": [
+          "CVE-2026-18495"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2026-18495"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-18495.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-18495.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-18495.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:L/I:L/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2026-36849",
+        "modified": "2026-09-01T15:06:02.911184364Z",
+        "published": "2026-06-17T05:48:06.307523080Z",
+        "upstream": [
+          "CVE-2026-36849"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2026-36849"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-36849.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-36849.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.1-3"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-36849.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0"
+      },
+      {
+        "id": "DEBIAN-CVE-2026-52490",
+        "details": "An issue in libtiff 85f2ac8e0b01cb7db2bbecf4a3b891bdbef67938 allows an attacker to execute arbitrary code via the process_command_opts() function in tools/tiffcrop.c",
+        "modified": "2026-10-13T09:47:39.803314773Z",
+        "published": "2026-08-24T21:17:19.803Z",
+        "upstream": [
+          "CVE-2026-52490"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2026-52490"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52490.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52490.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.2-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "not yet assigned"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52490.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2026-52491",
+        "details": "An issue in libtiff 85f2ac8e0b01cb7db2bbecf4a3b891bdbef67938 allows an attacker to execute arbitrary code via the libtiff/tools/thumbnail.c: main() component",
+        "modified": "2026-10-01T03:03:16.747008910Z",
+        "published": "2026-08-25T21:17:01.467Z",
+        "upstream": [
+          "CVE-2026-52491"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2026-52491"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52491.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52491.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  },
+                  {
+                    "fixed": "4.7.2-1"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52491.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          }
+        ]
+      },
+      {
+        "id": "DEBIAN-CVE-2026-52492",
+        "details": "An integer overflow in the libtiff rgb2ycbcr utility's cvtRaster() function when computing strip buffer sizes can result in an undersized heap allocation and subsequent heap-based buffer overflow during YCbCr conversion of a crafted TIFF image",
+        "modified": "2026-10-13T09:47:39.081339169Z",
+        "published": "2026-08-24T21:17:19.927Z",
+        "upstream": [
+          "CVE-2026-52492"
+        ],
+        "references": [
+          {
+            "type": "ADVISORY",
+            "url": "https://security-tracker.debian.org/tracker/CVE-2026-52492"
+          }
+        ],
+        "affected": [
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:12",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=bookworm"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.5.0-6",
+              "4.5.0-6+deb12u1",
+              "4.5.0-6+deb12u2",
+              "4.5.0-6+deb12u3",
+              "4.5.0-6+deb12u4",
+              "4.5.1+git230720-1",
+              "4.5.1+git230720-2",
+              "4.5.1+git230720-3",
+              "4.5.1+git230720-4",
+              "4.5.1+git230720-5",
+              "4.5.1-1",
+              "4.5.1~rc3-1",
+              "4.6.0-1",
+              "4.6.0-2",
+              "4.7.0-1",
+              "4.7.0-2",
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52492.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:13",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=trixie"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-3+deb13u1",
+              "4.7.0-3+deb13u2",
+              "4.7.0-3+deb13u3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52492.json"
+            }
+          },
+          {
+            "package": {
+              "name": "tiff",
+              "ecosystem": "Debian:14",
+              "purl": "pkg:deb/debian/tiff?arch=source&distro=forky"
+            },
+            "ranges": [
+              {
+                "type": "ECOSYSTEM",
+                "events": [
+                  {
+                    "introduced": "0"
+                  }
+                ]
+              }
+            ],
+            "versions": [
+              "4.7.0-3",
+              "4.7.0-4",
+              "4.7.0-5",
+              "4.7.1-1",
+              "4.7.1-2",
+              "4.7.1-3",
+              "4.7.2-1"
+            ],
+            "ecosystem_specific": {
+              "urgency": "unimportant"
+            },
+            "database_specific": {
+              "source": "https://storage.googleapis.com/debian-osv/debian-cve-osv/DEBIAN-CVE-2026-52492.json"
+            }
+          }
+        ],
+        "schema_version": "1.9.0",
+        "severity": [
+          {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+          }
+        ]
+      }
+    ]
+  }
+}

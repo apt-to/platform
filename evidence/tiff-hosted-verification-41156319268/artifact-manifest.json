@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "run": "https://github.com/getpatched/platform/actions/runs/41156319268",
+  "artifact": {
+    "id": 13025810325,
+    "name": "verification-tiff-ubuntu-focal-amd64-41156319268-1",
+    "sha256": "adc03e279e9e7f64b4b46362bd535bc8a79b59b04086b9fbf360e448211379dc",
+    "expiresAt": "2026-11-30T01:44:57Z"
+  },
+  "retainedFiles": [
+    "advisory-comparison.json",
+    "baseline-regression.json",
+    "patched-regression.json",
+    "binary-manifest.json",
+    "build-provenance.json",
+    "build-toolchain.tsv",
+    "package-policy.json",
+    "release-candidates.json",
+    "release-eligibility.json",
+    "repository-smoke.json",
+    "scan-images.json",
+    "source-provenance.json",
+    "tiff-getpatched-scan-before.json",
+    "tiff-getpatched-scan-after.json",
+    "tiff-getpatched-status-before.txt",
+    "tiff-getpatched-status-after.txt",
+    "tiff-osv-before.json",
+    "tiff-osv-after.json",
+    "tiff-trivy-before-metadata.json",
+    "tiff-trivy-after-metadata.json",
+    "tiff-verification-advisory-osv.json",
+    "trivy-database.json",
+    "version-ordering.txt",
+    "tiff-trivy-before.json.gz",
+    "tiff-trivy-after.json.gz"
+  ],
+  "rawTrivyReports": {
+    "before": {
+      "originalSha256": "732890171f9e81a5468f81e76ab7059afc1e17d6bf76b62e74b33747ae473cf4",
+      "compressedSha256": "a39368230d86ee3be1fd6f43d0eb49011a5c4e803f88aab91d0f35742393d7ac"
+    },
+    "after": {
+      "originalSha256": "b6a1082e6286d26f5c7ca8db6cd97fc1b611e4e7a5c931ce4470a7b4e0e8b9c6",
+      "compressedSha256": "2ab32f2ce84125a2105aeb88890aff8b40c319ac31b5ec1a727cc66d6fca3c75"
+    }
+  }
+}

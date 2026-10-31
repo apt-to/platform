@@ -333,12 +333,168 @@
           "earlyUse": ["private", "commercial"],
           "earlyRedistributionAllowed": false,
           "status": "development-verified-production-release-pending",
-          "verification": "https://github.com/getpatched/platform/actions/runs/41142564467",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41144391227",
           "ubuntuProEsmCompatibility": "not-applicable",
           "sourceUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/focal",
           "patchUrl": "https://github.com/getpatched/packaging-libgit2/blob/getpatched/focal/patches/CVE-2026-53584-focal.patch",
           "testsUrl": "https://github.com/getpatched/packaging-libgit2/tree/getpatched/focal/tests",
           "releasesUrl": "https://github.com/getpatched/packaging-libgit2/releases",
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
+        }
+      }
+    },
+    {
+      "source": "tiff",
+      "targets": {
+        "ubuntu-focal-amd64": {
+          "baseVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
+          "version": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+          "cves": ["CVE-2025-61144"],
+          "vulnerabilities": [{
+            "id": "CVE-2025-61144",
+            "slug": "cve-2025-61144",
+            "summary": "A stack overflow in libtiff's separate-strip buffer path can make tiffcrop crash when processing a crafted TIFF.",
+            "ubuntuPriority": "low",
+            "cvssV3": 7.3,
+            "advisoryUrl": "https://ubuntu.com/security/CVE-2025-61144",
+            "patchSlugs": ["cve-2025-61144-focal"],
+            "patched": true
+          }],
+          "patches": [{
+            "id": "cve-2025-61144-focal",
+            "slug": "cve-2025-61144-focal",
+            "kind": "security",
+            "title": "Bound tiffcrop's debug sample dump loop",
+            "description": "Bounds the debug output loop to the MAX_SAMPLES capacity of srcbuffs.",
+            "sha256": "f669281532d1da467e40e9a31581b26450cdeedf63dc245b54f923a57ab2bfc2",
+            "fileUrl": "https://github.com/getpatched/packaging-tiff/blob/getpatched/focal/patches/CVE-2025-61144-focal.patch",
+            "cves": ["CVE-2025-61144"],
+            "upstream": {
+              "repository": "https://gitlab.com/libtiff/libtiff",
+              "commit": "88cf9dbb48f6e172629795ecffae35d5052f68aa",
+              "url": "https://gitlab.com/libtiff/libtiff/-/commit/88cf9dbb48f6e172629795ecffae35d5052f68aa"
+            },
+            "tests": [{
+              "id": "tiffcrop-debug-sample-bounds",
+              "baselineExpectation": "The exact installed baseline reports the target-specific uninitialised-value stack signature and a nonzero Memcheck summary on the bounded malformed TIFF fixture.",
+              "patchedExpectation": "The installed candidate completes the same debug dump and tiffinfo reads the output."
+            }]
+          }],
+          "access": "public",
+          "delayHours": 0,
+          "sponsorEligibility": null,
+          "earlyBinaryLicenseId": null,
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "development-verified-production-release-pending",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41156319268",
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "sourceUrl": "https://github.com/getpatched/packaging-tiff/tree/getpatched/focal",
+          "patchUrl": "https://github.com/getpatched/packaging-tiff/blob/getpatched/focal/patches/CVE-2025-61144-focal.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-tiff/tree/getpatched/focal/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-tiff/releases",
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
+        },
+        "debian-bookworm-amd64": {
+          "baseVersion": "4.5.0-6+deb12u4",
+          "version": "4.5.0-6+deb12u4+getpatched2",
+          "cves": ["CVE-2025-61144"],
+          "vulnerabilities": [{
+            "id": "CVE-2025-61144",
+            "slug": "cve-2025-61144",
+            "summary": "A stack overflow in libtiff's separate-strip buffer path can make tiffcrop crash when processing a crafted TIFF.",
+            "cvssV3": 7.3,
+            "advisoryUrl": "https://security-tracker.debian.org/tracker/CVE-2025-61144",
+            "patchSlugs": ["cve-2025-61144-debian"],
+            "patched": true
+          }],
+          "patches": [{
+            "id": "cve-2025-61144-debian",
+            "slug": "cve-2025-61144-debian",
+            "kind": "security",
+            "title": "Bound tiffcrop's debug sample dump loop",
+            "description": "Bounds the debug output loop to the MAX_SAMPLES capacity of srcbuffs.",
+            "sha256": "4a68096fa50e295af6b318c78e3f0c8cc6642752ff8b5365bced6b82235fbfc3",
+            "fileUrl": "https://github.com/getpatched/packaging-tiff/blob/getpatched/debian-bookworm/patches/CVE-2025-61144-debian.patch",
+            "cves": ["CVE-2025-61144"],
+            "upstream": {
+              "repository": "https://gitlab.com/libtiff/libtiff",
+              "commit": "88cf9dbb48f6e172629795ecffae35d5052f68aa",
+              "url": "https://gitlab.com/libtiff/libtiff/-/commit/88cf9dbb48f6e172629795ecffae35d5052f68aa"
+            },
+            "tests": [{
+              "id": "tiffcrop-debug-sample-bounds",
+              "baselineExpectation": "The exact installed baseline reports the target-specific uninitialised-value stack signature and a nonzero Memcheck summary on the bounded malformed TIFF fixture.",
+              "patchedExpectation": "The installed candidate completes the same debug dump and tiffinfo reads the output."
+            }]
+          }],
+          "access": "public",
+          "delayHours": 0,
+          "sponsorEligibility": null,
+          "earlyBinaryLicenseId": null,
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "development-verified-production-release-pending",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41156318734",
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "sourceUrl": "https://github.com/getpatched/packaging-tiff/tree/getpatched/debian-bookworm",
+          "patchUrl": "https://github.com/getpatched/packaging-tiff/blob/getpatched/debian-bookworm/patches/CVE-2025-61144-debian.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-tiff/tree/getpatched/debian-bookworm/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-tiff/releases",
+          "releaseStatus": "No production release",
+          "publicLicenseScope": "getpatched-authored-contributions-only"
+        },
+        "debian-trixie-amd64": {
+          "baseVersion": "4.7.0-3+deb13u3",
+          "version": "4.7.0-3+deb13u3+getpatched2",
+          "cves": ["CVE-2025-61144"],
+          "vulnerabilities": [{
+            "id": "CVE-2025-61144",
+            "slug": "cve-2025-61144",
+            "summary": "A stack overflow in libtiff's separate-strip buffer path can make tiffcrop crash when processing a crafted TIFF.",
+            "cvssV3": 7.3,
+            "advisoryUrl": "https://security-tracker.debian.org/tracker/CVE-2025-61144",
+            "patchSlugs": ["cve-2025-61144-debian"],
+            "patched": true
+          }],
+          "patches": [{
+            "id": "cve-2025-61144-debian",
+            "slug": "cve-2025-61144-debian",
+            "kind": "security",
+            "title": "Bound tiffcrop's debug sample dump loop",
+            "description": "Bounds the debug output loop to the MAX_SAMPLES capacity of srcbuffs.",
+            "sha256": "4a68096fa50e295af6b318c78e3f0c8cc6642752ff8b5365bced6b82235fbfc3",
+            "fileUrl": "https://github.com/getpatched/packaging-tiff/blob/getpatched/debian-trixie/patches/CVE-2025-61144-debian.patch",
+            "cves": ["CVE-2025-61144"],
+            "upstream": {
+              "repository": "https://gitlab.com/libtiff/libtiff",
+              "commit": "88cf9dbb48f6e172629795ecffae35d5052f68aa",
+              "url": "https://gitlab.com/libtiff/libtiff/-/commit/88cf9dbb48f6e172629795ecffae35d5052f68aa"
+            },
+            "tests": [{
+              "id": "tiffcrop-debug-sample-bounds",
+              "baselineExpectation": "The exact installed baseline reports the target-specific uninitialised-value stack signature and a nonzero Memcheck summary on the bounded malformed TIFF fixture.",
+              "patchedExpectation": "The installed candidate completes the same debug dump and tiffinfo reads the output."
+            }]
+          }],
+          "access": "public",
+          "delayHours": 0,
+          "sponsorEligibility": null,
+          "earlyBinaryLicenseId": null,
+          "publicContributionSpdx": "MIT",
+          "earlyUse": ["private", "commercial"],
+          "earlyRedistributionAllowed": false,
+          "status": "development-verified-production-release-pending",
+          "verification": "https://github.com/getpatched/platform/actions/runs/41156319535",
+          "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+          "sourceUrl": "https://github.com/getpatched/packaging-tiff/tree/getpatched/debian-trixie",
+          "patchUrl": "https://github.com/getpatched/packaging-tiff/blob/getpatched/debian-trixie/patches/CVE-2025-61144-debian.patch",
+          "testsUrl": "https://github.com/getpatched/packaging-tiff/tree/getpatched/debian-trixie/tests",
+          "releasesUrl": "https://github.com/getpatched/packaging-tiff/releases",
           "releaseStatus": "No production release",
           "publicLicenseScope": "getpatched-authored-contributions-only"
         }

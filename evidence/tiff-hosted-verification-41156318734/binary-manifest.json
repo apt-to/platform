@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "purpose": "unpublished build verification; binaries not exported",
+  "source": "tiff",
+  "targetId": "debian-bookworm-amd64",
+  "sourceVersion": "4.5.0-6+deb12u4",
+  "version": "4.5.0-6+deb12u4+getpatched2",
+  "architecture": "amd64",
+  "packages": [
+    {
+      "name": "libtiff-dev_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "b4379316559753e94a25ef00baadf14e3bf3182738ac52cd7500d1cecbcb72fb",
+      "bytes": 456376,
+      "control": "Package: libtiff-dev\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libc6-dev | libc-dev, libjbig-dev, libjpeg-dev, liblzma-dev, libzstd-dev, libwebp-dev, libtiff6 (= 4.5.0-6+deb12u4+getpatched2), libtiffxx6 (= 4.5.0-6+deb12u4+getpatched2), zlib1g-dev, libdeflate-dev, liblerc-dev\n"
+    },
+    {
+      "name": "libtiff-doc_4.5.0-6+deb12u4+getpatched2_all.deb",
+      "sha256": "42f3d1f3f8a28673bab998463d25d4ddffd004a3f5489d29f8ed44106fbf7e72",
+      "bytes": 681528,
+      "control": "Package: libtiff-doc\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: all\nDepends: libjs-jquery, libjs-sphinxdoc, libjs-underscore\n"
+    },
+    {
+      "name": "libtiff-opengl-dbgsym_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "5714d126c625c08ac84a66502e7db9170c61427ff267dc97e5ee56752c7e1d74",
+      "bytes": 15216,
+      "control": "Package: libtiff-opengl-dbgsym\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libtiff-opengl (= 4.5.0-6+deb12u4+getpatched2)\n"
+    },
+    {
+      "name": "libtiff-opengl_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "08f5c3d158f0096d3c5fc05a895f28973e5d7fe9b1e9fef360f5c9a5addab9c8",
+      "bytes": 148720,
+      "control": "Package: libtiff-opengl\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libc6 (>= 2.34), libgl1, libglut3.12 (>= 3.4.0), libtiff6 (>= 4.5.0~rc1)\n"
+    },
+    {
+      "name": "libtiff-tools-dbgsym_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "92adfc48aba411cfaaec3495fbc06890272633e83a94f2ea46dd666b0b5e41c0",
+      "bytes": 455244,
+      "control": "Package: libtiff-tools-dbgsym\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libtiff-tools (= 4.5.0-6+deb12u4+getpatched2)\n"
+    },
+    {
+      "name": "libtiff-tools_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "9463f2885a2a8986f96887712d94848d76af41d8ddc4295237cf60ac0d3c0fcf",
+      "bytes": 334860,
+      "control": "Package: libtiff-tools\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libc6 (>= 2.34), libtiff6 (>= 4.5.0~rc1)\n"
+    },
+    {
+      "name": "libtiff5-dev_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "9c952aff6ecd35d3486088eacc31f897cbe112ed17eb446e7cbe6e9c32b0afc1",
+      "bytes": 141064,
+      "control": "Package: libtiff5-dev\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libtiff-dev (>= 4.0.10-1)\n"
+    },
+    {
+      "name": "libtiff6-dbgsym_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "faad698a90f2d3382de903ca6ab72a273192e7cd56eab5117efeeb85f7b85526",
+      "bytes": 475880,
+      "control": "Package: libtiff6-dbgsym\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libtiff6 (= 4.5.0-6+deb12u4+getpatched2)\n"
+    },
+    {
+      "name": "libtiff6_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "fa53bb4d072931900944d4fb994c03e643130f2dd90ccf0c39f6308e0a0ea4f9",
+      "bytes": 316200,
+      "control": "Package: libtiff6\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libc6 (>= 2.33), libdeflate0 (>= 1.0), libjbig0 (>= 2.0), libjpeg62-turbo (>= 1.3.1), liblerc4 (>= 3.0), liblzma5 (>= 5.1.1alpha+20120614), libwebp7 (>= 1.2.4), libzstd1 (>= 1.5.2), zlib1g (>= 1:1.1.4)\n"
+    },
+    {
+      "name": "libtiffxx6-dbgsym_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "9e1b507a9837734a9103600175060c6917395c8fbd11c58654670af5c7099090",
+      "bytes": 21676,
+      "control": "Package: libtiffxx6-dbgsym\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libtiffxx6 (= 4.5.0-6+deb12u4+getpatched2)\n"
+    },
+    {
+      "name": "libtiffxx6_4.5.0-6+deb12u4+getpatched2_amd64.deb",
+      "sha256": "d6c73d3e558ce5ccb65a74b0480b72f6a8a7ff8c79dccf9b19115cf783ffb848",
+      "bytes": 144268,
+      "control": "Package: libtiffxx6\nVersion: 4.5.0-6+deb12u4+getpatched2\nArchitecture: amd64\nDepends: libc6 (>= 2.4), libstdc++6 (>= 5), libtiff6 (>= 4.0.3)\n"
+    }
+  ]
+}

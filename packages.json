@@ -285,25 +285,25 @@
           "baselineVersion": "4.1.0+git191117-2ubuntu0.20.04.14",
           "sourcePocket": "updates",
           "packageEcosystem": "Ubuntu:20.04:LTS",
-          "packageVersion": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched1",
-          "releaseSerial": 1,
+          "packageVersion": "4.1.0+git191117-2ubuntu0.20.04.14+getpatched2",
+          "releaseSerial": 2,
           "binaryPackages": ["libtiff5", "libtiff-tools"],
           "advisoryPackages": ["libtiff-tools"],
           "targetCve": "CVE-2025-61144",
           "targetCves": ["CVE-2025-61144"],
           "advisory": "https://ubuntu.com/security/CVE-2025-61144",
           "advisories": {"CVE-2025-61144": "https://ubuntu.com/security/CVE-2025-61144"},
-          "candidateStatus": "unverified-development-candidate",
+          "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
         },
         "debian-bookworm-amd64": {
-          "baselineVersion": "4.5.0-6+deb12u4", "sourcePocket": "release", "packageEcosystem": "Debian:12", "packageVersion": "4.5.0-6+deb12u4+getpatched1", "releaseSerial": 1,
-          "binaryPackages": ["libtiff-tools"], "targetCve": "CVE-2025-61144", "targetCves": ["CVE-2025-61144"], "advisory": "https://security-tracker.debian.org/tracker/CVE-2025-61144", "advisories": {"CVE-2025-61144": "https://security-tracker.debian.org/tracker/CVE-2025-61144"}, "candidateStatus": "unverified-development-candidate",
+          "baselineVersion": "4.5.0-6+deb12u4", "sourcePocket": "release", "packageEcosystem": "Debian:12", "packageVersion": "4.5.0-6+deb12u4+getpatched2", "releaseSerial": 2,
+          "binaryPackages": ["libtiff-tools"], "targetCve": "CVE-2025-61144", "targetCves": ["CVE-2025-61144"], "advisory": "https://security-tracker.debian.org/tracker/CVE-2025-61144", "advisories": {"CVE-2025-61144": "https://security-tracker.debian.org/tracker/CVE-2025-61144"}, "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
         },
         "debian-trixie-amd64": {
-          "baselineVersion": "4.7.0-3+deb13u3", "sourcePocket": "release", "packageEcosystem": "Debian:13", "packageVersion": "4.7.0-3+deb13u3+getpatched1", "releaseSerial": 1,
-          "binaryPackages": ["libtiff-tools"], "targetCve": "CVE-2025-61144", "targetCves": ["CVE-2025-61144"], "advisory": "https://security-tracker.debian.org/tracker/CVE-2025-61144", "advisories": {"CVE-2025-61144": "https://security-tracker.debian.org/tracker/CVE-2025-61144"}, "candidateStatus": "unverified-development-candidate",
+          "baselineVersion": "4.7.0-3+deb13u3", "sourcePocket": "release", "packageEcosystem": "Debian:13", "packageVersion": "4.7.0-3+deb13u3+getpatched2", "releaseSerial": 2,
+          "binaryPackages": ["libtiff-tools"], "targetCve": "CVE-2025-61144", "targetCves": ["CVE-2025-61144"], "advisory": "https://security-tracker.debian.org/tracker/CVE-2025-61144", "advisories": {"CVE-2025-61144": "https://security-tracker.debian.org/tracker/CVE-2025-61144"}, "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {"policy": "public-after-checks", "sponsorDelayHours": 0, "sponsorEligibility": null, "earlyBinaryLicenseId": null, "publicContributionSpdx": "MIT", "earlyUse": ["private", "commercial"], "earlyRedistributionAllowed": false, "publicLicenseScope": "getpatched-authored-contributions-only"}
         }
       }
