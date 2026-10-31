@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "purpose": "unpublished build verification; binaries not exported",
+  "source": "libgit2",
+  "targetId": "ubuntu-jammy-amd64",
+  "sourceVersion": "1.1.0+dfsg.1-4.1ubuntu0.1",
+  "version": "1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1",
+  "architecture": "amd64",
+  "packages": [
+    {
+      "name": "libgit2-1.1_1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1_amd64.deb",
+      "sha256": "2af4ab42159b742481c2a0cf54fd277d6adaea47459432afee0aa155e4898f23",
+      "bytes": 461818,
+      "control": "Package: libgit2-1.1\nVersion: 1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1\nArchitecture: amd64\nDepends: libc6 (>= 2.34), libgssapi-krb5-2 (>= 1.17), libhttp-parser2.9 (>= 2.1), libmbedcrypto7 (>= 2.28.0), libmbedtls14 (>= 2.28.0), libmbedx509-1 (>= 2.28.0), libpcre3, libssh2-1 (>= 1.7.0), zlib1g (>= 1:1.1.4)\n"
+    },
+    {
+      "name": "libgit2-dev_1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1_amd64.deb",
+      "sha256": "a2828a036b65682e20770a8f44b5ac8b69df83231f97e7d2c1d12a8e37df2f4f",
+      "bytes": 792480,
+      "control": "Package: libgit2-dev\nVersion: 1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1\nArchitecture: amd64\nDepends: libgit2-1.1 (= 1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1), zlib1g-dev, libmbedtls-dev, libssh2-1-dev, libhttp-parser-dev, libpcre3-dev\n"
+    },
+    {
+      "name": "libgit2-fixtures_1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1_all.deb",
+      "sha256": "d42c8d76249f37bd4742b1586cd79a46e2ddb26b690e4a57947fa67f2d630ac3",
+      "bytes": 1911298,
+      "control": "Package: libgit2-fixtures\nVersion: 1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1\nArchitecture: all\n"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "source": "libgit2",
+  "targetId": "ubuntu-jammy-amd64",
+  "baseVersion": "1.1.0+dfsg.1-4.1ubuntu0.1",
+  "version": "1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1",
+  "releaseSerial": 1,
+  "candidateStatus": "development-verified-production-release-pending",
+  "targetCve": "CVE-2026-53584",
+  "targetCves": [
+    "CVE-2026-53584",
+    "CVE-2026-53585",
+    "CVE-2026-53586"
+  ],
+  "sponsorDelayHours": 0,
+  "release": "jammy",
+  "distribution": "Ubuntu",
+  "releaseVersion": "22.04",
+  "architecture": "amd64",
+  "advisoryEcosystem": "Ubuntu:22.04:LTS",
+  "packageEcosystem": "Ubuntu:22.04:LTS",
+  "releaseAccess": {
+    "policy": "public-after-checks",
+    "sponsorDelayHours": 0,
+    "sponsorEligibility": null,
+    "earlyBinaryLicenseId": null,
+    "publicContributionSpdx": "MIT",
+    "earlyUse": [
+      "private",
+      "commercial"
+    ],
+    "earlyRedistributionAllowed": false,
+    "publicLicenseScope": "getpatched-authored-contributions-only"
+  },
+  "publicContributionsSpdx": "MIT",
+  "earlyBinaryLicenseId": null,
+  "binaryPackages": [
+    "libgit2-1.1",
+    "libgit2-dev"
+  ],
+  "advisoryPackages": [
+    "libgit2-1.1",
+    "libgit2-dev"
+  ],
+  "builderPackages": [],
+  "ubuntuProEsmCompatibility": "not-tested-out-of-scope",
+  "patches": [
+    "cve-2026-53584-jammy",
+    "cve-2026-53585-jammy",
+    "cve-2026-53586-jammy"
+  ],
+  "buildPatches": []
+}
