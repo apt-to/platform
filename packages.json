@@ -162,7 +162,7 @@
             "CVE-2025-49796"
           ],
           "advisory": "https://ubuntu.com/security/CVE-2025-49794",
-          "candidateStatus": "development-verified-production-release-pending",
+            "candidateStatus": "development-verified-production-release-pending",
           "releaseAccess": {
             "policy": "sponsor-first",
             "sponsorDelayHours": 168,
@@ -320,7 +320,7 @@
               "CVE-2026-53585": "https://ubuntu.com/security/CVE-2026-53585",
               "CVE-2026-53586": "https://ubuntu.com/security/CVE-2026-53586"
             },
-            "candidateStatus": "unverified-development-candidate",
+          "candidateStatus": "development-verified-production-release-pending",
             "releaseAccess": {
               "policy": "public-after-checks",
               "sponsorDelayHours": 0,

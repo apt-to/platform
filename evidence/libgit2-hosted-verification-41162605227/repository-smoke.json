@@ -1,0 +1,25 @@
+{
+  "source": "libgit2",
+  "targetId": "ubuntu-focal-amd64",
+  "suite": "focal",
+  "architecture": "amd64",
+  "component": "main",
+  "binaryPackages": [
+    "libgit2-28",
+    "libgit2-dev"
+  ],
+  "version": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+  "sourcePackageFetched": true,
+  "inReleaseVerified": true,
+  "releaseGpgVerified": true,
+  "byHashSha256": true,
+  "temporaryTestKeyFingerprint": "8BA3D8B1A75DFDD31A9AE3F478596654964E9859",
+  "supportScope": "ubuntu-focal-amd64",
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "runnerCaBundleSource": "linux-system-default",
+  "runnerCaBundleSha256": "e05a523d99de77c6b1f2c7b7c3af502c8378f29e6e8484358ec55f96b0972ad6",
+  "releaseSha256": "f1cb3045c022403507d1ed699bbffcc1fbbe04bb207d4fd3e1b6355b4b48ecea",
+  "inReleaseSha256": "739933722980671d55326505a996e585ec966d22360e351bc68427659123d97e",
+  "clientBaseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "publication": "none; repository and temporary signing key were discarded after the isolated target client test"
+}

@@ -1,0 +1,3 @@
+6786e26b0559e0c7e21d45f4f450cb16e1b3ec0fcc9c4142a37eda6f6f614a7d  libgit2_1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1.debian.tar.xz
+38e7c4885bc830403d3c38ecd8b9e4f946dff5cce9ef67f1cb4deef6e095dbb5  libgit2_1.1.0+dfsg.1-4.1ubuntu0.1+getpatched1.dsc
+d3eba7909c5df1023c25a44ead8ee97cfc36da91a84ca50837d90f4521cf4e04  libgit2_1.1.0+dfsg.1.orig.tar.xz

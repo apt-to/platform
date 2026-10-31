@@ -1,0 +1,84 @@
+{
+  "source": "libgit2",
+  "version": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+  "sourceCommit": "ec3e0081bfef46cc0dc7344a5877cdfa1905be5c",
+  "targetId": "ubuntu-focal-amd64",
+  "baseImage": "ubuntu:20.04@sha256:c664f8f86ed5a386b0a340d981b8f81714e21a8b9c73f658c4bea56aa179d54a",
+  "scannerImage": "aquasec/trivy:0.70.0@sha256:85e87be1a96459c38a4eea47dc64eb2d342bb14cd4b4cef96adcf6ff03378b7c",
+  "runnerCaBundleSource": "linux-system-default",
+  "runnerCaBundleSha256": "e05a523d99de77c6b1f2c7b7c3af502c8378f29e6e8484358ec55f96b0972ad6",
+  "archiveSnapshot": "20261025T000000Z",
+  "builderImageId": "sha256:9f4e29a4e2aa1522aeda25e75211dc3b69b77789331911f9676d59d5de909c28",
+  "toolchainInventory": "build-toolchain.tsv",
+  "publication": "none; binary outputs remained inside the disposable container",
+  "releaseSerial": 1,
+  "sourceDescriptor": {
+    "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc",
+    "sha256": "259c89491dbd17407b738316447c7afb0b7858478d39db3b194c92c40fad47a4"
+  },
+  "downloadedSourceAssets": [
+    {
+      "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc",
+      "bytes": 2344,
+      "sha256": "259c89491dbd17407b738316447c7afb0b7858478d39db3b194c92c40fad47a4"
+    },
+    {
+      "name": "libgit2_0.28.4+dfsg.1.orig.tar.xz",
+      "bytes": 2798048,
+      "sha256": "758517d1ff5124e732e999e2e50a501cb0d3c8bdcf64d1cec404ced6235c0bb7"
+    },
+    {
+      "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.debian.tar.xz",
+      "bytes": 19016,
+      "sha256": "8a3d388a52655ac0eb1437097b9cac150bc5052ac4fa44d98bb6d4d21c2e773d"
+    }
+  ],
+  "patches": [
+    {
+      "id": "cve-2026-53584-focal",
+      "kind": "security",
+      "file": "CVE-2026-53584-focal.patch",
+      "sha256": "68fac34287ea839bf425864959c8a19a2b874c79a04af33ee51c5d1f2c31d216",
+      "cves": [
+        "CVE-2026-53584"
+      ],
+      "upstream": {
+        "repository": "https://github.com/libgit2/libgit2",
+        "commit": "419637d3587396f5d139d6d88480eab3cd81e7a1",
+        "url": "https://github.com/libgit2/libgit2/commit/419637d3587396f5d139d6d88480eab3cd81e7a1"
+      },
+      "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "id": "cve-2026-53585-focal",
+      "kind": "security",
+      "file": "CVE-2026-53585-focal.patch",
+      "sha256": "2063f9e1442d693a738acffa7ac9a491daa71b2f2fd322e18e96954c24dcac0c",
+      "cves": [
+        "CVE-2026-53585"
+      ],
+      "upstream": {
+        "repository": "https://github.com/libgit2/libgit2",
+        "commit": "c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae",
+        "url": "https://github.com/libgit2/libgit2/commit/c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae"
+      },
+      "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "id": "cve-2026-53586-focal",
+      "kind": "security",
+      "file": "CVE-2026-53586-focal.patch",
+      "sha256": "58d26adfe51215153e369416241dcfcfd100da1c52b9a9c71b0e65b0f23ee677",
+      "cves": [
+        "CVE-2026-53586"
+      ],
+      "upstream": {
+        "repository": "https://github.com/libgit2/libgit2",
+        "commit": "c1507abc44647b3acd832a33a5b1c8c9f5ba8821",
+        "url": "https://github.com/libgit2/libgit2/commit/c1507abc44647b3acd832a33a5b1c8c9f5ba8821"
+      },
+      "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1"
+    }
+  ],
+  "recipeManifestSha256": "60c8c69212e7fa512dbb722b25963514f3d03d6ca7eacdb5a389385bbcb7cde2"
+}

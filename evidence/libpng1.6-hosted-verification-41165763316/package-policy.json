@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "source": "libpng1.6",
+  "targetId": "ubuntu-focal-amd64",
+  "baseVersion": "1.6.37-2",
+  "version": "1.6.37-2+getpatched1",
+  "releaseSerial": 1,
+  "candidateStatus": "unverified-development-candidate",
+  "targetCve": "CVE-2025-65018",
+  "targetCves": [
+    "CVE-2025-65018",
+    "CVE-2026-22801"
+  ],
+  "sponsorDelayHours": 0,
+  "release": "focal",
+  "distribution": "Ubuntu",
+  "releaseVersion": "20.04",
+  "architecture": "amd64",
+  "advisoryEcosystem": "Ubuntu:20.04:LTS",
+  "packageEcosystem": "Ubuntu:20.04:LTS",
+  "releaseAccess": {
+    "policy": "public-after-checks",
+    "sponsorDelayHours": 0,
+    "sponsorEligibility": null,
+    "earlyBinaryLicenseId": null,
+    "publicContributionSpdx": "MIT",
+    "earlyUse": [
+      "private",
+      "commercial"
+    ],
+    "earlyRedistributionAllowed": false,
+    "publicLicenseScope": "getpatched-authored-contributions-only"
+  },
+  "publicContributionsSpdx": "MIT",
+  "earlyBinaryLicenseId": null,
+  "binaryPackages": [
+    "libpng16-16",
+    "libpng-dev",
+    "libpng-tools"
+  ],
+  "advisoryPackages": [
+    "libpng16-16",
+    "libpng-dev",
+    "libpng-tools"
+  ],
+  "builderPackages": [],
+  "ubuntuProEsmCompatibility": "not-applicable",
+  "patches": [
+    "cve-2025-65018-final-with-cve-2026-22695-fix",
+    "cve-2026-22801"
+  ],
+  "buildPatches": []
+}

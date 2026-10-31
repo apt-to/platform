@@ -175,7 +175,17 @@ class PublicCatalogueContract(unittest.TestCase):
         self.assertEqual(expected_catalogue, {"libxml2", "libarchive", "libgit2", "poppler"})
         self.assertIn("libpng1.6", set(platform["packages"]) - set(entries))
         self.assertNotIn("libgit2", set(platform["packages"]) - set(entries))
-        self.assertNotIn("ubuntu-jammy-amd64", entries["libgit2"]["targets"])
+        self.assertIn("ubuntu-jammy-amd64", entries["libgit2"]["targets"])
+        jammy = entries["libgit2"]["targets"]["ubuntu-jammy-amd64"]
+        self.assertEqual(jammy["verification"], "https://github.com/getpatched/platform/actions/runs/41167536831")
+        self.assertEqual(
+            {patch["slug"] for patch in jammy["patches"]},
+            {"cve-2026-53584-jammy", "cve-2026-53585-jammy", "cve-2026-53586-jammy"},
+        )
+        self.assertEqual(
+            {vulnerability["slug"] for vulnerability in jammy["vulnerabilities"]},
+            {"cve-2026-53584", "cve-2026-53585", "cve-2026-53586"},
+        )
         self.assertNotIn("poppler", set(platform["packages"]) - set(entries))
         self.assertEqual(catalogue["schemaVersion"], 3)
         self.assertEqual(set(catalogue["targets"]), set(platform["targets"]))
@@ -213,11 +223,12 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertEqual(entry["earlyRedistributionAllowed"], False)
                 self.assertEqual(entry["status"], "development-verified-production-release-pending")
                 expected_run = {
-                    "libxml2": "40899705050",
-                    "libarchive": "40899709850",
-                    "libgit2": "41142564467",
-                    "poppler": "41149614570",
-                }[source]
+                    ("libxml2", "ubuntu-focal-amd64"): "40899705050",
+                    ("libarchive", "ubuntu-focal-amd64"): "40899709850",
+                    ("libgit2", "ubuntu-focal-amd64"): "41162605227",
+                    ("libgit2", "ubuntu-jammy-amd64"): "41167536831",
+                    ("poppler", "ubuntu-focal-amd64"): "41149614570",
+                }[(source, target_id)]
                 self.assertEqual(entry["verification"], f"https://github.com/getpatched/platform/actions/runs/{expected_run}")
                 self.assertEqual(
                     entry["ubuntuProEsmCompatibility"],
@@ -226,13 +237,14 @@ class PublicCatalogueContract(unittest.TestCase):
                 self.assertNotIn("verificationUrl", entry)
                 self.assertTrue(entry["sourceUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/tree/"))
                 self.assertTrue(entry["patchUrl"].startswith(f"https://github.com/getpatched/packaging-{source}/blob/"))
-                self.assertEqual(entry["testsUrl"], f"https://github.com/getpatched/packaging-{source}/tree/getpatched/focal/tests")
+                branch = "jammy" if target_id == "ubuntu-jammy-amd64" else "focal"
+                self.assertEqual(entry["testsUrl"], f"https://github.com/getpatched/packaging-{source}/tree/getpatched/{branch}/tests")
                 self.assertEqual(entry["releasesUrl"], f"https://github.com/getpatched/packaging-{source}/releases")
                 self.assertEqual(entry["releaseStatus"], "No production release")
 
         page = (ROOT / "site/index.html").read_text()
         self.assertIn("Hosted verification passed.", page)
-        self.assertIn("Four Focal package candidates have hosted builds", page)
+        self.assertIn("Four Focal package candidates and one Jammy libgit2 target have hosted builds", page)
         self.assertIn("Production repository access setup remains incomplete", page)
         self.assertIn("no production package release has been published", page)
         self.assertIn("Live package publication and downloads remain disabled until GitHub sponsor sign-in and production access setup are complete", page)

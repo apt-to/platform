@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "source": "libgit2",
+  "targetId": "ubuntu-focal-amd64",
+  "baseVersion": "0.28.4+dfsg.1-2ubuntu0.1",
+  "packageVersion": "0.28.4+dfsg.1-2ubuntu0.1+getpatched1",
+  "releaseSerial": 1,
+  "recipeCommit": "ec3e0081bfef46cc0dc7344a5877cdfa1905be5c",
+  "recipeManifestSha256": "60c8c69212e7fa512dbb722b25963514f3d03d6ca7eacdb5a389385bbcb7cde2",
+  "patchMetadataSha256": "a3632b71bab49e7f528d3d195f52fdd212c82635619f7c67c8fbc0b83b252184",
+  "platformPolicySha256": "9528b2354d53f62dde96a83aec62eadf8a91b6d7a0ac4270896e190c4d45975d",
+  "sourcePublication": "https://archive.ubuntu.com/ubuntu/pool/universe/libg/libgit2/libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc",
+  "sourcePublishedAt": "2024-03-05T19:09:00Z",
+  "sourceDescriptor": {
+    "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc",
+    "url": "https://archive.ubuntu.com/ubuntu/pool/universe/libg/libgit2/libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc",
+    "sha256": "259c89491dbd17407b738316447c7afb0b7858478d39db3b194c92c40fad47a4",
+    "bytes": 2344
+  },
+  "sourceFiles": [
+    {
+      "name": "libgit2_0.28.4+dfsg.1.orig.tar.xz",
+      "role": "upstream-source",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/libg/libgit2/libgit2_0.28.4+dfsg.1.orig.tar.xz",
+      "sha256": "758517d1ff5124e732e999e2e50a501cb0d3c8bdcf64d1cec404ced6235c0bb7",
+      "bytes": 2798048
+    },
+    {
+      "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.debian.tar.xz",
+      "role": "ubuntu-packaging",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/libg/libgit2/libgit2_0.28.4+dfsg.1-2ubuntu0.1.debian.tar.xz",
+      "sha256": "8a3d388a52655ac0eb1437097b9cac150bc5052ac4fa44d98bb6d4d21c2e773d",
+      "bytes": 19016
+    }
+  ],
+  "downloadedSources": [
+    {
+      "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.dsc",
+      "bytes": 2344,
+      "sha256": "259c89491dbd17407b738316447c7afb0b7858478d39db3b194c92c40fad47a4"
+    },
+    {
+      "name": "libgit2_0.28.4+dfsg.1.orig.tar.xz",
+      "bytes": 2798048,
+      "sha256": "758517d1ff5124e732e999e2e50a501cb0d3c8bdcf64d1cec404ced6235c0bb7"
+    },
+    {
+      "name": "libgit2_0.28.4+dfsg.1-2ubuntu0.1.debian.tar.xz",
+      "bytes": 19016,
+      "sha256": "8a3d388a52655ac0eb1437097b9cac150bc5052ac4fa44d98bb6d4d21c2e773d"
+    }
+  ],
+  "signatureVerification": {
+    "verified": false,
+    "note": "The signed Ubuntu source index authenticates the descriptor and archive hashes; individual .dsc uploader signatures were not separately verified."
+  },
+  "patches": [
+    {
+      "id": "cve-2026-53584-focal",
+      "kind": "security",
+      "file": "CVE-2026-53584-focal.patch",
+      "sha256": "68fac34287ea839bf425864959c8a19a2b874c79a04af33ee51c5d1f2c31d216",
+      "cves": [
+        "CVE-2026-53584"
+      ],
+      "upstream": {
+        "repository": "https://github.com/libgit2/libgit2",
+        "commit": "419637d3587396f5d139d6d88480eab3cd81e7a1",
+        "url": "https://github.com/libgit2/libgit2/commit/419637d3587396f5d139d6d88480eab3cd81e7a1"
+      },
+      "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "id": "cve-2026-53585-focal",
+      "kind": "security",
+      "file": "CVE-2026-53585-focal.patch",
+      "sha256": "2063f9e1442d693a738acffa7ac9a491daa71b2f2fd322e18e96954c24dcac0c",
+      "cves": [
+        "CVE-2026-53585"
+      ],
+      "upstream": {
+        "repository": "https://github.com/libgit2/libgit2",
+        "commit": "c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae",
+        "url": "https://github.com/libgit2/libgit2/commit/c1896f06df22cc0ca5658df3a8f6cd7ede4cd6ae"
+      },
+      "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1"
+    },
+    {
+      "id": "cve-2026-53586-focal",
+      "kind": "security",
+      "file": "CVE-2026-53586-focal.patch",
+      "sha256": "58d26adfe51215153e369416241dcfcfd100da1c52b9a9c71b0e65b0f23ee677",
+      "cves": [
+        "CVE-2026-53586"
+      ],
+      "upstream": {
+        "repository": "https://github.com/libgit2/libgit2",
+        "commit": "c1507abc44647b3acd832a33a5b1c8c9f5ba8821",
+        "url": "https://github.com/libgit2/libgit2/commit/c1507abc44647b3acd832a33a5b1c8c9f5ba8821"
+      },
+      "sourceVersion": "0.28.4+dfsg.1-2ubuntu0.1"
+    }
+  ]
+}
