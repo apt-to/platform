@@ -1339,9 +1339,17 @@ async function githubLoginCallback(request, env) {
   const scopes = new Set(String(tokenResult.scope || "").split(/[ ,]+/).filter(Boolean));
   if (tokenResult.error || !tokenResult.access_token || !scopes.has("read:user")) return json({ error: "GitHub sign-in did not grant user identity permission" }, 403);
   const userResponse = await fetch("https://api.github.com/user", {
-    headers: { accept: "application/vnd.github+json", authorization: `Bearer ${tokenResult.access_token}`, "x-github-api-version": "2022-11-28" },
+    headers: {
+      accept: "application/vnd.github+json",
+      authorization: `Bearer ${tokenResult.access_token}`,
+      "user-agent": "GetPatched",
+      "x-github-api-version": "2022-11-28",
+    },
   });
-  if (!userResponse.ok) return json({ error: "GitHub identity lookup failed" }, 502);
+  if (!userResponse.ok) {
+    console.error("GitHub identity lookup failed", userResponse.status, userResponse.headers.get("x-github-request-id"));
+    return json({ error: "GitHub identity lookup failed" }, 502);
+  }
   const user = await userResponse.json();
   if (!Number.isSafeInteger(user.id) || typeof user.login !== "string") return json({ error: "GitHub identity response is incomplete" }, 502);
   const session = randomToken();
